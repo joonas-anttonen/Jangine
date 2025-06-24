@@ -1,0 +1,57 @@
+# C++ build artifacts
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+*.exe
+*.out
+*.app
+
+# CMake build directories
+/build/
+/build-*/
+/CMakeFiles/
+/CMakeCache.txt
+cmake_install.cmake
+Makefile
+CTestTestfile.cmake
+install_manifest.txt
+
+# Ninja build files
+/build.ninja
+/.ninja_deps
+/.ninja_log
+
+# IDE and editor files
+*.user
+*.suo
+*.userprefs
+*.vcxproj*
+*.sln
+*.DS_Store
+*.swp
+*.swo
+*.kate-swp
+*~
+
+# Generated files
+compile_commands.json
+Testing/
+test_detail.xml
+
+# Package managers
+conanbuildinfo.*
+conaninfo.txt
+conanfile.lock
+vcpkg_installed/
+vcpkg_buildtrees/
+vcpkg_downloads/
+vcpkg_packages/
+vcpkg_installed/
+vcpkg_manifest.lock
+
+# Misc
+*.log
