@@ -58,9 +58,15 @@ vcpkg_manifest.lock
 
 # Project-specific
 /external/eigen/include/
-/external/eigen/eigen_src/
-/external/vma/include/
-/external/vma/vma_src/
+/external/eigen/src/
+/external/eigen/LICENSE*
 /external/glfw/include/
 /external/glfw/lib/
-/external/glfw/glfw_src/
+/external/glfw/src/
+/external/glfw/LICENSE*
+/external/json/include/
+/external/json/src/
+/external/json/LICENSE*
+/external/vma/include/
+/external/vma/src/
+/external/vma/LICENSE*

@@ -1,31 +1,32 @@
 $ErrorActionPreference = "Stop"
 
-$glfwRepo = "https://github.com/glfw/glfw.git"
-$glfwDir = "glfw_src"
-$tag = "3.4" # <-- Replace with your desired tag
+$scriptDir = [System.IO.Path]::GetDirectoryName($MyInvocation.MyCommand.Definition)
+$gitRepo = "https://github.com/glfw/glfw.git"
+$srcDir = "src"
+$tag = "3.4"
 $includeDir = "include"
 $libDir = "lib"
 
 # Clean up any previous run
-if (Test-Path $glfwDir) { Remove-Item -Recurse -Force $glfwDir }
+if (Test-Path $srcDir) { Remove-Item -Recurse -Force $srcDir }
 if (Test-Path $includeDir) { Remove-Item -Recurse -Force $includeDir }
 if (Test-Path $libDir) { Remove-Item -Recurse -Force $libDir }
 
-# Clone GLFW
-git clone --branch $tag --depth 1 $glfwRepo $glfwDir
+# Clone
+git clone --branch $tag --depth 1 $gitRepo $srcDir
 
-Push-Location $glfwDir
+Push-Location $srcDir
 
 # Create build directory
 mkdir build
 
-# Configure and build with CMake (Ninja generator)
+# Configure and build
 & cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release `
       -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreadedDLL `
       -DGLFW_BUILD_EXAMPLES=OFF `
       -DGLFW_BUILD_TESTS=OFF `
       -DGLFW_BUILD_DOCS=OFF
-& cmake --build build --config Release --verbose
+& cmake --build build --config Release
 
 # Copy include directory
 Copy-Item -Recurse "include\GLFW" "..\include"
@@ -37,9 +38,15 @@ foreach ($file in $libFiles) {
     Copy-Item $file.FullName "..\lib\"
 }
 
-Pop-Location # out of glfw_src
+# Copy LICENSE file (any extension)
+$license = Get-ChildItem -Path . -Filter "LICENSE*" -File | Select-Object -First 1
+if ($license) {
+    Copy-Item $license.FullName $scriptDir
+}
+
+Pop-Location # out of src
 
 # Clean up source and build directories
-Remove-Item -Recurse -Force $glfwDir
+Remove-Item -Recurse -Force $srcDir
 
-Write-Host "GLFW built and artifacts copied to 'external/glfw/include' and 'external/glfw/lib'"
+Write-Host "GLFW OK" -ForegroundColor Green

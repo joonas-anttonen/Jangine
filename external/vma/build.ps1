@@ -1,21 +1,28 @@
 $ErrorActionPreference = "Stop"
 
-$vmaRepo = "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git"
-$vmaDir = "vma_src"
+$scriptDir = [System.IO.Path]::GetDirectoryName($MyInvocation.MyCommand.Definition)
+$gitRepo = "https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git"
+$srcDir = "src"
 $includeDir = "include"
 
 # Clean up any previous run
-if (Test-Path $vmaDir) { Remove-Item -Recurse -Force $vmaDir }
+if (Test-Path $srcDir) { Remove-Item -Recurse -Force $srcDir }
 if (Test-Path $includeDir) { Remove-Item -Recurse -Force $includeDir }
 
-# Clone VMA
-git clone $vmaRepo $vmaDir
+# Clone
+git clone --depth 1 $gitRepo $srcDir
 
-# Copy VMA header
+# Copy header(s)
 New-Item -ItemType Directory -Path $includeDir | Out-Null
-Copy-Item "$vmaDir\include\vk_mem_alloc.h" "$includeDir\"
+Copy-Item "$srcDir\include\vk_mem_alloc.h" "$includeDir\"
+
+# Copy LICENSE file (any extension)
+$license = Get-ChildItem -Path $srcDir -Filter "LICENSE*" -File | Select-Object -First 1
+if ($license) {
+    Copy-Item $license.FullName $scriptDir
+}
 
 # Clean up source directory
-Remove-Item -Recurse -Force $vmaDir
+Remove-Item -Recurse -Force $srcDir
 
-Write-Host "Vulkan Memory Allocator header copied to 'external/vma/include'"
+Write-Host "Vulkan Memory Allocator OK'" -ForegroundColor Green

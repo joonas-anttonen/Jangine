@@ -11,9 +11,10 @@ project(
 
 vulkan = dependency('vulkan', required: true)
 eigen_includes = include_directories('external/eigen/include')
-vma_includes = include_directories('external/vma/include')
 glfw_includes = include_directories('external/glfw/include')
 glfw_lib = '../external/glfw/lib/glfw3.lib'
+json_includes = include_directories('external/json/include')
+vma_includes = include_directories('external/vma/include')
 
 jangine = library(
     'Jangine', 
@@ -27,8 +28,9 @@ jangine = library(
     include_directories: [
         include_directories('Jangine/'),
         eigen_includes,
-        vma_includes,
-        glfw_includes
+        glfw_includes,
+        json_includes,
+        vma_includes
     ],
     dependencies: [vulkan],
     cpp_args: [

@@ -5,8 +5,9 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/external/eigen/include",
-                "${workspaceFolder}/external/vma/include",
                 "${workspaceFolder}/external/glfw/include",
+                "${workspaceFolder}/external/json/include",
+                "${workspaceFolder}/external/vma/include",
                 "C:/VulkanSDK/1.4.313.0/Include"
             ],
             "defines": [
