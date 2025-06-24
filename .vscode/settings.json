@@ -76,7 +76,16 @@
         "set": "cpp",
         "xtree": "cpp",
         "span": "cpp",
-        "array": "cpp"
+        "array": "cpp",
+        "complex": "cpp",
+        "functional": "cpp",
+        "map": "cpp",
+        "numeric": "cpp",
+        "random": "cpp",
+        "coroutine": "cpp",
+        "resumable": "cpp",
+        "future": "cpp",
+        "cinttypes": "cpp"
     },
     "C_Cpp.default.compileCommands": "j:\\projects\\Jangine\\builddir/compile_commands.json"
 }

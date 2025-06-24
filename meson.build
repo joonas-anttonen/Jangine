@@ -1,6 +1,19 @@
-project('Jangine', 'cpp', version: '1.0.0', default_options: ['cpp_std=c++20'])
+project(
+    'Jangine', 
+    'cpp', 
+    version: '1.0.0',
+    default_options: [
+        'cpp_std=c++20',
+        'buildtype=release',
+        'warning_level=3',
+        'werror=true',
+])
 
 vulkan = dependency('vulkan', required: true)
+eigen_includes = include_directories('external/eigen/include')
+vma_includes = include_directories('external/vma/include')
+glfw_includes = include_directories('external/glfw/include')
+glfw_lib = '../external/glfw/lib/glfw3.lib'
 
 jangine = library(
     'Jangine', 
@@ -8,14 +21,20 @@ jangine = library(
     'Jangine/Logging/Log.cpp',
     'Jangine/Logging/Logger.cpp',
     'Jangine/Gfx/Core.cpp',
-    include_directories: include_directories('Jangine/'),
+    'Jangine/Gfx/Presenter.cpp',
+    'Jangine/Gfx/Core2D.cpp',
+    'Jangine/Gui/Core.cpp',
+    include_directories: [
+        include_directories('Jangine/'),
+        eigen_includes,
+        vma_includes,
+        glfw_includes
+    ],
     dependencies: [vulkan],
     cpp_args: [
-        '-DJANGINE_BUILD',
-        '-Wall',
-        '-Wextra',
-        '-Werror'
-    ]
+        '-DJANGINE_BUILD'
+    ],
+    link_args: [glfw_lib],
 )
 
 executable(

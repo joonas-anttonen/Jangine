@@ -1,13 +1,14 @@
 #pragma once
+#pragma warning(disable : 4275 4251) // Disable warnings related to DLL interface and inheritance
 
-// Custom platform defines
+// Detect platform
 #if defined(_WIN32)
 #define JANGINE_PLATFORM_WINDOWS
 #elif defined(__linux__)
 #define JANGINE_PLATFORM_LINUX
 #else
 #define JANGINE_PLATFORM_UNKNOWN
-#endif // Platform detection
+#endif
 
 #if defined(_WIN32)
 #if defined(JANGINE_BUILD)
@@ -22,17 +23,53 @@
 #include <typeinfo>
 #include <exception>
 #include <string>
+#include <atomic>
+#include <memory>
+#include <functional>
+#include <array>
 
 typedef bool bool_t;
 typedef void void_t;
 
+namespace Jangine::Gfx
+{
+    class Core;
+
+    // Auto-destroying handle for Gfx objects
+    template <typename T>
+    using Handle = std::unique_ptr<T, std::reference_wrapper<Core>>;
+}
+
 namespace Jangine
 {
-    template <typename T>
-    const char *ResolveTypeName()
+    struct Guid
     {
-        return typeid(T).name();
-    }
+        std::array<uint8_t, 16> bytes{};
+    };
+
+    struct Surface
+    {
+        void_t *vulkanHandle = nullptr;
+        uint32_t width = 0;
+        uint32_t height = 0;
+    };
+
+    class SpinLock
+    {
+        std::atomic_flag flag = ATOMIC_FLAG_INIT;
+
+    public:
+        void lock()
+        {
+            while (flag.test_and_set(std::memory_order_acquire))
+            { /* spin */
+            }
+        }
+        void unlock()
+        {
+            flag.clear(std::memory_order_release);
+        }
+    };
 
     struct JANGINE_API Version
     {
@@ -130,7 +167,7 @@ namespace Jangine
         }
     }
 
-    inline void ThrowInvalidOperationIf(bool condition, const std::string &message)
+    inline void ThrowInvalidOperationIf(bool condition, const std::string &message = "")
     {
         if (condition)
         {

@@ -1,14 +1,40 @@
 #include "Core.hpp"
+#include "Presenter.hpp"
+#include "Core2D.hpp"
 
 #include "../Logging/Logger.hpp"
 
 #include <format>
 #include <set>
+
+// Disable warnings for external Vulkan header
+#if defined(_MSC_VER)
+#pragma warning(push, 0)
+#elif defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wall"
+#pragma GCC diagnostic ignored "-Wextra"
+#endif
+
 #include <vulkan/vulkan.h>
+
+#define VMA_IMPLEMENTATION
+#include <vk_mem_alloc.h>
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#elif defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
 
 namespace Jangine::Gfx
 {
-    static void ThrowVulkanIfFailed(VkResult result, const std::string &message)
+    static void ThrowVulkanIfFailed(VkResult result, const std::string &message = "")
     {
         if (result != VK_SUCCESS)
         {
@@ -36,53 +62,164 @@ namespace Jangine::Gfx
     {
         logger.Func(__func__);
 
-        if (device)
+        if (vulkanDevice)
         {
-            vkDeviceWaitIdle(device);
+            vkDeviceWaitIdle(vulkanDevice);
         }
 
-        physicalDevice = VK_NULL_HANDLE;
-
-        if (queryPool)
+        if (core2D)
         {
-            vkDestroyQueryPool(device, queryPool, nullptr);
-            queryPool = VK_NULL_HANDLE;
+            delete core2D;
+            core2D = nullptr;
         }
 
-        if (commandPool)
+        if (presenter)
         {
-            vkDestroyCommandPool(device, commandPool, nullptr);
-            commandPool = VK_NULL_HANDLE;
+            delete presenter;
+            presenter = nullptr;
         }
 
-        if (device)
+        vulkanPhysicalDevice = VK_NULL_HANDLE;
+
+        if (vulkanMemoryAllocator)
         {
-            vkDestroyDevice(device, nullptr);
-            device = VK_NULL_HANDLE;
+            vmaDestroyAllocator(vulkanMemoryAllocator);
+            vulkanMemoryAllocator = VK_NULL_HANDLE;
+            vulkanMemoryAllocatorAllocatedBytes = 0;
+        }
+
+        if (vulkanQueryPool)
+        {
+            vkDestroyQueryPool(vulkanDevice, vulkanQueryPool, nullptr);
+            vulkanQueryPool = VK_NULL_HANDLE;
+        }
+
+        if (vulkanCommandPool)
+        {
+            vkDestroyCommandPool(vulkanDevice, vulkanCommandPool, nullptr);
+            vulkanCommandPool = VK_NULL_HANDLE;
+        }
+
+        if (vulkanDevice)
+        {
+            vkDestroyDevice(vulkanDevice, nullptr);
+            vulkanDevice = VK_NULL_HANDLE;
         }
 
         if (debugMessenger)
         {
             auto destroyDebugUtilsMessenger = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
-                vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
+                vkGetInstanceProcAddr(vulkanInstance, "vkDestroyDebugUtilsMessengerEXT"));
             if (destroyDebugUtilsMessenger)
             {
-                destroyDebugUtilsMessenger(instance, debugMessenger, nullptr);
+                destroyDebugUtilsMessenger(vulkanInstance, debugMessenger, nullptr);
                 debugMessenger = VK_NULL_HANDLE;
             }
         }
 
-        if (instance)
+        if (vulkanInstance)
         {
-            vkDestroyInstance(instance, nullptr);
-            instance = VK_NULL_HANDLE;
+            vkDestroyInstance(vulkanInstance, nullptr);
+            vulkanInstance = VK_NULL_HANDLE;
+        }
+    }
+
+    void Core::Create(const Parameters &params)
+    {
+        logger.Func(__func__);
+
+        CreateDevice(params);
+
+        core2D = new Core2D(this);
+        core2D->Create();
+    }
+
+    void Core::CreatePresenter(const Surface &surface)
+    {
+        logger.Func(__func__);
+
+        ThrowInvalidOperationIf(presenter != nullptr, "Presenter already created.");
+
+        presenter = new Presenter(
+            vulkanInstance,
+            vulkanDevice,
+            vulkanPhysicalDevice,
+            vulkanQueueLock,
+            vulkanQueue,
+            vulkanQueueFamilyIndex,
+            reinterpret_cast<VkSurfaceKHR>(surface.vulkanHandle));
+
+        DisplayParameters newDisplayParameters = currentDisplayParameters;
+        newDisplayParameters.displayWidth = surface.width;
+        newDisplayParameters.displayHeight = surface.height;
+        newDisplayParameters.displayFormat = Format::BGRA8;
+        SetDisplayParameters(newDisplayParameters);
+    }
+
+    void Core::InitializeRendering(const DisplayParameters &displayParameters)
+    {
+        logger.Func(__func__);
+
+        this->currentDisplayParameters = displayParameters;
+
+        if (presenter)
+        {
+            presenter->InitializeRendering(displayParameters);
+        }
+        if (core2D)
+        {
+            core2D->InitializeRendering(displayParameters);
+        }
+    }
+
+    void Core::Render(double_t absoluteTime, float_t deltaTime)
+    {
+        (void)absoluteTime; // Avoid unused parameter warning
+        (void)deltaTime;    // Avoid unused parameter warning
+
+        if (!presenter)
+        {
+            logger.Error("Presenter is not initialized. Cannot render.");
+            return;
+        }
+
+        {
+            std::lock_guard<SpinLock> lock(displayParametersLock);
+
+            if (wantedDisplayParameters.has_value())
+            {
+                InitializeRendering(wantedDisplayParameters.value());
+                wantedDisplayParameters.reset();
+            }
+        }
+
+        bool_t canRender = presenter->BeginFrame();
+        if (!canRender)
+        {
+            logger.Warning("Presenter cannot render at this time. Skipping frame.");
+            return;
+        }
+
+        if (core2D)
+        {
+            core2D->Render(*presenter);
+        }
+
+        if (!pendingScreenCapture)
+        {
+            presenter->EndFrame();
+        }
+        else
+        {
+            pendingScreenCapture = false;
+            presenter->EndFrame();
         }
     }
 
     std::vector<PhysicalDevice> Core::GetPhysicalDevices() const
     {
         uint32_t deviceCount = 0;
-        ThrowVulkanIfFailed(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr), "vkEnumeratePhysicalDevices");
+        ThrowVulkanIfFailed(vkEnumeratePhysicalDevices(vulkanInstance, &deviceCount, nullptr));
 
         if (deviceCount == 0)
         {
@@ -90,7 +227,7 @@ namespace Jangine::Gfx
         }
 
         std::vector<VkPhysicalDevice> vkPhysicalDevices(deviceCount);
-        ThrowVulkanIfFailed(vkEnumeratePhysicalDevices(instance, &deviceCount, vkPhysicalDevices.data()), "vkEnumeratePhysicalDevices");
+        ThrowVulkanIfFailed(vkEnumeratePhysicalDevices(vulkanInstance, &deviceCount, vkPhysicalDevices.data()));
 
         std::vector<PhysicalDevice> physicalDevices;
         physicalDevices.reserve(deviceCount);
@@ -114,15 +251,9 @@ namespace Jangine::Gfx
                         deviceProperties.pipelineCacheUUID[12], deviceProperties.pipelineCacheUUID[13], deviceProperties.pipelineCacheUUID[14], deviceProperties.pipelineCacheUUID[15]}}};
 
             physicalDevices.push_back(device);
-            logger.Warning("Found physical device: " + device.ToString());
         }
 
         return physicalDevices;
-    }
-
-    void Core::Create(const Parameters &params)
-    {
-        CreateDevice(params);
     }
 
     void Core::CreateDevice(const Parameters &params)
@@ -143,10 +274,10 @@ namespace Jangine::Gfx
         // Get available device extensions
         {
             uint32_t deviceExtensionCount = 0;
-            ThrowVulkanIfFailed(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &deviceExtensionCount, nullptr), "vkEnumerateDeviceExtensionProperties");
+            ThrowVulkanIfFailed(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &deviceExtensionCount, nullptr));
 
             std::vector<VkExtensionProperties> extensionProperties(deviceExtensionCount);
-            ThrowVulkanIfFailed(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &deviceExtensionCount, extensionProperties.data()), "vkEnumerateDeviceExtensionProperties");
+            ThrowVulkanIfFailed(vkEnumerateDeviceExtensionProperties(physicalDevice, nullptr, &deviceExtensionCount, extensionProperties.data()));
 
             for (const auto &ext : extensionProperties)
             {
@@ -275,14 +406,14 @@ namespace Jangine::Gfx
             .pEnabledFeatures = nullptr};
 
         VkDevice device;
-        ThrowVulkanIfFailed(vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device), "vkCreateDevice");
-        this->device = device;
-        this->physicalDevice = physicalDevice;
+        ThrowVulkanIfFailed(vkCreateDevice(physicalDevice, &deviceCreateInfo, nullptr, &device));
+        this->vulkanDevice = device;
+        this->vulkanPhysicalDevice = physicalDevice;
 
         VkQueue generalQueue;
         vkGetDeviceQueue(device, generalQueueFamilyIndex, 0, &generalQueue);
-        this->generalQueue = generalQueue;
-        this->generalQueueFamilyIndex = generalQueueFamilyIndex;
+        this->vulkanQueue = generalQueue;
+        this->vulkanQueueFamilyIndex = generalQueueFamilyIndex;
 
         VkCommandPoolCreateInfo commandPoolCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -291,8 +422,8 @@ namespace Jangine::Gfx
             .queueFamilyIndex = generalQueueFamilyIndex};
 
         VkCommandPool commandPool;
-        ThrowVulkanIfFailed(vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &commandPool), "vkCreateCommandPool");
-        this->commandPool = commandPool;
+        ThrowVulkanIfFailed(vkCreateCommandPool(device, &commandPoolCreateInfo, nullptr, &commandPool));
+        this->vulkanCommandPool = commandPool;
 
         if (capabilities.timestamps)
         {
@@ -301,14 +432,16 @@ namespace Jangine::Gfx
 
         ResolveDeviceSampleCount();
         ResolveDeviceDepthFormat();
+
+        CreateMemoryAllocator();
     }
 
     void Core::ResolveDeviceSampleCount()
     {
-        ThrowInvalidOperationIf(!physicalDevice, "!physicalDevice");
+        ThrowInvalidOperationIf(!vulkanPhysicalDevice);
 
         VkPhysicalDeviceProperties physicalDeviceProperties;
-        vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+        vkGetPhysicalDeviceProperties(vulkanPhysicalDevice, &physicalDeviceProperties);
 
         uint32_t sampleCounts = physicalDeviceProperties.limits.framebufferColorSampleCounts;
 
@@ -344,7 +477,7 @@ namespace Jangine::Gfx
 
     void Core::ResolveDeviceDepthFormat()
     {
-        ThrowInvalidOperationIf(!physicalDevice, "!physicalDevice");
+        ThrowInvalidOperationIf(!vulkanPhysicalDevice);
 
         std::array<VkFormat, 2> depthFormats = {
             VK_FORMAT_D32_SFLOAT,
@@ -353,7 +486,7 @@ namespace Jangine::Gfx
         for (const auto &format : depthFormats)
         {
             VkFormatProperties formatProperties;
-            vkGetPhysicalDeviceFormatProperties(physicalDevice, format, &formatProperties);
+            vkGetPhysicalDeviceFormatProperties(vulkanPhysicalDevice, format, &formatProperties);
 
             if (formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
             {
@@ -376,15 +509,138 @@ namespace Jangine::Gfx
             .pipelineStatistics = 0};
 
         VkQueryPool queryPool;
-        ThrowVulkanIfFailed(vkCreateQueryPool(device, &createInfo, nullptr, &queryPool), "vkCreateQueryPool");
-        this->queryPool = queryPool;
+        ThrowVulkanIfFailed(vkCreateQueryPool(vulkanDevice, &createInfo, nullptr, &queryPool));
+        this->vulkanQueryPool = queryPool;
+    }
+
+    void Core::CreateMemoryAllocator()
+    {
+        VmaDeviceMemoryCallbacks memoryCallbacks = {
+            .pfnAllocate = [](VmaAllocator VMA_NOT_NULL allocator,
+                              uint32_t memoryType,
+                              VkDeviceMemory VMA_NOT_NULL_NON_DISPATCHABLE memory,
+                              VkDeviceSize size,
+                              void *VMA_NULLABLE pUserData)
+            {
+                (void)allocator; // Unused parameter
+                (void)memoryType; // Unused parameter
+                (void)memory; // Unused parameter
+
+                auto self = reinterpret_cast<Core *>(pUserData);
+                if (self)
+                {
+                    self->vulkanMemoryAllocatorAllocatedBytes += size;
+                } },
+            .pfnFree = [](VmaAllocator VMA_NOT_NULL allocator,
+                          uint32_t memoryType,
+                          VkDeviceMemory VMA_NOT_NULL_NON_DISPATCHABLE memory,
+                          VkDeviceSize size,
+                          void *VMA_NULLABLE pUserData)
+            {
+                (void)allocator; // Unused parameter
+                (void)memoryType; // Unused parameter
+                (void)memory; // Unused parameter
+
+                auto self = reinterpret_cast<Core *>(pUserData);
+                if (self)
+                {
+                    self->vulkanMemoryAllocatorAllocatedBytes -= size;
+                } },
+            .pUserData = this // Pass this as user data
+        };
+
+        VmaAllocatorCreateInfo allocatorInfo = {};
+        allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_4;
+        allocatorInfo.physicalDevice = vulkanPhysicalDevice;
+        allocatorInfo.device = vulkanDevice;
+        allocatorInfo.instance = vulkanInstance;
+        allocatorInfo.pDeviceMemoryCallbacks = &memoryCallbacks;
+
+        VmaAllocator allocator;
+        ThrowVulkanIfFailed(vmaCreateAllocator(&allocatorInfo, &allocator));
+        this->vulkanMemoryAllocator = allocator;
+    }
+
+    Handle<PixelBuffer> Core::CreatePixelBuffer(uint32_t width, uint32_t height, Format format, PixelBufferUsage usage, Aspect aspect, Samples samples)
+    {
+        logger.Func(__func__);
+
+        VkImageCreateInfo imageCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = static_cast<VkFormat>(format),
+            .extent = {width, height, 1},
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = static_cast<VkSampleCountFlagBits>(samples),
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = static_cast<VkImageUsageFlags>(usage),
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = nullptr,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+
+        VmaAllocationCreateInfo allocationCreateInfo = {};
+        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+        VkImage image;
+        VmaAllocation allocation;
+        VmaAllocationInfo allocationInfo;
+        ThrowVulkanIfFailed(vmaCreateImage(vulkanMemoryAllocator, &imageCreateInfo, &allocationCreateInfo, &image, &allocation, &allocationInfo));
+
+        VkMemoryPropertyFlags memoryProperties;
+        vmaGetMemoryTypeProperties(vulkanMemoryAllocator, allocationInfo.memoryType, &memoryProperties);
+
+        VkImageViewCreateInfo imageViewCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .image = image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = static_cast<VkFormat>(format),
+            .components = {
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY},
+            .subresourceRange = {.aspectMask = static_cast<VkImageAspectFlags>(aspect), .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}};
+
+        VkImageView view;
+        ThrowVulkanIfFailed(vkCreateImageView(vulkanDevice, &imageViewCreateInfo, nullptr, &view));
+
+        auto pixelBuffer = Handle<PixelBuffer>(
+            new PixelBuffer(width, height, format, usage, aspect, samples, image, view, allocation),
+            std::ref(*this));
+        return pixelBuffer;
+    }
+
+    void Core::DestroyPixelBuffer(PixelBuffer *pixelBuffer)
+    {
+        if (!pixelBuffer)
+        {
+            return;
+        }
+
+        logger.Func(__func__);
+
+        if (pixelBuffer->vulkanImageView)
+        {
+            vkDestroyImageView(vulkanDevice, pixelBuffer->vulkanImageView, nullptr);
+        }
+        if (pixelBuffer->vulkanAllocation)
+        {
+            vmaDestroyImage(vulkanMemoryAllocator, pixelBuffer->vulkanImage, pixelBuffer->vulkanAllocation);
+        }
+
+        delete pixelBuffer;
     }
 
     void Core::CreateInstance(const ApiParameters &params)
     {
         uint32_t availableApiVersionRaw = 0;
-        ThrowVulkanIfFailed(vkEnumerateInstanceVersion(&availableApiVersionRaw),
-                            "vkEnumerateInstanceVersion");
+        ThrowVulkanIfFailed(vkEnumerateInstanceVersion(&availableApiVersionRaw));
 
         Version availableApiVersion = MakeVersion(availableApiVersionRaw);
         ThrowNotSupportedIf(availableApiVersion < params.requiredApiVersion,
@@ -399,12 +655,10 @@ namespace Jangine::Gfx
         // Get available instance layers
         {
             uint32_t instanceLayerCount = 0;
-            ThrowVulkanIfFailed(vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr),
-                                "vkEnumerateInstanceLayerProperties");
+            ThrowVulkanIfFailed(vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr));
 
             std::vector<VkLayerProperties> layerProperties(instanceLayerCount);
-            ThrowVulkanIfFailed(vkEnumerateInstanceLayerProperties(&instanceLayerCount, layerProperties.data()),
-                                "vkEnumerateInstanceLayerProperties");
+            ThrowVulkanIfFailed(vkEnumerateInstanceLayerProperties(&instanceLayerCount, layerProperties.data()));
 
             for (uint32_t i = 0; i < instanceLayerCount; i++)
             {
@@ -415,12 +669,10 @@ namespace Jangine::Gfx
         // Get available instance extensions
         {
             uint32_t instanceExtensionCount = 0;
-            ThrowVulkanIfFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, nullptr),
-                                "vkEnumerateInstanceExtensionProperties");
+            ThrowVulkanIfFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, nullptr));
 
             std::vector<VkExtensionProperties> extensionProperties(instanceExtensionCount);
-            ThrowVulkanIfFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, extensionProperties.data()),
-                                "vkEnumerateInstanceExtensionProperties");
+            ThrowVulkanIfFailed(vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, extensionProperties.data()));
 
             for (uint32_t i = 0; i < instanceExtensionCount; i++)
             {
@@ -489,8 +741,8 @@ namespace Jangine::Gfx
         instanceCreateInfo.ppEnabledExtensionNames = enabledExtensions.empty() ? nullptr : enabledExtensions.data();
 
         VkInstance instance;
-        ThrowVulkanIfFailed(vkCreateInstance(&instanceCreateInfo, nullptr, &instance), "vkCreateInstance");
-        this->instance = instance;
+        ThrowVulkanIfFailed(vkCreateInstance(&instanceCreateInfo, nullptr, &instance));
+        this->vulkanInstance = instance;
 
         if (params.enableDebugging && capabilities.debugging)
         {
@@ -532,11 +784,9 @@ namespace Jangine::Gfx
                 debugCreateInfo.pfnUserCallback = debugCallback;
                 debugCreateInfo.pUserData = nullptr;
 
-                VkDebugUtilsMessengerEXT debugMessenger{};
                 ThrowVulkanIfFailed(
                     vkCreateDebugUtilsMessengerEXT(instance, &debugCreateInfo, nullptr, &debugMessenger),
                     "Failed to create debug utils messenger.");
-                this->debugMessenger = debugMessenger;
             }
             else
             {

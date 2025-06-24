@@ -4,6 +4,9 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
+                "${workspaceFolder}/external/eigen/include",
+                "${workspaceFolder}/external/vma/include",
+                "${workspaceFolder}/external/glfw/include",
                 "C:/VulkanSDK/1.4.313.0/Include"
             ],
             "defines": [

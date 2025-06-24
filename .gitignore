@@ -55,3 +55,12 @@ vcpkg_manifest.lock
 
 # Misc
 *.log
+
+# Project-specific
+/external/eigen/include/
+/external/eigen/eigen_src/
+/external/vma/include/
+/external/vma/vma_src/
+/external/glfw/include/
+/external/glfw/lib/
+/external/glfw/glfw_src/
