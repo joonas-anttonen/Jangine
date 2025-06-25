@@ -4,6 +4,10 @@
 
 #include "../Logging/Logger.hpp"
 
+#if !defined(JANGINE_INTELLISENSE_IGNORE_GENERATED_FILES)
+#include "BuiltInShaders.hpp"
+#endif
+
 #include <format>
 #include <set>
 #include <fstream>
@@ -55,6 +59,18 @@ namespace Jangine::Gfx
         : logger(Jangine::Core::GetLogger("Gfx::Core"))
     {
         logger.Func(__func__);
+
+#if !defined(JANGINE_INTELLISENSE_IGNORE_GENERATED_FILES)
+        std::istringstream shaderPackageStream(
+            std::string(reinterpret_cast<const char *>(BuiltInShaders_data), BuiltInShaders_data_size),
+            std::ios::binary);
+        auto pkg = IO::ShaderPackage::Deserialize(shaderPackageStream);
+
+        for (const auto &[name, program] : pkg)
+        {
+            shaderProgramCache[name] = program;
+        }
+#endif
 
         CreateInstance(parameters);
     }
@@ -215,6 +231,247 @@ namespace Jangine::Gfx
             pendingScreenCapture = false;
             presenter->EndFrame();
         }
+    }
+
+    VkDescriptorSetLayout Core::CreateDescriptorLayout(const std::vector<PipelineParameters::DescriptorBinding> &bindings)
+    {
+        ThrowInvalidOperationIf(bindings.empty());
+
+        std::vector<VkDescriptorSetLayoutBinding> vulkanBindings(bindings.size());
+        std::transform(
+            bindings.begin(),
+            bindings.end(),
+            vulkanBindings.begin(),
+            [](const auto &binding)
+            {
+                ThrowInvalidOperationIf(binding.descriptorCount == 0);
+                return VkDescriptorSetLayoutBinding{
+                    .binding = binding.binding,
+                    .descriptorType = static_cast<VkDescriptorType>(binding.descriptorType),
+                    .descriptorCount = binding.descriptorCount,
+                    .stageFlags = static_cast<VkShaderStageFlags>(binding.stages),
+                    .pImmutableSamplers = static_cast<const VkSampler *>(binding.immutableSamplers)};
+            });
+
+        VkDescriptorSetLayoutCreateInfo layoutInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR,
+            .bindingCount = static_cast<uint32_t>(vulkanBindings.size()),
+            .pBindings = vulkanBindings.data()};
+
+        VkDescriptorSetLayout pDescriptorSetLayout;
+        ThrowVulkanIfFailed(vkCreateDescriptorSetLayout(vulkanDevice, &layoutInfo, nullptr, &pDescriptorSetLayout));
+        return pDescriptorSetLayout;
+    }
+
+    VkPipelineLayout Core::CreatePipelineLayout(VkDescriptorSetLayout layout, const std::vector<PipelineParameters::PushConstantRange> &pushConstantRanges)
+    {
+        std::vector<VkPushConstantRange> vulkanPushConstantRanges(pushConstantRanges.size());
+        std::transform(
+            pushConstantRanges.begin(),
+            pushConstantRanges.end(),
+            vulkanPushConstantRanges.begin(),
+            [](const auto &range)
+            {
+                ThrowInvalidOperationIfNot(range.size > 0, "Push constant range size must be greater than 0.");
+                ThrowInvalidOperationIfNot(range.offset % 4 == 0, "Push constant range offset must be a multiple of 4.");
+                return VkPushConstantRange{
+                    .stageFlags = static_cast<VkShaderStageFlags>(range.stageFlags),
+                    .offset = range.offset,
+                    .size = range.size};
+            });
+        VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .setLayoutCount = 1,
+            .pSetLayouts = &layout,
+            .pushConstantRangeCount = static_cast<uint32_t>(vulkanPushConstantRanges.size()),
+            .pPushConstantRanges = vulkanPushConstantRanges.data()};
+
+        VkPipelineLayout pPipelineLayout;
+        ThrowVulkanIfFailed(vkCreatePipelineLayout(vulkanDevice, &pipelineLayoutCreateInfo, nullptr, &pPipelineLayout));
+
+        return pPipelineLayout;
+    }
+
+    Handle<Pipeline> Core::CreatePipeline(const PipelineParameters &parameters)
+    {
+        logger.Func(__func__);
+
+        // 1. Descriptor Set Layout and Pipeline Layout
+        VkDescriptorSetLayout descriptorSetLayout = CreateDescriptorLayout(parameters.descriptorLayout);
+        VkPipelineLayout pipelineLayout = CreatePipelineLayout(descriptorSetLayout, parameters.pushConstantRanges);
+
+        // 2. Input Assembly
+        VkPipelineInputAssemblyStateCreateInfo inputAssemblyStateCreateInfo{};
+        inputAssemblyStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        inputAssemblyStateCreateInfo.topology = static_cast<VkPrimitiveTopology>(parameters.topology);
+
+        // 3. Rasterization
+        VkPipelineRasterizationStateCreateInfo rasterizationStateCreateInfo{};
+        rasterizationStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        rasterizationStateCreateInfo.polygonMode = VK_POLYGON_MODE_FILL;
+        rasterizationStateCreateInfo.cullMode = static_cast<VkCullModeFlags>(parameters.cullMode);
+        rasterizationStateCreateInfo.frontFace = static_cast<VkFrontFace>(parameters.frontFace);
+        rasterizationStateCreateInfo.lineWidth = 1.0f;
+
+        // 4. Depth/Stencil
+        VkPipelineDepthStencilStateCreateInfo depthStencilStateCreateInfo{};
+        depthStencilStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        depthStencilStateCreateInfo.depthTestEnable = parameters.depthTestEnabled ? VK_TRUE : VK_FALSE;
+        depthStencilStateCreateInfo.depthWriteEnable = parameters.depthWriteEnabled ? VK_TRUE : VK_FALSE;
+        depthStencilStateCreateInfo.depthCompareOp = static_cast<VkCompareOp>(parameters.depthCompareOp);
+        depthStencilStateCreateInfo.depthBoundsTestEnable = VK_FALSE;
+        depthStencilStateCreateInfo.stencilTestEnable = VK_FALSE;
+
+        // 5. Viewport/Scissor (dynamic)
+        VkPipelineViewportStateCreateInfo viewportStateCreateInfo{};
+        viewportStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        viewportStateCreateInfo.viewportCount = 1;
+        viewportStateCreateInfo.scissorCount = 1;
+
+        std::array<VkDynamicState, 2> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+        VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo{};
+        dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        dynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
+        dynamicStateCreateInfo.pDynamicStates = dynamicStates.data();
+
+        // 6. Multisampling
+        VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo{};
+        multisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        multisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+
+        // 7. Vertex Input
+        std::vector<VkVertexInputBindingDescription> vertexInputBindings(parameters.vertexInputBindings.size());
+        std::transform(
+            parameters.vertexInputBindings.begin(),
+            parameters.vertexInputBindings.end(),
+            vertexInputBindings.begin(),
+            [](const auto &binding)
+            {
+                ThrowInvalidOperationIf(binding.stride == 0);
+                return VkVertexInputBindingDescription{
+                    .binding = binding.binding,
+                    .stride = binding.stride,
+                    .inputRate = static_cast<VkVertexInputRate>(binding.inputRate)};
+            });
+
+        std::vector<VkVertexInputAttributeDescription> vertexInputAttributes(parameters.vertexInputAttributes.size());
+        std::transform(
+            parameters.vertexInputAttributes.begin(),
+            parameters.vertexInputAttributes.end(),
+            vertexInputAttributes.begin(),
+            [](const auto &attr)
+            {
+                ThrowInvalidOperationIf(static_cast<VkFormat>(attr.format) == VK_FORMAT_UNDEFINED);
+                return VkVertexInputAttributeDescription{
+                    .location = attr.location,
+                    .binding = attr.binding,
+                    .format = static_cast<VkFormat>(attr.format),
+                    .offset = attr.offset};
+            });
+
+        VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+        vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(vertexInputBindings.size());
+        vertexInputInfo.pVertexBindingDescriptions = vertexInputBindings.data();
+        vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(vertexInputAttributes.size());
+        vertexInputInfo.pVertexAttributeDescriptions = vertexInputAttributes.data();
+
+        // 8. Color Attachments & Blending
+        std::vector<VkFormat> colorAttachmentFormats;
+        std::vector<VkPipelineColorBlendAttachmentState> colorAttachmentBlends;
+        for (const auto &att : parameters.attachments)
+        {
+            colorAttachmentFormats.push_back(static_cast<VkFormat>(att.format));
+            colorAttachmentBlends.push_back({.blendEnable = att.blend.blendEnable ? VK_TRUE : VK_FALSE,
+                                             .srcColorBlendFactor = static_cast<VkBlendFactor>(att.blend.srcColorBlendFactor),
+                                             .dstColorBlendFactor = static_cast<VkBlendFactor>(att.blend.dstColorBlendFactor),
+                                             .colorBlendOp = static_cast<VkBlendOp>(att.blend.colorBlendOp),
+                                             .srcAlphaBlendFactor = static_cast<VkBlendFactor>(att.blend.srcAlphaBlendFactor),
+                                             .dstAlphaBlendFactor = static_cast<VkBlendFactor>(att.blend.dstAlphaBlendFactor),
+                                             .alphaBlendOp = static_cast<VkBlendOp>(att.blend.alphaBlendOp),
+                                             .colorWriteMask = static_cast<VkColorComponentFlags>(att.blend.colorWriteMask)});
+        }
+
+        VkPipelineRenderingCreateInfo pipelineRendering{};
+        pipelineRendering.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+        pipelineRendering.colorAttachmentCount = static_cast<uint32_t>(colorAttachmentFormats.size());
+        pipelineRendering.pColorAttachmentFormats = colorAttachmentFormats.data();
+        pipelineRendering.depthAttachmentFormat = (parameters.depthTestEnabled || parameters.depthWriteEnabled)
+                                                      ? static_cast<VkFormat>(deviceDepthFormat)
+                                                      : VK_FORMAT_UNDEFINED;
+
+        VkPipelineColorBlendStateCreateInfo colorBlendStateCreateInfo{};
+        colorBlendStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        colorBlendStateCreateInfo.attachmentCount = static_cast<uint32_t>(colorAttachmentBlends.size());
+        colorBlendStateCreateInfo.pAttachments = colorAttachmentBlends.data();
+
+        // 9. Shader Stages
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStageCreateInfos;
+        std::vector<VkShaderModule> shaderModules;
+        for (const auto &stage : parameters.shaderProgram->stages)
+        {
+            VkShaderModuleCreateInfo shaderModuleCreateInfo{};
+            shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+            shaderModuleCreateInfo.codeSize = stage.bytecode.size();
+            shaderModuleCreateInfo.pCode = reinterpret_cast<const uint32_t *>(stage.bytecode.data());
+
+            VkShaderModule shaderModule;
+            ThrowVulkanIfFailed(vkCreateShaderModule(vulkanDevice, &shaderModuleCreateInfo, nullptr, &shaderModule));
+            shaderModules.push_back(shaderModule);
+
+            VkPipelineShaderStageCreateInfo stageCreateInfo{
+                .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .stage = static_cast<VkShaderStageFlagBits>(stage.stage),
+                .module = shaderModule,
+                .pName = stage.entryPoint.c_str(),
+                .pSpecializationInfo = nullptr};
+
+            shaderStageCreateInfos.push_back(stageCreateInfo);
+        }
+
+        // 10. Pipeline Create Info
+        VkGraphicsPipelineCreateInfo pipelineInfo{};
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        pipelineInfo.pNext = &pipelineRendering;
+        pipelineInfo.layout = pipelineLayout;
+        pipelineInfo.stageCount = static_cast<uint32_t>(shaderStageCreateInfos.size());
+        pipelineInfo.pStages = shaderStageCreateInfos.data();
+        pipelineInfo.pVertexInputState = &vertexInputInfo;
+        pipelineInfo.pInputAssemblyState = &inputAssemblyStateCreateInfo;
+        pipelineInfo.pViewportState = &viewportStateCreateInfo;
+        pipelineInfo.pRasterizationState = &rasterizationStateCreateInfo;
+        pipelineInfo.pMultisampleState = &multisampleStateCreateInfo;
+        pipelineInfo.pDepthStencilState = &depthStencilStateCreateInfo;
+        pipelineInfo.pColorBlendState = &colorBlendStateCreateInfo;
+        pipelineInfo.pDynamicState = &dynamicStateCreateInfo;
+
+        VkPipeline pipeline;
+        VkResult result = vkCreateGraphicsPipelines(vulkanDevice, nullptr, 1, &pipelineInfo, nullptr, &pipeline);
+
+        // Clean up shader modules
+        for (auto shaderModule : shaderModules)
+            vkDestroyShaderModule(vulkanDevice, shaderModule, nullptr);
+
+        ThrowVulkanIfFailed(result, "Failed to create graphics pipeline");
+
+        return Handle<Pipeline>(new Pipeline(pipeline, pipelineLayout, descriptorSetLayout), std::ref(*this));
+    }
+
+    void Core::DestroyPipeline(Pipeline *pipeline)
+    {
+        if (!pipeline)
+        {
+            return;
+        }
+
+        logger.Func(__func__);
+
+        vkDestroyPipeline(vulkanDevice, pipeline->vulkanHandle, nullptr);
+        vkDestroyPipelineLayout(vulkanDevice, pipeline->vulkanLayout, nullptr);
+        vkDestroyDescriptorSetLayout(vulkanDevice, pipeline->vulkanDescriptorSetLayout, nullptr);
     }
 
     std::vector<PhysicalDevice> Core::GetPhysicalDevices() const

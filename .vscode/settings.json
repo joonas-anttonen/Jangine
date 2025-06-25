@@ -88,7 +88,9 @@
         "cinttypes": "cpp",
         "any": "cpp",
         "ranges": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "typeindex": "cpp",
+        "strstream": "cpp"
     },
     "C_Cpp.default.compileCommands": "j:\\projects\\Jangine\\builddir/compile_commands.json"
 }

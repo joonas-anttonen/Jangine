@@ -36,6 +36,28 @@ namespace Jangine::Gfx
         MESH_BIT_EXT = 0x00000080,
     };
 
+    inline ShaderStage operator|(ShaderStage a, ShaderStage b)
+    {
+        return static_cast<ShaderStage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+    }
+
+    enum class DescriptorType : uint32_t
+    {
+        SAMPLER = 0,
+        COMBINED_IMAGE_SAMPLER = 1,
+        SAMPLED_IMAGE = 2,
+        STORAGE_IMAGE = 3,
+        UNIFORM_TEXEL_BUFFER = 4,
+        STORAGE_TEXEL_BUFFER = 5,
+        UNIFORM_BUFFER = 6,
+        STORAGE_BUFFER = 7,
+        UNIFORM_BUFFER_DYNAMIC = 8,
+        STORAGE_BUFFER_DYNAMIC = 9,
+        INPUT_ATTACHMENT = 10,
+        INLINE_UNIFORM_BLOCK = 1000138000,
+        ACCELERATION_STRUCTURE_KHR = 1000150000,
+    };
+
     enum class AntialiasingMode : uint32_t
     {
         None,
@@ -113,6 +135,24 @@ namespace Jangine::Gfx
         return static_cast<Aspect>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
     }
 
+    enum class CompareOp : uint32_t
+    {
+        NEVER = 0,
+        LESS = 1,
+        EQUAL = 2,
+        LESS_OR_EQUAL = 3,
+        GREATER = 4,
+        NOT_EQUAL = 5,
+        GREATER_OR_EQUAL = 6,
+        ALWAYS = 7,
+    };
+    
+    enum class FrontFace : uint32_t
+    {
+        COUNTER_CLOCKWISE = 0,
+        CLOCKWISE = 1,
+    };
+
     enum class Samples : uint32_t
     {
         X1 = 1,   // = VK_SAMPLE_COUNT_1_BIT
@@ -123,6 +163,153 @@ namespace Jangine::Gfx
         X32 = 32, // = VK_SAMPLE_COUNT_32_BIT
         X64 = 64  // = VK_SAMPLE_COUNT_64_BIT
     };
+
+    enum class CullMode : uint32_t
+    {
+        NONE = 0,
+        FRONT = 0x00000001,
+        BACK = 0x00000002,
+        FRONT_AND_BACK = 0x00000003,
+    };
+
+    enum class PrimitiveTopology : uint32_t
+    {
+        POINT_LIST = 0,
+        LINE_LIST = 1,
+        LINE_STRIP = 2,
+        TRIANGLE_LIST = 3,
+        TRIANGLE_STRIP = 4,
+        TRIANGLE_FAN = 5,
+        LINE_LIST_WITH_ADJACENCY = 6,
+        LINE_STRIP_WITH_ADJACENCY = 7,
+        TRIANGLE_LIST_WITH_ADJACENCY = 8,
+        TRIANGLE_STRIP_WITH_ADJACENCY = 9,
+        PATCH_LIST = 10,
+    };
+
+    enum class DynamicState : uint32_t
+    {
+        VIEWPORT = 0,
+        SCISSOR = 1,
+        LINE_WIDTH = 2,
+        DEPTH_BIAS = 3,
+        BLEND_CONSTANTS = 4,
+        DEPTH_BOUNDS = 5,
+        STENCIL_COMPARE_MASK = 6,
+        STENCIL_WRITE_MASK = 7,
+        STENCIL_REFERENCE = 8,
+        CULL_MODE = 1000267000,
+        FRONT_FACE = 1000267001,
+        PRIMITIVE_TOPOLOGY = 1000267002,
+        VIEWPORT_WITH_COUNT = 1000267003,
+        SCISSOR_WITH_COUNT = 1000267004,
+        VERTEX_INPUT_BINDING_STRIDE = 1000267005,
+        DEPTH_TEST_ENABLE = 1000267006,
+        DEPTH_WRITE_ENABLE = 1000267007,
+        DEPTH_COMPARE_OP = 1000267008,
+        DEPTH_BOUNDS_TEST_ENABLE = 1000267009,
+        STENCIL_TEST_ENABLE = 1000267010,
+        STENCIL_OP = 1000267011,
+        RASTERIZER_DISCARD_ENABLE = 1000377001,
+        DEPTH_BIAS_ENABLE = 1000377002,
+    };
+
+    enum class VertexInputRate : uint32_t
+    {
+        VERTEX = 0,
+        INSTANCE = 1,
+    };
+
+    enum class BlendFactor : uint32_t
+    {
+        ZERO = 0,
+        ONE = 1,
+        SRC_COLOR = 2,
+        ONE_MINUS_SRC_COLOR = 3,
+        DST_COLOR = 4,
+        ONE_MINUS_DST_COLOR = 5,
+        SRC_ALPHA = 6,
+        ONE_MINUS_SRC_ALPHA = 7,
+        DST_ALPHA = 8,
+        ONE_MINUS_DST_ALPHA = 9,
+        CONSTANT_COLOR = 10,
+        ONE_MINUS_CONSTANT_COLOR = 11,
+        CONSTANT_ALPHA = 12,
+        ONE_MINUS_CONSTANT_ALPHA = 13,
+        SRC_ALPHA_SATURATE = 14,
+        SRC1_COLOR = 15,
+        ONE_MINUS_SRC1_COLOR = 16,
+        SRC1_ALPHA = 17,
+        ONE_MINUS_SRC1_ALPHA = 18,
+    };
+
+    enum class BlendOp : uint32_t
+    {
+        ADD = 0,
+        SUBTRACT = 1,
+        REVERSE_SUBTRACT = 2,
+        MIN = 3,
+        MAX = 4,
+        ZERO_EXT = 1000148000,
+        SRC_EXT = 1000148001,
+        DST_EXT = 1000148002,
+        SRC_OVER_EXT = 1000148003,
+        DST_OVER_EXT = 1000148004,
+        SRC_IN_EXT = 1000148005,
+        DST_IN_EXT = 1000148006,
+        SRC_OUT_EXT = 1000148007,
+        DST_OUT_EXT = 1000148008,
+        SRC_ATOP_EXT = 1000148009,
+        DST_ATOP_EXT = 1000148010,
+        XOR_EXT = 1000148011,
+        MULTIPLY_EXT = 1000148012,
+        SCREEN_EXT = 1000148013,
+        OVERLAY_EXT = 1000148014,
+        DARKEN_EXT = 1000148015,
+        LIGHTEN_EXT = 1000148016,
+        COLORDODGE_EXT = 1000148017,
+        COLORBURN_EXT = 1000148018,
+        HARDLIGHT_EXT = 1000148019,
+        SOFTLIGHT_EXT = 1000148020,
+        DIFFERENCE_EXT = 1000148021,
+        EXCLUSION_EXT = 1000148022,
+        INVERT_EXT = 1000148023,
+        INVERT_RGB_EXT = 1000148024,
+        LINEARDODGE_EXT = 1000148025,
+        LINEARBURN_EXT = 1000148026,
+        VIVIDLIGHT_EXT = 1000148027,
+        LINEARLIGHT_EXT = 1000148028,
+        PINLIGHT_EXT = 1000148029,
+        HARDMIX_EXT = 1000148030,
+        HSL_HUE_EXT = 1000148031,
+        HSL_SATURATION_EXT = 1000148032,
+        HSL_COLOR_EXT = 1000148033,
+        HSL_LUMINOSITY_EXT = 1000148034,
+        PLUS_EXT = 1000148035,
+        PLUS_CLAMPED_EXT = 1000148036,
+        PLUS_CLAMPED_ALPHA_EXT = 1000148037,
+        PLUS_DARKER_EXT = 1000148038,
+        MINUS_EXT = 1000148039,
+        MINUS_CLAMPED_EXT = 1000148040,
+        CONTRAST_EXT = 1000148041,
+        INVERT_OVG_EXT = 1000148042,
+        RED_EXT = 1000148043,
+        GREEN_EXT = 1000148044,
+        BLUE_EXT = 1000148045,
+    };
+
+    enum class ColorComponent : uint32_t
+    {
+        R = 0x00000001,
+        G = 0x00000002,
+        B = 0x00000004,
+        A = 0x00000008,
+    };
+
+    inline ColorComponent operator|(ColorComponent a, ColorComponent b)
+    {
+        return static_cast<ColorComponent>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+    }
 
     enum class PhysicalDeviceType : uint32_t
     {

@@ -18,6 +18,10 @@ typedef struct VkCommandPool_T *VkCommandPool;
 typedef struct VkQueryPool_T *VkQueryPool;
 typedef struct VkDebugUtilsMessengerEXT_T *VkDebugUtilsMessengerEXT;
 
+typedef struct VkPipeline_T *VkPipeline;
+typedef struct VkPipelineLayout_T *VkPipelineLayout;
+typedef struct VkDescriptorSetLayout_T *VkDescriptorSetLayout;
+
 typedef struct VkFence_T *VkFence;
 typedef struct VkSemaphore_T *VkSemaphore;
 

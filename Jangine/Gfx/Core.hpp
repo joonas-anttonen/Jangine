@@ -21,6 +21,82 @@ namespace Jangine::Gfx
     class Core2D;
     class Core3D;
 
+    struct Pipeline
+    {
+        VkPipeline vulkanHandle;
+        VkPipelineLayout vulkanLayout;
+        VkDescriptorSetLayout vulkanDescriptorSetLayout;
+    };
+
+    struct PipelineParameters
+    {
+        struct VertexInputBinding
+        {
+            uint32_t binding;
+            uint32_t stride;
+            VertexInputRate inputRate;
+        };
+
+        struct VertexInputAttribute
+        {
+            uint32_t location;
+            uint32_t binding;
+            Format format;
+            uint32_t offset;
+        };
+
+        struct AttachmentBlend
+        {
+            uint32_t blendEnable;
+            BlendFactor srcColorBlendFactor;
+            BlendFactor dstColorBlendFactor;
+            BlendOp colorBlendOp;
+            BlendFactor srcAlphaBlendFactor;
+            BlendFactor dstAlphaBlendFactor;
+            BlendOp alphaBlendOp;
+            ColorComponent colorWriteMask;
+        };
+
+        struct Attachment
+        {
+            Format format;
+            AttachmentBlend blend;
+        };
+
+        struct PushConstantRange
+        {
+            ShaderStage stageFlags;
+            uint32_t offset;
+            uint32_t size;
+        };
+
+        struct DescriptorBinding
+        {
+            uint32_t binding;
+            DescriptorType descriptorType;
+            uint32_t descriptorCount;
+            ShaderStage stages;
+            void_t *immutableSamplers;
+        };
+
+        const ShaderProgram *shaderProgram;
+
+        PrimitiveTopology topology;
+        FrontFace frontFace;
+        CullMode cullMode;
+        bool_t depthTestEnabled;
+        bool_t depthWriteEnabled;
+        CompareOp depthCompareOp;
+
+        std::vector<VertexInputBinding> vertexInputBindings;
+        std::vector<VertexInputAttribute> vertexInputAttributes;
+
+        std::vector<Attachment> attachments;
+
+        std::vector<PushConstantRange> pushConstantRanges;
+        std::vector<DescriptorBinding> descriptorLayout;
+    };
+
     struct PhysicalDevice
     {
         std::string name;
@@ -119,6 +195,23 @@ namespace Jangine::Gfx
 
         void Render(double_t absoluteTime, float_t deltaTime);
 
+        const ShaderProgram *GetShaderProgram(const std::string &name) const
+        {
+            auto it = shaderProgramCache.find(name);
+            if (it != shaderProgramCache.end())
+            {
+                return &it->second;
+            }
+
+            return nullptr;
+        }
+
+        VkDescriptorSetLayout CreateDescriptorLayout(const std::vector<PipelineParameters::DescriptorBinding> &bindings);
+        VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout layout, const std::vector<PipelineParameters::PushConstantRange> &pushConstantRanges);
+        Handle<Pipeline> CreatePipeline(const PipelineParameters &parameters);
+        void DestroyPipeline(Pipeline *pipeline);
+        void operator()(Pipeline *p) { DestroyPipeline(p); }
+
         Handle<PixelBuffer> CreatePixelBuffer(
             uint32_t width,
             uint32_t height,
@@ -157,6 +250,8 @@ namespace Jangine::Gfx
         Presenter *presenter = nullptr;
         Core2D *core2D = nullptr;
         Core3D *core3D = nullptr;
+
+        std::unordered_map<std::string, ShaderProgram> shaderProgramCache;
 
         const Logging::Logger &logger;
 

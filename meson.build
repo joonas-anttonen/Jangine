@@ -9,6 +9,9 @@ project(
         'werror=true',
 ])
 
+#
+# External dependencies
+#
 vulkan = dependency('vulkan', required: true)
 eigen_includes = include_directories('external/eigen/include')
 glfw_includes = include_directories('external/glfw/include')
@@ -16,15 +19,70 @@ glfw_lib = '../external/glfw/lib/glfw3.lib'
 json_includes = include_directories('external/json/include')
 vma_includes = include_directories('external/vma/include')
 
+#
+# Build the shader compiler executable
+#
+shader_compiler = executable(
+    'Jangine.Gfx.ShaderCompiler',
+    'Jangine/Gfx/ShaderProgram.cpp',
+    include_directories: [
+        include_directories('Jangine/'),
+        json_includes
+    ],
+    dependencies: [vulkan],
+    cpp_args: [
+        '-DJANGINE_SHADER_COMPILER'
+    ],
+)
+
+#
+# Use the shader compiler to generate built-in shader headers
+#
+built_in_shaders = custom_target(
+    'built-in-shaders',
+    output: 'BuiltInShaders.hpp',
+    input: [
+        'Jangine/Gfx/Shaders/built-in-2d.hlsl',
+        'Jangine/Gfx/Shaders/built-in-2d-composition.hlsl',
+    ],
+    command: [
+        shader_compiler, '@OUTPUT@', '--namespace=Jangine::Gfx', '@INPUT@'
+    ],
+    build_by_default: true
+)
+
+#
+# Copy dxcompiler from Vulkan SDK to the build directory
+# Custom script since Meson does not support configuring based on the environment
+#
+system = host_machine.system()
+if system == 'windows'
+script_path = join_paths(meson.project_source_root(), 'external', 'build_step_copy_dxcompiler.ps1')
+custom_target(
+  'copy-dxcompiler',
+  output: 'dxcompiler.dll',
+  command: [
+    'powershell', '-File', script_path
+  ],
+  build_by_default: true
+)
+else
+  error('Unsupported platform for dxcompiler copy')
+endif
+
 jangine = library(
     'Jangine', 
-    'Jangine/Core.cpp',
-    'Jangine/Logging/Log.cpp',
-    'Jangine/Logging/Logger.cpp',
-    'Jangine/Gfx/Core.cpp',
-    'Jangine/Gfx/Presenter.cpp',
-    'Jangine/Gfx/Core2D.cpp',
-    'Jangine/Gui/Core.cpp',
+    [
+      'Jangine/Core.cpp',
+      'Jangine/Logging/Log.cpp',
+      'Jangine/Logging/Logger.cpp',
+      'Jangine/Gfx/Core.cpp',
+      'Jangine/Gfx/Presenter.cpp',
+      'Jangine/Gfx/ShaderProgram.cpp',
+      'Jangine/Gfx/Core2D.cpp',
+      'Jangine/Gui/Core.cpp',
+      built_in_shaders
+    ],
     include_directories: [
         include_directories('Jangine/'),
         eigen_includes,

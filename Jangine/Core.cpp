@@ -26,6 +26,47 @@ namespace Jangine
 
         try
         {
+            std::filesystem::path testShaderPath = "J:/projects/Gossamer/Gossamer/Gfx/Shaders/built-in-2d-composition.hlsl";
+            if (!std::filesystem::exists(testShaderPath))
+            {
+                GetLogger("Core").Error("Test shader file does not exist: " + testShaderPath.string(), __func__);
+                std::abort();
+            }
+
+            std::string testShaderContents;
+            {
+                std::ifstream shaderFile(testShaderPath);
+                if (!shaderFile.is_open())
+                {
+                    GetLogger("Core").Error("Failed to open test shader file: " + testShaderPath.string(), __func__);
+                    std::abort();
+                }
+                testShaderContents.assign((std::istreambuf_iterator<char>(shaderFile)), std::istreambuf_iterator<char>());
+            }
+
+            Gfx::ShaderCompiler shaderCompiler;
+            auto program = shaderCompiler.Compile(testShaderContents, "built-in-2d-composition");
+            if (program.stages.empty())
+            {
+                GetLogger("Core").Error("Shader compilation failed: No stages found in the shader program.", __func__);
+                std::abort();
+            }
+            else
+            {
+                GetLogger("Core").Information("Shader compiled successfully with " + std::to_string(program.stages.size()) + " stages.", __func__);
+
+                for (const auto &stage : program.stages)
+                {
+                    GetLogger("Core").Information("Shader stage: " + stage.entryPoint + " (" + std::to_string(stage.bytecode.size()) + " bytes)", __func__);
+                }
+            }
+
+            Gfx::IO::ShaderPackage::SerializeToHeader(
+                {{"built-in-2d-composition", program}},
+                "c:/users/jant/downloads/built-in-shaders.hpp",
+                "built_in_shaders",
+                "Jangine::Gfx");
+
             Gfx::ApiParameters gfxApiParameters = {
                 .enableDebugging = parameters.enableDebugging,
                 .appVersion = parameters.appVersion,
@@ -67,7 +108,18 @@ namespace Jangine
         }
         catch (const Jangine::JangineException &e)
         {
-            std::cerr << e.what() << std::endl;
+            GetLogger("Core").Error(e.what(), __func__);
+            std::abort();
+        }
+        catch (const std::exception &e)
+        {
+            GetLogger("Core").Error(e.what(), __func__);
+            std::abort();
+        }
+        catch (...)
+        {
+            GetLogger("Core").Error("Unknown error occurred.", __func__);
+            std::abort();
         }
     }
 
@@ -126,19 +178,37 @@ namespace Jangine
 
     void Core::GfxThread(Gfx::Core &gfx)
     {
-        while (!gfxThreadExitRequested.load(std::memory_order_relaxed))
+        try
         {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            ProcessGfxThreadQueue(gfx);
+            while (!gfxThreadExitRequested.load(std::memory_order_relaxed))
+            {
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                ProcessGfxThreadQueue(gfx);
 
-            /*GetLogger("Core").Debug("On the graphics thread");
+                /*GetLogger("Core").Debug("On the graphics thread");
 
-            auto future = this->PostToMainThread([]
-                                                 { GetLogger("Core").Debug("On the main thread"); });
+                auto future = this->PostToMainThread([]
+                                                     { GetLogger("Core").Debug("On the main thread"); });
 
-            future.wait_for(std::chrono::milliseconds(100));*/
+                future.wait_for(std::chrono::milliseconds(100));*/
 
-            gfx.Render(0.0, 0.0);
+                gfx.Render(0.0, 0.0);
+            }
+        }
+        catch (const Jangine::JangineException &e)
+        {
+            GetLogger("Core").Error(e.what(), __func__);
+            std::abort();
+        }
+        catch (const std::exception &e)
+        {
+            GetLogger("Core").Error(e.what(), __func__);
+            std::abort();
+        }
+        catch (...)
+        {
+            GetLogger("Core").Error("Unknown error occurred.", __func__);
+            std::abort();
         }
     }
 }

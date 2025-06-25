@@ -175,12 +175,21 @@ namespace Jangine
         }
     }
 
+    inline void ThrowInvalidOperationIfNot(bool condition, const std::string &message = "")
+    {
+        if (!condition)
+        {
+            throw InvalidOperationException(message);
+        }
+    }
+
     template <typename T>
-    void ThrowInvalidOperationIfNull(T *ptr)
+    T* ThrowInvalidOperationIfNull(T *ptr, const std::string &message = "Null pointer exception")
     {
         if (ptr == nullptr)
         {
-            throw InvalidOperationException("Null pointer exception");
+            throw InvalidOperationException(message);
         }
+        return ptr;
     }
 }
