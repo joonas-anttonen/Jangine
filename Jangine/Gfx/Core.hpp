@@ -3,12 +3,17 @@
 #include "../Shared.hpp"
 #include "Shared.hpp"
 #include "../Color.hpp"
+#include "ShaderProgram.hpp"
 #include "../Core.hpp"
 
 #include <array>
 #include <vector>
 #include <span>
 #include <string>
+#include <unordered_map>
+#include <istream>
+#include <cstdint>
+#include <stdexcept>
 
 namespace Jangine::Gfx
 {
@@ -27,7 +32,7 @@ namespace Jangine::Gfx
 
         std::string ToString() const
         {
-            return name + " [Vulkan: " + vulkan.ToString() + "] [Driver: " + driver.ToString() + "]";
+            return std::format("{} [Vulkan: {}] [Driver: {}]", name, vulkan.ToString(), driver.ToString());
         }
     };
 
@@ -141,7 +146,7 @@ namespace Jangine::Gfx
         uint32_t vulkanQueueFamilyIndex = 0;
         VkCommandPool vulkanCommandPool = nullptr;
         VkQueryPool vulkanQueryPool = nullptr;
-        VkDebugUtilsMessengerEXT debugMessenger = nullptr;
+        VkDebugUtilsMessengerEXT vulkanDebugMessenger = nullptr;
 
         VmaAllocator vulkanMemoryAllocator = nullptr;
         size_t vulkanMemoryAllocatorAllocatedBytes = 0;

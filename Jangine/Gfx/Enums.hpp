@@ -16,6 +16,26 @@ namespace Jangine::Gfx
         D32 = 126     // = VK_FORMAT_D32_SFLOAT
     };
 
+    enum class ShaderStage : uint32_t
+    {
+        VERTEX = 0x00000001,
+        TESSELLATION_CONTROL_BIT = 0x00000002,
+        TESSELLATION_EVALUATION_BIT = 0x00000004,
+        GEOMETRY = 0x00000008,
+        FRAGMENT = 0x00000010,
+        COMPUTE = 0x00000020,
+        ALL_GRAPHICS = 0x0000001F,
+        ALL = 0x7FFFFFFF,
+        RAYGEN_BIT_KHR = 0x00000100,
+        ANY_HIT_BIT_KHR = 0x00000200,
+        CLOSEST_HIT_BIT_KHR = 0x00000400,
+        MISS_BIT_KHR = 0x00000800,
+        INTERSECTION_BIT_KHR = 0x00001000,
+        CALLABLE_BIT_KHR = 0x00002000,
+        TASK_BIT_EXT = 0x00000040,
+        MESH_BIT_EXT = 0x00000080,
+    };
+
     enum class AntialiasingMode : uint32_t
     {
         None,

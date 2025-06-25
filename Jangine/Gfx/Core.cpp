@@ -6,6 +6,7 @@
 
 #include <format>
 #include <set>
+#include <fstream>
 
 // Disable warnings for external Vulkan header
 #if defined(_MSC_VER)
@@ -106,14 +107,14 @@ namespace Jangine::Gfx
             vulkanDevice = VK_NULL_HANDLE;
         }
 
-        if (debugMessenger)
+        if (vulkanDebugMessenger)
         {
             auto destroyDebugUtilsMessenger = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
                 vkGetInstanceProcAddr(vulkanInstance, "vkDestroyDebugUtilsMessengerEXT"));
             if (destroyDebugUtilsMessenger)
             {
-                destroyDebugUtilsMessenger(vulkanInstance, debugMessenger, nullptr);
-                debugMessenger = VK_NULL_HANDLE;
+                destroyDebugUtilsMessenger(vulkanInstance, vulkanDebugMessenger, nullptr);
+                vulkanDebugMessenger = VK_NULL_HANDLE;
             }
         }
 
@@ -785,7 +786,7 @@ namespace Jangine::Gfx
                 debugCreateInfo.pUserData = nullptr;
 
                 ThrowVulkanIfFailed(
-                    vkCreateDebugUtilsMessengerEXT(instance, &debugCreateInfo, nullptr, &debugMessenger),
+                    vkCreateDebugUtilsMessengerEXT(instance, &debugCreateInfo, nullptr, &vulkanDebugMessenger),
                     "Failed to create debug utils messenger.");
             }
             else
