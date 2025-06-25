@@ -33,11 +33,18 @@ namespace Jangine::Gui
         Core(const ApiParameters &parameters, Gfx::Core *gfx);
         ~Core();
 
+        Core &operator=(const Core &) = delete;
+        Core(const Core &) = delete;
+        Core &operator=(Core &&) = delete;
+        Core(Core &&) = delete;
+
         void Create(const Parameters &parameters);
         Surface GetSurface(void_t *surfaceCreationHandle) const;
 
         bool_t ProcessEvents() const;
+        bool_t WaitForEvents(uint32_t timeout_ms) const;
         bool_t ShouldExit() const;
+        static void WakeUp();
 
     private:
         GLFWwindow *glfwWindow = nullptr;

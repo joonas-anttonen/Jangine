@@ -88,10 +88,13 @@ namespace Jangine::Gui
             Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
             if (core)
             {
-                Gfx::DisplayParameters newDisplayParameters = core->gfx->GetCurrentDisplayParameters();
-                newDisplayParameters.displayWidth = static_cast<uint32_t>(width);
-                newDisplayParameters.displayHeight = static_cast<uint32_t>(height);
-                core->gfx->SetDisplayParameters(newDisplayParameters);
+                Jangine::Core::GetInstance().PostToGfxThread([core, width, height]()
+                                                             {
+                    Gfx::DisplayParameters newDisplayParameters = core->gfx->GetDisplayParameters();
+                    newDisplayParameters.displayWidth = static_cast<uint32_t>(width);
+                    newDisplayParameters.displayHeight = static_cast<uint32_t>(height);
+                    core->gfx->SetDisplayParameters(newDisplayParameters);
+                });
             } });
 
         glfwSetWindowSizeLimits(glfwWindow, (int)(256 * 0.5f), (int)(144 * 0.5f), -1, -1);
@@ -123,8 +126,20 @@ namespace Jangine::Gui
         return ShouldExit() == false;
     }
 
+    bool_t Core::WaitForEvents(uint32_t timeout_ms) const
+    {
+        glfwWaitEventsTimeout(timeout_ms);
+
+        return ShouldExit() == false;
+    }
+
     bool_t Core::ShouldExit() const
     {
         return glfwWindowShouldClose(glfwWindow) == GLFW_TRUE;
+    }
+
+    void Core::WakeUp()
+    {
+        glfwPostEmptyEvent();
     }
 }

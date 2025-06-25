@@ -74,7 +74,7 @@ namespace Jangine::Gfx
 
         PhysicalDevice SelectOptimalPhysicalDevice(std::span<const PhysicalDevice> physicalDevices) const
         {
-            ThrowInvalidOperationIf(physicalDevices.empty(), "No physical devices available");
+            ThrowInvalidOperationIf(physicalDevices.empty());
 
             PhysicalDevice optimalDevice = physicalDevices[0];
 
@@ -82,7 +82,8 @@ namespace Jangine::Gfx
             {
                 if (d.type == PhysicalDeviceType::Discrete)
                 {
-                    return d;
+                    optimalDevice = d;
+                    break;
                 }
                 if (d.type == PhysicalDeviceType::Integrated)
                 {
@@ -90,6 +91,7 @@ namespace Jangine::Gfx
                 }
             }
 
+            logger.Debug(optimalDevice.ToString(), __func__);
             return optimalDevice;
         }
 
@@ -102,7 +104,7 @@ namespace Jangine::Gfx
 
         void InitializeRendering(const DisplayParameters &displayParameters);
 
-        const DisplayParameters &GetCurrentDisplayParameters()
+        const DisplayParameters &GetDisplayParameters()
         {
             std::lock_guard<SpinLock> lock(displayParametersLock);
             return currentDisplayParameters;
@@ -112,7 +114,6 @@ namespace Jangine::Gfx
             std::lock_guard<SpinLock> lock(displayParametersLock);
             this->wantedDisplayParameters = displayParameters;
 
-            // Print debug information
             logger.Debug(displayParameters.ToString(), __func__);
         }
 

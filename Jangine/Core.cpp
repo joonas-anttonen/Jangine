@@ -55,30 +55,11 @@ namespace Jangine
             gfx.CreatePresenter(gui.GetSurface(gfx.GetSurfaceCreationHandle()));
 
             gfxThread = std::thread([this, &gfx]()
-                                    {
-                while (!gfxShutdownRequested.load(std::memory_order_relaxed))
-                {
-                    /*GetLogger("Core").Debug("On the graphics thread");
+                                    { GfxThread(gfx); });
 
-                    auto future = this->PostToMainThread([] {
-                        GetLogger("Core").Debug("On the main thread");
-                    });
+            GuiThread(gui);
 
-                    future.wait();*/
-
-                    gfx.Render(0.0, 0.0);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                } });
-
-            while (gui.ProcessEvents())
-            {
-                ProcessMainThreadQueue(gui);
-
-                // Sleep for a short duration to avoid busy-waiting
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            }
-
-            gfxShutdownRequested.store(true, std::memory_order_relaxed);
+            gfxThreadExitRequested.store(true, std::memory_order_relaxed);
             if (gfxThread.joinable())
             {
                 gfxThread.join();
@@ -90,7 +71,7 @@ namespace Jangine
         }
     }
 
-    void Core::ProcessMainThreadQueue(const Gui::Core &gui)
+    void Core::ProcessMainThreadQueue(Gui::Core &gui)
     {
         {
             std::lock_guard<SpinLock> lock(mainThreadQueueLock);
@@ -107,6 +88,57 @@ namespace Jangine
             {
                 break;
             }
+        }
+    }
+
+    void Core::ProcessGfxThreadQueue(Gfx::Core &gfx)
+    {
+        (void)gfx; // Avoid unused parameter warning
+
+        {
+            std::lock_guard<SpinLock> lock(gfxThreadQueueLock);
+            std::swap(writeGfxThreadQueue, readGfxThreadQueue);
+        }
+
+        while (!readGfxThreadQueue->empty())
+        {
+            auto func = std::move(readGfxThreadQueue->front());
+            readGfxThreadQueue->pop();
+            func();
+        }
+    }
+
+    void Core::GuiThreadWakeUp()
+    {
+        Gui::Core::WakeUp();
+    }
+
+    void Core::GuiThread(Gui::Core &gui)
+    {
+        while (gui.ProcessEvents())
+        {
+            ProcessMainThreadQueue(gui);
+
+            // Sleep for a short duration to avoid busy-waiting
+            gui.WaitForEvents(10);
+        }
+    }
+
+    void Core::GfxThread(Gfx::Core &gfx)
+    {
+        while (!gfxThreadExitRequested.load(std::memory_order_relaxed))
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            ProcessGfxThreadQueue(gfx);
+
+            /*GetLogger("Core").Debug("On the graphics thread");
+
+            auto future = this->PostToMainThread([]
+                                                 { GetLogger("Core").Debug("On the main thread"); });
+
+            future.wait_for(std::chrono::milliseconds(100));*/
+
+            gfx.Render(0.0, 0.0);
         }
     }
 }
