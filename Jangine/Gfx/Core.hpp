@@ -4,6 +4,7 @@
 #include "Shared.hpp"
 #include "../Color.hpp"
 #include "ShaderProgram.hpp"
+#include "Presenter.hpp"
 #include "../Core.hpp"
 
 #include <array>
@@ -17,100 +18,8 @@
 
 namespace Jangine::Gfx
 {
-    class Presenter;
     class Core2D;
     class Core3D;
-
-    struct Pipeline
-    {
-        VkPipeline vulkanHandle;
-        VkPipelineLayout vulkanLayout;
-        VkDescriptorSetLayout vulkanDescriptorSetLayout;
-    };
-
-    struct PipelineParameters
-    {
-        struct VertexInputBinding
-        {
-            uint32_t binding;
-            uint32_t stride;
-            VertexInputRate inputRate;
-        };
-
-        struct VertexInputAttribute
-        {
-            uint32_t location;
-            uint32_t binding;
-            Format format;
-            uint32_t offset;
-        };
-
-        struct AttachmentBlend
-        {
-            uint32_t blendEnable;
-            BlendFactor srcColorBlendFactor;
-            BlendFactor dstColorBlendFactor;
-            BlendOp colorBlendOp;
-            BlendFactor srcAlphaBlendFactor;
-            BlendFactor dstAlphaBlendFactor;
-            BlendOp alphaBlendOp;
-            ColorComponent colorWriteMask;
-        };
-
-        struct Attachment
-        {
-            Format format;
-            AttachmentBlend blend;
-        };
-
-        struct PushConstantRange
-        {
-            ShaderStage stageFlags;
-            uint32_t offset;
-            uint32_t size;
-        };
-
-        struct DescriptorBinding
-        {
-            uint32_t binding;
-            DescriptorType descriptorType;
-            uint32_t descriptorCount;
-            ShaderStage stages;
-            void_t *immutableSamplers;
-        };
-
-        const ShaderProgram *shaderProgram;
-
-        PrimitiveTopology topology;
-        FrontFace frontFace;
-        CullMode cullMode;
-        bool_t depthTestEnabled;
-        bool_t depthWriteEnabled;
-        CompareOp depthCompareOp;
-
-        std::vector<VertexInputBinding> vertexInputBindings;
-        std::vector<VertexInputAttribute> vertexInputAttributes;
-
-        std::vector<Attachment> attachments;
-
-        std::vector<PushConstantRange> pushConstantRanges;
-        std::vector<DescriptorBinding> descriptorLayout;
-    };
-
-    struct PhysicalDevice
-    {
-        std::string name;
-        Version vulkan;
-        VkPhysicalDevice vulkanHandle;
-        Version driver;
-        PhysicalDeviceType type;
-        Guid id;
-
-        std::string ToString() const
-        {
-            return std::format("{} [Vulkan: {}] [Driver: {}]", name, vulkan.ToString(), driver.ToString());
-        }
-    };
 
     struct ApiParameters
     {
@@ -131,6 +40,12 @@ namespace Jangine::Gfx
 
     class Core
     {
+        struct SingleCommand
+        {
+            CommandBuffer commandBuffer;
+            VkFence fence;
+        };
+
         struct ApiCapabilities
         {
             bool_t debugging;
@@ -148,7 +63,7 @@ namespace Jangine::Gfx
 
         std::vector<PhysicalDevice> GetPhysicalDevices() const;
 
-        PhysicalDevice SelectOptimalPhysicalDevice(std::span<const PhysicalDevice> physicalDevices) const
+        PhysicalDevice SelectOptimalDevice(std::span<const PhysicalDevice> physicalDevices) const
         {
             ThrowInvalidOperationIf(physicalDevices.empty());
 
@@ -206,22 +121,67 @@ namespace Jangine::Gfx
             return nullptr;
         }
 
-        VkDescriptorSetLayout CreateDescriptorLayout(const std::vector<PipelineParameters::DescriptorBinding> &bindings);
-        VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout layout, const std::vector<PipelineParameters::PushConstantRange> &pushConstantRanges);
+        Core2D *GetCore2D() const
+        {
+            return core2D;
+        }
+
+        Core3D *GetCore3D() const
+        {
+            return core3D;
+        }
+
+        // Write data to a memory buffer
+        // This is a mapped memory write using memcpy
+        // Only valid for host-visible and/or host-coherent memory
+        void WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const uint8_t> data);
+
+        Handle<MemoryBuffer> CreateMemoryBuffer(uint32_t size, MemoryUsage usage, MemoryAccess access);
+        void DestroyMemoryBuffer(MemoryBuffer *memoryBuffer);
+        void operator()(MemoryBuffer *mb) { DestroyMemoryBuffer(mb); }
+
+        Handle<PixelSampler> CreatePixelSampler(const PixelSamplerParameters &parameters);
+        void DestroyPixelSampler(PixelSampler *pixelSampler);
+        void operator()(PixelSampler *ps) { DestroyPixelSampler(ps); }
+
         Handle<Pipeline> CreatePipeline(const PipelineParameters &parameters);
         void DestroyPipeline(Pipeline *pipeline);
         void operator()(Pipeline *p) { DestroyPipeline(p); }
 
-        Handle<PixelBuffer> CreatePixelBuffer(
-            uint32_t width,
-            uint32_t height,
-            Format format,
-            PixelBufferUsage usage,
-            Aspect aspect = Aspect::Color,
-            Samples samples = Samples::X1);
+        // Write data to a pixel buffer
+        // This is a staged upload using a temporary buffer
+        void WritePixelBuffer(PixelBuffer *pixelBuffer, std::span<const uint8_t> data, ImageLayout srcLayout, ImageLayout dstLayout);
+
+        Handle<PixelBuffer> CreatePixelBuffer(std::span<const uint8_t> data,
+                                              uint32_t width,
+                                              uint32_t height,
+                                              Format format,
+                                              PixelBufferUsage usage,
+                                              Aspect aspect = Aspect::Color,
+                                              Samples samples = Samples::X1);
+        Handle<PixelBuffer> CreatePixelBuffer(uint32_t width,
+                                              uint32_t height,
+                                              Format format,
+                                              PixelBufferUsage usage,
+                                              Aspect aspect = Aspect::Color,
+                                              Samples samples = Samples::X1);
 
         void DestroyPixelBuffer(PixelBuffer *pixelBuffer);
         void operator()(PixelBuffer *pb) { DestroyPixelBuffer(pb); }
+
+        void SetThreadId(std::thread::id threadId)
+        {
+            renderingThreadId = threadId;
+        }
+
+        void FullBarrier(CommandBuffer commandBuffer);
+
+        void PixelBufferBarrier(CommandBuffer commandBuffer, Presenter::Image &pixelBuffer, ImageLayout srcLayout, ImageLayout dstLayout);
+        void PixelBufferBarrier(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, ImageLayout srcLayout, ImageLayout dstLayout);
+
+        void ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, Color clearColor);
+
+        void PushDescriptorSets(CommandBuffer commandBuffer, Pipeline *pipeline, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *descriptorWrites);
 
     private:
         void CreateInstance(const ApiParameters &params);
@@ -232,6 +192,13 @@ namespace Jangine::Gfx
         void ResolveDeviceSampleCount();
         void ResolveDeviceDepthFormat();
 
+        VkDescriptorSetLayout CreateDescriptorLayout(const std::vector<PipelineParameters::DescriptorBinding> &bindings);
+        VkPipelineLayout CreatePipelineLayout(VkDescriptorSetLayout layout, const std::vector<PipelineParameters::PushConstantRange> &pushConstantRanges);
+
+        SingleCommand BeginSingleCommand();
+        void SubmitSingleCommand(const SingleCommand &singleCommand);
+        void EndSingleCommand(const SingleCommand &singleCommand);
+
         VkInstance vulkanInstance = nullptr;
         VkDevice vulkanDevice = nullptr;
         VkPhysicalDevice vulkanPhysicalDevice = nullptr;
@@ -241,9 +208,10 @@ namespace Jangine::Gfx
         VkCommandPool vulkanCommandPool = nullptr;
         VkQueryPool vulkanQueryPool = nullptr;
         VkDebugUtilsMessengerEXT vulkanDebugMessenger = nullptr;
-
         VmaAllocator vulkanMemoryAllocator = nullptr;
         size_t vulkanMemoryAllocatorAllocatedBytes = 0;
+
+        std::thread::id renderingThreadId;
 
         bool_t pendingScreenCapture = false;
 

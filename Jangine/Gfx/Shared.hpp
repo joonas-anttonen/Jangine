@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Eigen/Core>
+
 #include "../Shared.hpp"
 #include "../Color.hpp"
 #include "Enums.hpp"
@@ -8,6 +10,7 @@
 #include <optional>
 #include <format>
 #include <string>
+#include <stack>
 
 // Forward declarations for Vulkan handles
 typedef struct VkInstance_T *VkInstance;
@@ -17,26 +20,236 @@ typedef struct VkQueue_T *VkQueue;
 typedef struct VkCommandPool_T *VkCommandPool;
 typedef struct VkQueryPool_T *VkQueryPool;
 typedef struct VkDebugUtilsMessengerEXT_T *VkDebugUtilsMessengerEXT;
-
 typedef struct VkPipeline_T *VkPipeline;
 typedef struct VkPipelineLayout_T *VkPipelineLayout;
 typedef struct VkDescriptorSetLayout_T *VkDescriptorSetLayout;
-
 typedef struct VkFence_T *VkFence;
 typedef struct VkSemaphore_T *VkSemaphore;
-
 typedef struct VkSurfaceKHR_T *VkSurfaceKHR;
 typedef struct VkSwapchainKHR_T *VkSwapchainKHR;
-
 typedef struct VkCommandBuffer_T *VkCommandBuffer;
 typedef struct VkImage_T *VkImage;
 typedef struct VkImageView_T *VkImageView;
-
 typedef struct VmaAllocator_T *VmaAllocator;
 typedef struct VmaAllocation_T *VmaAllocation;
+typedef struct VkSampler_T *VkSampler;
+typedef struct VkBuffer_T *VkBuffer;
+struct VkWriteDescriptorSet;
 
 namespace Jangine::Gfx
 {
+    struct CommandBuffer
+    {
+        friend class Core;
+        friend class Core2D;
+        friend class Presenter;
+
+    private:
+        explicit CommandBuffer(VkCommandBuffer commandBuffer)
+            : vulkanHandle(commandBuffer) {}
+
+        VkCommandBuffer vulkanHandle;
+    };
+
+    struct PixelSampler
+    {
+        VkSampler vulkanHandle;
+    };
+
+    struct PixelSamplerParameters
+    {
+        SamplerFilter minFilter;
+        SamplerFilter magFilter;
+        SamplerMipmapMode mipmapMode;
+        SamplerAddressMode addressModeU;
+        SamplerAddressMode addressModeV;
+        SamplerAddressMode addressModeW;
+        uint32_t anisotropyEnable;
+        float maxAnisotropy;
+        BorderColor borderColor;
+    };
+
+    struct Pipeline
+    {
+        VkPipeline vulkanHandle;
+        VkPipelineLayout vulkanLayout;
+        VkDescriptorSetLayout vulkanDescriptorSetLayout;
+    };
+
+    struct ShaderProgram;
+
+    struct PipelineParameters
+    {
+        struct VertexInputBinding
+        {
+            uint32_t binding;
+            uint32_t stride;
+            VertexInputRate inputRate;
+        };
+
+        struct VertexInputAttribute
+        {
+            uint32_t location;
+            uint32_t binding;
+            Format format;
+            uint32_t offset;
+        };
+
+        struct AttachmentBlend
+        {
+            uint32_t blendEnable;
+            BlendFactor srcColorBlendFactor;
+            BlendFactor dstColorBlendFactor;
+            BlendOp colorBlendOp;
+            BlendFactor srcAlphaBlendFactor;
+            BlendFactor dstAlphaBlendFactor;
+            BlendOp alphaBlendOp;
+            ColorComponent colorWriteMask;
+        };
+
+        struct Attachment
+        {
+            Format format;
+            AttachmentBlend blend;
+        };
+
+        struct PushConstantRange
+        {
+            ShaderStage stageFlags;
+            uint32_t offset;
+            uint32_t size;
+        };
+
+        struct DescriptorBinding
+        {
+            uint32_t binding;
+            DescriptorType descriptorType;
+            uint32_t descriptorCount;
+            ShaderStage stages;
+            void_t *immutableSamplers;
+        };
+
+        const ShaderProgram *shaderProgram;
+
+        PrimitiveTopology topology;
+        FrontFace frontFace;
+        CullMode cullMode;
+        bool_t depthTestEnabled;
+        bool_t depthWriteEnabled;
+        CompareOp depthCompareOp;
+
+        std::vector<VertexInputBinding> vertexInputBindings;
+        std::vector<VertexInputAttribute> vertexInputAttributes;
+
+        std::vector<Attachment> attachments;
+
+        std::vector<PushConstantRange> pushConstantRanges;
+        std::vector<DescriptorBinding> descriptorLayout;
+    };
+
+    struct PhysicalDevice
+    {
+        std::string name;
+        Version vulkan;
+        VkPhysicalDevice vulkanHandle;
+        Version driver;
+        PhysicalDeviceType type;
+        Guid id;
+
+        std::string ToString() const
+        {
+            return std::format("{} [Vulkan: {}] [Driver: {}]", name, vulkan.ToString(), driver.ToString());
+        }
+    };
+
+    struct Vertex2f
+    {
+        Eigen::Vector2f position;
+        Eigen::Vector2f uv;
+        Eigen::Vector4f color;
+    };
+
+    struct Rectangle
+    {
+        float left, top, right, bottom;
+
+        Rectangle() = default;
+        Rectangle(float left, float top, float right, float bottom)
+            : left(left), top(top), right(right), bottom(bottom) {}
+
+        float width() const { return right - left; }
+        float height() const { return bottom - top; }
+
+        Eigen::Vector2f position() const { return {left, top}; }
+        Eigen::Vector2f extent() const { return {width(), height()}; }
+        Eigen::Vector2f center() const { return {left + width() / 2.0f, top + height() / 2.0f}; }
+
+        bool Contains(const Eigen::Vector2f &p) const
+        {
+            return (left <= p.x()) && (top <= p.y()) && (right >= p.x()) && (bottom >= p.y());
+        }
+
+        Rectangle CenterOn(const Eigen::Vector2f &p) const
+        {
+            return FromXYWH(p.x() - width() / 2.0f, p.y() - height() / 2.0f, width(), height());
+        }
+
+        Rectangle CenterOn(const Rectangle &r) const
+        {
+            Eigen::Vector2f c = r.center();
+            return FromXYWH(c.x() - width() / 2.0f, c.y() - height() / 2.0f, width(), height());
+        }
+
+        Rectangle Crop(float l, float t, float r, float b) const
+        {
+            return Rectangle(left + l, top + t, right - r, bottom - b);
+        }
+
+        Rectangle Scale(const Eigen::Vector2f &v) const
+        {
+            return Rectangle(left, top, left + width() * v.x(), top + height() * v.y());
+        }
+
+        Rectangle Scale(float x, float y) const
+        {
+            return Rectangle(left, top, left + width() * x, top + height() * y);
+        }
+
+        Rectangle Move(const Eigen::Vector2f &v) const
+        {
+            return FromXYWH(left + v.x(), top + v.y(), width(), height());
+        }
+
+        Rectangle Move(float x, float y) const
+        {
+            return FromXYWH(left + x, top + y, width(), height());
+        }
+
+        Rectangle Clamp(const Rectangle &other) const
+        {
+            return Rectangle(
+                std::max(left, other.left),
+                std::max(top, other.top),
+                std::min(right, other.right),
+                std::min(bottom, other.bottom));
+        }
+
+        static Rectangle FromPositionSize(const Eigen::Vector2f &position, const Eigen::Vector2f &size)
+        {
+            return Rectangle(position.x(), position.y(), position.x() + size.x(), position.y() + size.y());
+        }
+
+        static Rectangle FromXYWH(float x, float y, float w, float h)
+        {
+            return Rectangle(x, y, x + w, y + h);
+        }
+
+        static Rectangle FromLTRB(float l, float t, float r, float b)
+        {
+            return Rectangle(l, t, r, b);
+        }
+    };
+
     struct Extent
     {
         uint32_t Width = 0;
@@ -91,7 +304,7 @@ namespace Jangine::Gfx
         std::string ToString() const
         {
             return std::format(
-                "DisplayParameters(renderWidth: {}, renderHeight: {}, displayWidth: {}, displayHeight: {}, displayFormat: {}, verticalSync: {}, viewportWidth: {}, viewportHeight: {}, antialiasingMode: {}, clearColor: {})",
+                "render: {}x{}, display: {}x{} [{}], verticalSync: {}, viewport: {}x{}, antialiasing: {}",
                 renderWidth,
                 renderHeight,
                 displayWidth,
@@ -100,8 +313,7 @@ namespace Jangine::Gfx
                 verticalSync ? "true" : "false",
                 viewportWidth,
                 viewportHeight,
-                antialiasingMode,
-                clearColor.ToHexString());
+                antialiasingMode);
         }
 
         bool_t RenderSizeChanged(const DisplayParameters &other) const
@@ -144,6 +356,7 @@ namespace Jangine::Gfx
     class PixelBuffer
     {
         friend class Core;
+        friend class Core2D;
 
     private:
         PixelBuffer(
@@ -166,23 +379,17 @@ namespace Jangine::Gfx
               vulkanImageView(vulkanImageView),
               vulkanAllocation(vulkanAllocation) {}
 
-    public:
         PixelBuffer(const PixelBuffer &) = delete;
         PixelBuffer &operator=(const PixelBuffer &) = delete;
         PixelBuffer(PixelBuffer &&) = delete;
         PixelBuffer &operator=(PixelBuffer &&) = delete;
 
-        uint32_t GetWidth() const { return width; }
-        uint32_t GetHeight() const { return height; }
-        Format GetFormat() const { return format; }
-        PixelBufferUsage GetUsage() const { return usage; }
-        Aspect GetAspect() const { return aspect; }
-        Samples GetSamples() const { return samples; }
-
-    private:
+    public:
         const uint32_t width;
         const uint32_t height;
         const Format format;
+
+    private:
         const PixelBufferUsage usage;
         const Aspect aspect;
         const Samples samples;
@@ -190,6 +397,33 @@ namespace Jangine::Gfx
         const VkImage vulkanImage;
         const VkImageView vulkanImageView;
 
+        const VmaAllocation vulkanAllocation;
+    };
+
+    class MemoryBuffer
+    {
+        friend class Core;
+        friend class Core2D;
+
+    private:
+        MemoryBuffer(
+            uint32_t size,
+            VkBuffer vulkanBuffer,
+            VmaAllocation vulkanAllocation)
+            : size(size),
+              vulkanBuffer(vulkanBuffer),
+              vulkanAllocation(vulkanAllocation) {}
+
+        MemoryBuffer(const MemoryBuffer &) = delete;
+        MemoryBuffer &operator=(const MemoryBuffer &) = delete;
+        MemoryBuffer(MemoryBuffer &&) = delete;
+        MemoryBuffer &operator=(MemoryBuffer &&) = delete;
+
+    public:
+        const uint32_t size;
+
+    private:
+        const VkBuffer vulkanBuffer;
         const VmaAllocation vulkanAllocation;
     };
 }

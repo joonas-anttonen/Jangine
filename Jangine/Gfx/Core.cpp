@@ -233,6 +233,87 @@ namespace Jangine::Gfx
         }
     }
 
+    std::string GetMemoryPropertyFlagsString(VkMemoryPropertyFlags flags)
+    {
+        if (flags == 0)
+            return "None";
+
+        std::string result;
+
+        if (flags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
+            result += "DeviceLocal | ";
+        if (flags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT)
+            result += "HostVisible | ";
+        if (flags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT)
+            result += "HostCoherent | ";
+        if (flags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT)
+            result += "HostCached | ";
+        if (flags & VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT)
+            result += "LazilyAllocated | ";
+
+        if (!result.empty())
+            result.erase(result.size() - 3); // Remove trailing " | "
+
+        return result;
+    }
+
+    std::string GetMemoryUsageString(MemoryUsage usage)
+    {
+        if (usage == MemoryUsage::None)
+            return "None";
+
+        std::string result;
+
+        if ((usage & MemoryUsage::TransferSrc) == MemoryUsage::TransferSrc)
+            result += "TransferSrc | ";
+        if ((usage & MemoryUsage::TransferDst) == MemoryUsage::TransferDst)
+            result += "TransferDst | ";
+        if ((usage & MemoryUsage::UniformTexel) == MemoryUsage::UniformTexel)
+            result += "UniformTexel | ";
+        if ((usage & MemoryUsage::StorageTexel) == MemoryUsage::StorageTexel)
+            result += "StorageTexel | ";
+        if ((usage & MemoryUsage::Uniform) == MemoryUsage::Uniform)
+            result += "Uniform | ";
+        if ((usage & MemoryUsage::Storage) == MemoryUsage::Storage)
+            result += "Storage | ";
+        if ((usage & MemoryUsage::Index) == MemoryUsage::Index)
+            result += "Index | ";
+        if ((usage & MemoryUsage::Vertex) == MemoryUsage::Vertex)
+            result += "Vertex | ";
+        if ((usage & MemoryUsage::Indirect) == MemoryUsage::Indirect)
+            result += "Indirect | ";
+
+        if (!result.empty())
+            result.erase(result.size() - 3); // Remove trailing " | "
+
+        return result;
+    }
+
+    std::string GetPixelBufferUsageString(PixelBufferUsage usage)
+    {
+        std::string result;
+
+        if ((usage & PixelBufferUsage::TransferSrc) == PixelBufferUsage::TransferSrc)
+            result += "TransferSrc | ";
+        if ((usage & PixelBufferUsage::TransferDst) == PixelBufferUsage::TransferDst)
+            result += "TransferDst | ";
+        if ((usage & PixelBufferUsage::Sampled) == PixelBufferUsage::Sampled)
+            result += "Sampled | ";
+        if ((usage & PixelBufferUsage::Storage) == PixelBufferUsage::Storage)
+            result += "Storage | ";
+        if ((usage & PixelBufferUsage::ColorAttachment) == PixelBufferUsage::ColorAttachment)
+            result += "ColorAttachment | ";
+        if ((usage & PixelBufferUsage::DepthAttachment) == PixelBufferUsage::DepthAttachment)
+            result += "DepthAttachment | ";
+        if ((usage & PixelBufferUsage::InputAttachment) == PixelBufferUsage::InputAttachment)
+            result += "InputAttachment | ";
+
+        if (!result.empty())
+            result.erase(result.size() - 3); // Remove trailing " | "
+
+        return result;
+    }
+
     VkDescriptorSetLayout Core::CreateDescriptorLayout(const std::vector<PipelineParameters::DescriptorBinding> &bindings)
     {
         ThrowInvalidOperationIf(bindings.empty());
@@ -291,6 +372,363 @@ namespace Jangine::Gfx
         ThrowVulkanIfFailed(vkCreatePipelineLayout(vulkanDevice, &pipelineLayoutCreateInfo, nullptr, &pPipelineLayout));
 
         return pPipelineLayout;
+    }
+
+    Core::SingleCommand Core::BeginSingleCommand()
+    {
+        VkCommandBufferAllocateInfo commandBufferAllocateInfo{
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .pNext = nullptr,
+            .commandPool = vulkanCommandPool,
+            .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1};
+
+        VkCommandBuffer commandBuffer = VK_NULL_HANDLE;
+        ThrowVulkanIfFailed(vkAllocateCommandBuffers(vulkanDevice, &commandBufferAllocateInfo, &commandBuffer));
+
+        VkCommandBufferBeginInfo commandBufferBeginInfo{
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pNext = nullptr,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pInheritanceInfo = nullptr};
+
+        ThrowVulkanIfFailed(vkBeginCommandBuffer(commandBuffer, &commandBufferBeginInfo));
+
+        VkFenceCreateInfo fenceCreateInfo{
+            .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0};
+        VkFence fence = VK_NULL_HANDLE;
+        ThrowVulkanIfFailed(vkCreateFence(vulkanDevice, &fenceCreateInfo, nullptr, &fence));
+
+        return SingleCommand{CommandBuffer(commandBuffer), fence};
+    }
+
+    void Core::SubmitSingleCommand(const SingleCommand &singleCommand)
+    {
+        ThrowVulkanIfFailed(vkEndCommandBuffer(singleCommand.commandBuffer.vulkanHandle));
+
+        VkSubmitInfo submitInfo{
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext = nullptr,
+            .waitSemaphoreCount = 0,
+            .pWaitSemaphores = nullptr,
+            .pWaitDstStageMask = nullptr,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &singleCommand.commandBuffer.vulkanHandle,
+            .signalSemaphoreCount = 0,
+            .pSignalSemaphores = nullptr};
+
+        // Synchronize access to the device queue
+        std::scoped_lock lock(vulkanQueueLock);
+        ThrowVulkanIfFailed(vkQueueSubmit(vulkanQueue, 1, &submitInfo, singleCommand.fence));
+    }
+
+    void Core::EndSingleCommand(const SingleCommand &singleCommand)
+    {
+        ThrowVulkanIfFailed(vkWaitForFences(vulkanDevice, 1, &singleCommand.fence, VK_TRUE, UINT64_MAX));
+        vkFreeCommandBuffers(vulkanDevice, vulkanCommandPool, 1, &singleCommand.commandBuffer.vulkanHandle);
+        vkDestroyFence(vulkanDevice, singleCommand.fence, nullptr);
+    }
+
+    void Core::WritePixelBuffer(PixelBuffer *pixelBuffer, std::span<const uint8_t> data, ImageLayout srcLayout, ImageLayout dstLayout)
+    {
+        Handle<MemoryBuffer> stagingBuffer = CreateMemoryBuffer(
+            static_cast<uint32_t>(data.size()),
+            MemoryUsage::TransferSrc,
+            MemoryAccess::Write);
+
+        WriteMemoryBuffer(stagingBuffer.get(), data);
+
+        SingleCommand stagingCommand = BeginSingleCommand();
+
+        PixelBufferBarrier(
+            stagingCommand.commandBuffer,
+            pixelBuffer,
+            srcLayout,
+            ImageLayout::TRANSFER_DST_OPTIMAL);
+
+        VkBufferImageCopy bufferImageCopy = {
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource = {
+                .aspectMask = static_cast<VkImageAspectFlags>(pixelBuffer->aspect),
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {pixelBuffer->width, pixelBuffer->height, 1},
+        };
+
+        vkCmdCopyBufferToImage(
+            stagingCommand.commandBuffer.vulkanHandle,
+            stagingBuffer->vulkanBuffer,
+            pixelBuffer->vulkanImage,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &bufferImageCopy);
+
+        PixelBufferBarrier(
+            CommandBuffer(stagingCommand.commandBuffer),
+            pixelBuffer,
+            ImageLayout::TRANSFER_DST_OPTIMAL,
+            dstLayout);
+
+        SubmitSingleCommand(stagingCommand);
+        EndSingleCommand(stagingCommand);
+    }
+
+    Handle<PixelBuffer> Core::CreatePixelBuffer(std::span<const uint8_t> data, uint32_t width, uint32_t height, Format format, PixelBufferUsage usage, Aspect aspect, Samples samples)
+    {
+        Handle<PixelBuffer> pixelBuffer = CreatePixelBuffer(
+            width,
+            height,
+            format,
+            usage | PixelBufferUsage::TransferDst,
+            aspect,
+            samples);
+
+        WritePixelBuffer(pixelBuffer.get(), data, ImageLayout::UNDEFINED, ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+
+        return pixelBuffer;
+    }
+
+    Handle<PixelBuffer> Core::CreatePixelBuffer(uint32_t width, uint32_t height, Format format, PixelBufferUsage usage, Aspect aspect, Samples samples)
+    {
+        VkImageCreateInfo imageCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .imageType = VK_IMAGE_TYPE_2D,
+            .format = static_cast<VkFormat>(format),
+            .extent = {width, height, 1},
+            .mipLevels = 1,
+            .arrayLayers = 1,
+            .samples = static_cast<VkSampleCountFlagBits>(samples),
+            .tiling = VK_IMAGE_TILING_OPTIMAL,
+            .usage = static_cast<VkImageUsageFlags>(usage),
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = nullptr,
+            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+
+        VmaAllocationCreateInfo allocationCreateInfo = {};
+        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+
+        VkImage image;
+        VmaAllocation allocation;
+        VmaAllocationInfo allocationInfo;
+        ThrowVulkanIfFailed(vmaCreateImage(vulkanMemoryAllocator, &imageCreateInfo, &allocationCreateInfo, &image, &allocation, &allocationInfo));
+
+        VkImageViewCreateInfo imageViewCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .image = image,
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = static_cast<VkFormat>(format),
+            .components = {
+                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
+                .a = VK_COMPONENT_SWIZZLE_IDENTITY},
+            .subresourceRange = {.aspectMask = static_cast<VkImageAspectFlags>(aspect), .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}};
+
+        VkImageView view;
+        ThrowVulkanIfFailed(vkCreateImageView(vulkanDevice, &imageViewCreateInfo, nullptr, &view));
+
+        auto pixelBuffer = Handle<PixelBuffer>(
+            new PixelBuffer(width, height, format, usage, aspect, samples, image, view, allocation),
+            std::ref(*this));
+
+        VkMemoryPropertyFlags memoryProperties;
+        vmaGetMemoryTypeProperties(vulkanMemoryAllocator, allocationInfo.memoryType, &memoryProperties);
+        logger.Debug(std::format("[{}] [{}] [{}]", GetPixelBufferUsageString(usage), SizeToStringIEC(allocationInfo.size), GetMemoryPropertyFlagsString(memoryProperties)), __func__);
+
+        return pixelBuffer;
+    }
+
+    void Core::DestroyPixelBuffer(PixelBuffer *pixelBuffer)
+    {
+        if (!pixelBuffer)
+        {
+            return;
+        }
+
+        logger.Func(__func__);
+
+        if (renderingThreadId != std::this_thread::get_id())
+        {
+            logger.Warning("Destroying pixel buffer from a different thread", __func__);
+        }
+
+        {
+            std::scoped_lock lock(vulkanQueueLock);
+            vkDeviceWaitIdle(vulkanDevice);
+
+            if (pixelBuffer->vulkanImageView)
+            {
+                vkDestroyImageView(vulkanDevice, pixelBuffer->vulkanImageView, nullptr);
+            }
+            if (pixelBuffer->vulkanAllocation)
+            {
+                vmaDestroyImage(vulkanMemoryAllocator, pixelBuffer->vulkanImage, pixelBuffer->vulkanAllocation);
+            }
+
+            delete pixelBuffer;
+        }
+    }
+
+    void Core::WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const uint8_t> data)
+    {
+        ThrowInvalidOperationIfNull(memoryBuffer);
+
+        if (data.empty())
+        {
+            logger.Warning("Attempted to write an empty span to memory buffer", __func__);
+            return;
+        }
+
+        ThrowInvalidOperationIf(data.size() > memoryBuffer->size, "Data size exceeds buffer size.");
+
+        void *pDst = nullptr;
+        ThrowVulkanIfFailed(vmaMapMemory(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation, &pDst));
+
+        memcpy(pDst, data.data(), data.size());
+
+        vmaUnmapMemory(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation);
+        ThrowVulkanIfFailed(vmaFlushAllocation(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation, 0, data.size()));
+    }
+
+    Handle<MemoryBuffer> Core::CreateMemoryBuffer(uint32_t size, MemoryUsage usage, MemoryAccess access)
+    {
+        VkBufferCreateInfo bufferCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .size = size,
+            .usage = static_cast<VkBufferUsageFlags>(usage),
+            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = nullptr};
+
+        VmaAllocationCreateInfo allocationCreateInfo = {
+            .flags = 0,
+            .usage = VMA_MEMORY_USAGE_AUTO,
+            .requiredFlags = 0,
+            .preferredFlags = 0,
+            .memoryTypeBits = 0,
+            .pool = nullptr,
+            .pUserData = nullptr,
+            .priority = 0.0f};
+
+        if ((access & MemoryAccess::Write) == MemoryAccess::Write)
+        {
+            allocationCreateInfo.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        }
+        if ((access & MemoryAccess::Read) == MemoryAccess::Read)
+        {
+            allocationCreateInfo.flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        }
+
+        VkBuffer buffer = VK_NULL_HANDLE;
+        VmaAllocation allocation = nullptr;
+        VmaAllocationInfo allocationInfo = {};
+        ThrowVulkanIfFailed(
+            vmaCreateBuffer(vulkanMemoryAllocator, &bufferCreateInfo, &allocationCreateInfo, &buffer, &allocation, &allocationInfo));
+
+        auto memoryBuffer = Handle<MemoryBuffer>(
+            new MemoryBuffer(size, buffer, allocation),
+            std::ref(*this));
+
+        VkMemoryPropertyFlags memoryProperties = 0;
+        vmaGetMemoryTypeProperties(vulkanMemoryAllocator, allocationInfo.memoryType, &memoryProperties);
+        logger.Debug(std::format("[{}] [{}] [{}]", GetMemoryUsageString(usage), SizeToStringIEC(allocationInfo.size), GetMemoryPropertyFlagsString(memoryProperties)), __func__);
+        return memoryBuffer;
+    }
+
+    void Core::DestroyMemoryBuffer(MemoryBuffer *memoryBuffer)
+    {
+        if (!memoryBuffer)
+        {
+            return;
+        }
+
+        logger.Func(__func__);
+
+        if (renderingThreadId != std::this_thread::get_id())
+        {
+            logger.Warning("Destroying memory buffer from a different thread", __func__);
+        }
+
+        {
+            std::scoped_lock lock(vulkanQueueLock);
+            vkDeviceWaitIdle(vulkanDevice);
+
+            if (memoryBuffer->vulkanBuffer)
+            {
+                vmaDestroyBuffer(vulkanMemoryAllocator, memoryBuffer->vulkanBuffer, memoryBuffer->vulkanAllocation);
+            }
+
+            delete memoryBuffer;
+        }
+    }
+
+    Handle<PixelSampler> Core::CreatePixelSampler(const PixelSamplerParameters &parameters)
+    {
+        logger.Func(__func__);
+
+        VkSamplerCreateInfo samplerCreateInfo = {
+            .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+            .magFilter = static_cast<VkFilter>(parameters.magFilter),
+            .minFilter = static_cast<VkFilter>(parameters.minFilter),
+            .mipmapMode = static_cast<VkSamplerMipmapMode>(parameters.mipmapMode),
+            .addressModeU = static_cast<VkSamplerAddressMode>(parameters.addressModeU),
+            .addressModeV = static_cast<VkSamplerAddressMode>(parameters.addressModeV),
+            .addressModeW = static_cast<VkSamplerAddressMode>(parameters.addressModeW),
+            .mipLodBias = 0.0f,
+            .anisotropyEnable = parameters.anisotropyEnable ? VK_TRUE : VK_FALSE,
+            .maxAnisotropy = parameters.maxAnisotropy,
+            .compareEnable = VK_FALSE,
+            .compareOp = VK_COMPARE_OP_NEVER,
+            .minLod = 0.0f,
+            .maxLod = 0.0f,
+            .borderColor = static_cast<VkBorderColor>(parameters.borderColor),
+            .unnormalizedCoordinates = VK_FALSE};
+
+        VkSampler sampler;
+        ThrowVulkanIfFailed(vkCreateSampler(vulkanDevice, &samplerCreateInfo, nullptr, &sampler));
+
+        return Handle<PixelSampler>(new PixelSampler(sampler), std::ref(*this));
+    }
+
+    void Core::DestroyPixelSampler(PixelSampler *pixelSampler)
+    {
+        if (!pixelSampler)
+        {
+            return;
+        }
+
+        logger.Func(__func__);
+
+        if (renderingThreadId != std::this_thread::get_id())
+        {
+            logger.Warning("Destroying pixel sampler from a different thread", __func__);
+        }
+
+        {
+            std::scoped_lock lock(vulkanQueueLock);
+            vkDeviceWaitIdle(vulkanDevice);
+
+            if (pixelSampler->vulkanHandle)
+            {
+                vkDestroySampler(vulkanDevice, pixelSampler->vulkanHandle, nullptr);
+            }
+
+            delete pixelSampler;
+        }
     }
 
     Handle<Pipeline> Core::CreatePipeline(const PipelineParameters &parameters)
@@ -469,9 +907,19 @@ namespace Jangine::Gfx
 
         logger.Func(__func__);
 
-        vkDestroyPipeline(vulkanDevice, pipeline->vulkanHandle, nullptr);
-        vkDestroyPipelineLayout(vulkanDevice, pipeline->vulkanLayout, nullptr);
-        vkDestroyDescriptorSetLayout(vulkanDevice, pipeline->vulkanDescriptorSetLayout, nullptr);
+        if (renderingThreadId != std::this_thread::get_id())
+        {
+            logger.Warning("Destroying pipeline from a different thread", __func__);
+        }
+
+        {
+            std::scoped_lock lock(vulkanQueueLock);
+            vkDeviceWaitIdle(vulkanDevice);
+
+            vkDestroyPipeline(vulkanDevice, pipeline->vulkanHandle, nullptr);
+            vkDestroyPipelineLayout(vulkanDevice, pipeline->vulkanLayout, nullptr);
+            vkDestroyDescriptorSetLayout(vulkanDevice, pipeline->vulkanDescriptorSetLayout, nullptr);
+        }
     }
 
     std::vector<PhysicalDevice> Core::GetPhysicalDevices() const
@@ -694,6 +1142,22 @@ namespace Jangine::Gfx
         CreateMemoryAllocator();
     }
 
+    void Core::PushDescriptorSets(CommandBuffer commandBuffer, Pipeline *pipeline, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *descriptorWrites)
+    {
+        static PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR = nullptr;
+
+        if (!vkCmdPushDescriptorSetKHR)
+        {
+            vkCmdPushDescriptorSetKHR = reinterpret_cast<PFN_vkCmdPushDescriptorSetKHR>(
+                vkGetDeviceProcAddr(vulkanDevice, "vkCmdPushDescriptorSetKHR"));
+        }
+
+        if (vkCmdPushDescriptorSetKHR)
+        {
+            vkCmdPushDescriptorSetKHR(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vulkanLayout, 0, descriptorWriteCount, descriptorWrites);
+        }
+    }
+
     void Core::ResolveDeviceSampleCount()
     {
         ThrowInvalidOperationIf(!vulkanPhysicalDevice);
@@ -804,8 +1268,7 @@ namespace Jangine::Gfx
                 {
                     self->vulkanMemoryAllocatorAllocatedBytes -= size;
                 } },
-            .pUserData = this // Pass this as user data
-        };
+            .pUserData = this};
 
         VmaAllocatorCreateInfo allocatorInfo = {};
         allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_4;
@@ -819,80 +1282,158 @@ namespace Jangine::Gfx
         this->vulkanMemoryAllocator = allocator;
     }
 
-    Handle<PixelBuffer> Core::CreatePixelBuffer(uint32_t width, uint32_t height, Format format, PixelBufferUsage usage, Aspect aspect, Samples samples)
+    void Core::FullBarrier(CommandBuffer commandBuffer)
     {
-        logger.Func(__func__);
+        VkMemoryBarrier2 memoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .srcAccessMask = VK_ACCESS_2_NONE,
+            .dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT,
+            .dstAccessMask = VK_ACCESS_2_NONE};
 
-        VkImageCreateInfo imageCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        VkDependencyInfo dependencyInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
             .pNext = nullptr,
-            .flags = 0,
-            .imageType = VK_IMAGE_TYPE_2D,
-            .format = static_cast<VkFormat>(format),
-            .extent = {width, height, 1},
-            .mipLevels = 1,
-            .arrayLayers = 1,
-            .samples = static_cast<VkSampleCountFlagBits>(samples),
-            .tiling = VK_IMAGE_TILING_OPTIMAL,
-            .usage = static_cast<VkImageUsageFlags>(usage),
-            .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-            .queueFamilyIndexCount = 0,
-            .pQueueFamilyIndices = nullptr,
-            .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+            .dependencyFlags = 0,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &memoryBarrier};
 
-        VmaAllocationCreateInfo allocationCreateInfo = {};
-        allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-
-        VkImage image;
-        VmaAllocation allocation;
-        VmaAllocationInfo allocationInfo;
-        ThrowVulkanIfFailed(vmaCreateImage(vulkanMemoryAllocator, &imageCreateInfo, &allocationCreateInfo, &image, &allocation, &allocationInfo));
-
-        VkMemoryPropertyFlags memoryProperties;
-        vmaGetMemoryTypeProperties(vulkanMemoryAllocator, allocationInfo.memoryType, &memoryProperties);
-
-        VkImageViewCreateInfo imageViewCreateInfo = {
-            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .image = image,
-            .viewType = VK_IMAGE_VIEW_TYPE_2D,
-            .format = static_cast<VkFormat>(format),
-            .components = {
-                .r = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .g = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .b = VK_COMPONENT_SWIZZLE_IDENTITY,
-                .a = VK_COMPONENT_SWIZZLE_IDENTITY},
-            .subresourceRange = {.aspectMask = static_cast<VkImageAspectFlags>(aspect), .baseMipLevel = 0, .levelCount = 1, .baseArrayLayer = 0, .layerCount = 1}};
-
-        VkImageView view;
-        ThrowVulkanIfFailed(vkCreateImageView(vulkanDevice, &imageViewCreateInfo, nullptr, &view));
-
-        auto pixelBuffer = Handle<PixelBuffer>(
-            new PixelBuffer(width, height, format, usage, aspect, samples, image, view, allocation),
-            std::ref(*this));
-        return pixelBuffer;
+        vkCmdPipelineBarrier2(commandBuffer.vulkanHandle, &dependencyInfo);
     }
 
-    void Core::DestroyPixelBuffer(PixelBuffer *pixelBuffer)
+    static VkAccessFlagBits2 GetAccessFlags(ImageLayout layout)
     {
-        if (!pixelBuffer)
+        switch (layout)
         {
-            return;
+        case ImageLayout::UNDEFINED:
+        case ImageLayout::PRESENT_SRC_KHR:
+            return 0;
+        case ImageLayout::PREINITIALIZED:
+            return VK_ACCESS_2_HOST_WRITE_BIT;
+        case ImageLayout::COLOR_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
+        case ImageLayout::DEPTH_ATTACHMENT_OPTIMAL:
+            return VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        case ImageLayout::SHADER_READ_ONLY_OPTIMAL:
+            return VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT;
+        case ImageLayout::TRANSFER_SRC_OPTIMAL:
+            return VK_ACCESS_2_TRANSFER_READ_BIT;
+        case ImageLayout::TRANSFER_DST_OPTIMAL:
+            return VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        default:
+            ThrowInvalidOperationIf(true);
+            return 0;
         }
+    }
 
-        logger.Func(__func__);
-
-        if (pixelBuffer->vulkanImageView)
+    static VkPipelineStageFlags2 GetPipelineStageFlags(ImageLayout layout)
+    {
+        switch (layout)
         {
-            vkDestroyImageView(vulkanDevice, pixelBuffer->vulkanImageView, nullptr);
+        case ImageLayout::UNDEFINED:
+            return VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT;
+        case ImageLayout::PREINITIALIZED:
+            return VK_PIPELINE_STAGE_2_HOST_BIT;
+        case ImageLayout::TRANSFER_DST_OPTIMAL:
+        case ImageLayout::TRANSFER_SRC_OPTIMAL:
+            return VK_PIPELINE_STAGE_2_ALL_TRANSFER_BIT;
+        case ImageLayout::COLOR_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
+        case ImageLayout::DEPTH_ATTACHMENT_OPTIMAL:
+            return VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+        case ImageLayout::SHADER_READ_ONLY_OPTIMAL:
+            return VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
+        case ImageLayout::PRESENT_SRC_KHR:
+            return VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+        default:
+            ThrowInvalidOperationIf(true);
+            return 0;
         }
-        if (pixelBuffer->vulkanAllocation)
-        {
-            vmaDestroyImage(vulkanMemoryAllocator, pixelBuffer->vulkanImage, pixelBuffer->vulkanAllocation);
-        }
+    }
 
-        delete pixelBuffer;
+    void Core::PixelBufferBarrier(CommandBuffer commandBuffer, Presenter::Image &pixelBuffer, ImageLayout srcLayout, ImageLayout dstLayout)
+    {
+        VkImageMemoryBarrier2 imageMemoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .pNext = nullptr,
+            .srcStageMask = GetPipelineStageFlags(srcLayout),
+            .srcAccessMask = GetAccessFlags(srcLayout),
+            .dstStageMask = GetPipelineStageFlags(dstLayout),
+            .dstAccessMask = GetAccessFlags(dstLayout),
+            .oldLayout = static_cast<VkImageLayout>(srcLayout),
+            .newLayout = static_cast<VkImageLayout>(dstLayout),
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = pixelBuffer.vulkanImage,
+            .subresourceRange = {
+                .aspectMask = static_cast<VkImageAspectFlags>(Aspect::Color),
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1}};
+
+        VkDependencyInfo dependencyInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .pNext = nullptr,
+            .dependencyFlags = 0,
+            .memoryBarrierCount = 0,
+            .pMemoryBarriers = nullptr,
+            .bufferMemoryBarrierCount = 0,
+            .pBufferMemoryBarriers = nullptr,
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &imageMemoryBarrier};
+
+        vkCmdPipelineBarrier2(commandBuffer.vulkanHandle, &dependencyInfo);
+    }
+
+    void Core::PixelBufferBarrier(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, ImageLayout srcLayout, ImageLayout dstLayout)
+    {
+        VkImageMemoryBarrier2 imageMemoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+            .pNext = nullptr,
+            .srcStageMask = GetPipelineStageFlags(srcLayout),
+            .srcAccessMask = GetAccessFlags(srcLayout),
+            .dstStageMask = GetPipelineStageFlags(dstLayout),
+            .dstAccessMask = GetAccessFlags(dstLayout),
+            .oldLayout = static_cast<VkImageLayout>(srcLayout),
+            .newLayout = static_cast<VkImageLayout>(dstLayout),
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = pixelBuffer->vulkanImage,
+            .subresourceRange = {
+                .aspectMask = static_cast<VkImageAspectFlags>(pixelBuffer->aspect),
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1}};
+
+        VkDependencyInfo dependencyInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .pNext = nullptr,
+            .dependencyFlags = 0,
+            .memoryBarrierCount = 0,
+            .pMemoryBarriers = nullptr,
+            .bufferMemoryBarrierCount = 0,
+            .pBufferMemoryBarriers = nullptr,
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &imageMemoryBarrier};
+
+        vkCmdPipelineBarrier2(commandBuffer.vulkanHandle, &dependencyInfo);
+    }
+
+    void Core::ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, Color clearColor)
+    {
+        VkClearColorValue clearColorValue = {
+            .float32 = {clearColor.r, clearColor.g, clearColor.b, clearColor.a}};
+
+        VkImageSubresourceRange subresourceRange = {
+            .aspectMask = static_cast<VkImageAspectFlags>(pixelBuffer->aspect),
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1};
+
+        vkCmdClearColorImage(commandBuffer.vulkanHandle, pixelBuffer->vulkanImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColorValue, 1, &subresourceRange);
     }
 
     void Core::CreateInstance(const ApiParameters &params)

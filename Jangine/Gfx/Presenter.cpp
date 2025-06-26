@@ -54,7 +54,7 @@ namespace Jangine::Gfx
         barrier.newLayout = dstLayout;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = image.image;
+        barrier.image = image.vulkanImage;
         barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         barrier.subresourceRange.baseMipLevel = 0;
         barrier.subresourceRange.levelCount = 1;
@@ -134,14 +134,12 @@ namespace Jangine::Gfx
 
     bool_t Presenter::BeginFrame()
     {
+        ThrowInvalidOperationIf(frameInProgress);
+
         uint32_t result = AcquireNextImage();
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         {
-            if (!InitializeSwapchain())
-            {
-                logger.Error("Failed to initialize swapchain.");
-                return false;
-            }
+            InitializeSwapchain();
             result = AcquireNextImage();
         }
         if (result != VK_SUCCESS)
@@ -152,7 +150,7 @@ namespace Jangine::Gfx
         }
 
         auto &frame = perFrameResources[currentFrameIndex];
-        if (!frame.outputImage.image)
+        if (!frame.outputImage.vulkanImage)
             throw std::runtime_error("Output image is null!");
 
         VkCommandBufferBeginInfo beginInfo{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
@@ -170,10 +168,10 @@ namespace Jangine::Gfx
 
         // Clear the output image
         VkClearColorValue clearColor = {
-            displayParameters.clearColor.R,
-            displayParameters.clearColor.G,
-            displayParameters.clearColor.B,
-            displayParameters.clearColor.A};
+            displayParameters.clearColor.r,
+            displayParameters.clearColor.g,
+            displayParameters.clearColor.b,
+            displayParameters.clearColor.a};
         VkImageSubresourceRange subresourceRange = {
             .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
             .baseMipLevel = 0,
@@ -182,19 +180,22 @@ namespace Jangine::Gfx
             .layerCount = 1};
         vkCmdClearColorImage(
             commandBuffer,
-            frame.outputImage.image,
+            frame.outputImage.vulkanImage,
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             &clearColor,
             1,
             &subresourceRange);
 
+        frameInProgress = true;
         return true;
     }
 
     void Presenter::EndFrame()
     {
+        ThrowInvalidOperationIfNot(frameInProgress);
+
         auto &frame = perFrameResources[currentFrameIndex];
-        if (!frame.outputImage.image)
+        if (!frame.outputImage.vulkanImage)
             throw std::runtime_error("Output image is null!");
 
         uint32_t localCurrentFrameIndex = currentFrameIndex;
@@ -234,12 +235,15 @@ namespace Jangine::Gfx
         VkResult result = vkQueuePresentKHR(vulkanQueue, &presentInfo);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         {
+            logger.Warning("vkQueuePresentKHR returned VK_ERROR_OUT_OF_DATE_KHR or VK_SUBOPTIMAL_KHR, reinitializing swapchain.");
             InitializeSwapchain();
         }
         else if (result != VK_SUCCESS)
         {
             ThrowVulkanIfFailed(result, "vkQueuePresentKHR failed");
         }
+
+        frameInProgress = false;
     }
 
     void Presenter::ReleaseSwapChainIfAny()
@@ -267,9 +271,9 @@ namespace Jangine::Gfx
             {
                 vkDestroyFence(vulkanDevice, frame.submitFence, nullptr);
             }
-            if (frame.outputImage.imageView)
+            if (frame.outputImage.vulkanImageView)
             {
-                vkDestroyImageView(vulkanDevice, frame.outputImage.imageView, nullptr);
+                vkDestroyImageView(vulkanDevice, frame.outputImage.vulkanImageView, nullptr);
             }
             if (frame.commandBuffer)
             {
@@ -364,7 +368,7 @@ namespace Jangine::Gfx
         return VK_SUCCESS;
     }
 
-    bool_t Presenter::InitializeSwapchain()
+    void Presenter::InitializeSwapchain()
     {
         vkDeviceWaitIdle(vulkanDevice);
 
@@ -390,7 +394,7 @@ namespace Jangine::Gfx
         else
         {
             ReleaseSwapChainIfAny();
-            return false;
+            return;
         }
 
         uint32_t surfaceFormatCount = 0;
@@ -535,10 +539,10 @@ namespace Jangine::Gfx
                 .submitFence = submitFence,
                 .submitSemaphore = submitSemaphore,
                 .outputImage = {
-                    .image = swapChainImages[i],
-                    .imageView = imageView}};
+                    .width = swapChainExtent.width,
+                    .height = swapChainExtent.height,
+                    .vulkanImage = swapChainImages[i],
+                    .vulkanImageView = imageView}};
         }
-
-        return true;
     }
 }

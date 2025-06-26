@@ -27,6 +27,7 @@
 #include <memory>
 #include <functional>
 #include <array>
+#include <chrono>
 
 typedef bool bool_t;
 typedef void void_t;
@@ -35,13 +36,80 @@ namespace Jangine::Gfx
 {
     class Core;
 
-    // Auto-destroying handle for Gfx objects
+    // Auto-destroying unique handle for Gfx objects
     template <typename T>
     using Handle = std::unique_ptr<T, std::reference_wrapper<Core>>;
+
+    // Auto-destroying shared handle for Gfx objects
+    template <typename T>
+    using SharedHandle = std::shared_ptr<T>;
+
+    // Weak handle for Gfx objects
+    template <typename T>
+    using WeakHandle = std::weak_ptr<T>;
+
+    template <typename T>
+    inline Handle<T> MakeUnique(T *ptr, Core &core)
+    {
+        return Handle<T>(ptr, std::ref(core));
+    }
+
+    template <typename T>
+    inline SharedHandle<T> PromoteToShared(Handle<T> &&uniqueHandle)
+    {
+        T *ptr = uniqueHandle.release();
+        // Create shared_ptr with the same deleter logic
+        return SharedHandle<T>(ptr, uniqueHandle.get_deleter());
+    }
+
+    template <typename T>
+    inline SharedHandle<T> MakeShared(T *ptr, Core &core)
+    {
+        return std::shared_ptr<T>(ptr, std::ref(core));
+    }
+
+    template <typename T>
+    inline WeakHandle<T> MakeWeak(SharedHandle<T> sharedHandle)
+    {
+        return WeakHandle<T>(sharedHandle);
+    }
 }
 
 namespace Jangine
 {
+    inline std::string DurationToSIString(std::chrono::microseconds duration)
+    {
+        if (duration.count() < 1000)
+        {
+            return std::to_string(duration.count()) + " us";
+        }
+        else if (duration.count() < 1000000)
+        {
+            return std::to_string(duration.count() / 1000.0) + " ms";
+        }
+        else
+        {
+            return std::to_string(duration.count() / 1000000.0) + " s";
+        }
+    }
+
+    inline std::string SizeToStringIEC(std::uintmax_t size)
+    {
+        const char *units[] = {"B", "KiB", "MiB", "GiB", "TiB"};
+        uint32_t unit_index = 0;
+        double_t size_in_units = static_cast<double_t>(size);
+
+        while (size_in_units >= 1024 && unit_index < 4)
+        {
+            size_in_units /= 1024;
+            ++unit_index;
+        }
+
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%.2f %s", size_in_units, units[unit_index]);
+        return std::string(buffer);
+    }
+
     struct Guid
     {
         std::array<uint8_t, 16> bytes{};
@@ -184,7 +252,7 @@ namespace Jangine
     }
 
     template <typename T>
-    T* ThrowInvalidOperationIfNull(T *ptr, const std::string &message = "Null pointer exception")
+    T *ThrowInvalidOperationIfNull(T *ptr, const std::string &message = "Null pointer exception")
     {
         if (ptr == nullptr)
         {

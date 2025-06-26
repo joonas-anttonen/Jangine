@@ -22,51 +22,11 @@ namespace Jangine
 
     void Core::Run(const Parameters &parameters)
     {
-        GetLogger("Core").Func(__func__);
+        log.SetThreadIdMapping("Main");
+        log.GetLogger("Core").Func(__func__);
 
         try
         {
-            std::filesystem::path testShaderPath = "J:/projects/Gossamer/Gossamer/Gfx/Shaders/built-in-2d-composition.hlsl";
-            if (!std::filesystem::exists(testShaderPath))
-            {
-                GetLogger("Core").Error("Test shader file does not exist: " + testShaderPath.string(), __func__);
-                std::abort();
-            }
-
-            std::string testShaderContents;
-            {
-                std::ifstream shaderFile(testShaderPath);
-                if (!shaderFile.is_open())
-                {
-                    GetLogger("Core").Error("Failed to open test shader file: " + testShaderPath.string(), __func__);
-                    std::abort();
-                }
-                testShaderContents.assign((std::istreambuf_iterator<char>(shaderFile)), std::istreambuf_iterator<char>());
-            }
-
-            Gfx::ShaderCompiler shaderCompiler;
-            auto program = shaderCompiler.Compile(testShaderContents, "built-in-2d-composition");
-            if (program.stages.empty())
-            {
-                GetLogger("Core").Error("Shader compilation failed: No stages found in the shader program.", __func__);
-                std::abort();
-            }
-            else
-            {
-                GetLogger("Core").Information("Shader compiled successfully with " + std::to_string(program.stages.size()) + " stages.", __func__);
-
-                for (const auto &stage : program.stages)
-                {
-                    GetLogger("Core").Information("Shader stage: " + stage.entryPoint + " (" + std::to_string(stage.bytecode.size()) + " bytes)", __func__);
-                }
-            }
-
-            Gfx::IO::ShaderPackage::SerializeToHeader(
-                {{"built-in-2d-composition", program}},
-                "c:/users/jant/downloads/built-in-shaders.hpp",
-                "built_in_shaders",
-                "Jangine::Gfx");
-
             Gfx::ApiParameters gfxApiParameters = {
                 .enableDebugging = parameters.enableDebugging,
                 .appVersion = parameters.appVersion,
@@ -77,7 +37,7 @@ namespace Jangine
             Gfx::Core gfx(gfxApiParameters);
 
             Gfx::Parameters gfxParameters = {
-                .physicalDevice = gfx.SelectOptimalPhysicalDevice(gfx.GetPhysicalDevices())};
+                .physicalDevice = gfx.SelectOptimalDevice(gfx.GetPhysicalDevices())};
             gfx.Create(gfxParameters);
 
             Gui::ApiParameters guiApiParameters = {
@@ -143,6 +103,24 @@ namespace Jangine
         }
     }
 
+    void Core::GuiThreadWakeUp()
+    {
+        Gui::Core::WakeUp();
+    }
+
+    void Core::GuiThread(Gui::Core &gui)
+    {
+        while (gui.ProcessEvents())
+        {
+            ProcessMainThreadQueue(gui);
+
+            gui.Render(0, 0);
+
+            // Sleep for a short duration to avoid busy-waiting
+            gui.WaitForEvents(10);
+        }
+    }
+
     void Core::ProcessGfxThreadQueue(Gfx::Core &gfx)
     {
         (void)gfx; // Avoid unused parameter warning
@@ -160,37 +138,17 @@ namespace Jangine
         }
     }
 
-    void Core::GuiThreadWakeUp()
-    {
-        Gui::Core::WakeUp();
-    }
-
-    void Core::GuiThread(Gui::Core &gui)
-    {
-        while (gui.ProcessEvents())
-        {
-            ProcessMainThreadQueue(gui);
-
-            // Sleep for a short duration to avoid busy-waiting
-            gui.WaitForEvents(10);
-        }
-    }
-
     void Core::GfxThread(Gfx::Core &gfx)
     {
         try
         {
+            log.SetThreadIdMapping("Gfx");
+            gfx.SetThreadId(std::this_thread::get_id());
+
             while (!gfxThreadExitRequested.load(std::memory_order_relaxed))
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 ProcessGfxThreadQueue(gfx);
-
-                /*GetLogger("Core").Debug("On the graphics thread");
-
-                auto future = this->PostToMainThread([]
-                                                     { GetLogger("Core").Debug("On the main thread"); });
-
-                future.wait_for(std::chrono::milliseconds(100));*/
 
                 gfx.Render(0.0, 0.0);
             }

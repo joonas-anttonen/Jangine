@@ -4,6 +4,86 @@
 
 namespace Jangine::Gfx
 {
+    enum class ImageLayout : uint32_t
+    {
+        UNDEFINED = 0,
+        GENERAL = 1,
+        COLOR_ATTACHMENT_OPTIMAL = 2,
+        DEPTH_STENCIL_ATTACHMENT_OPTIMAL = 3,
+        DEPTH_STENCIL_READ_ONLY_OPTIMAL = 4,
+        SHADER_READ_ONLY_OPTIMAL = 5,
+        TRANSFER_SRC_OPTIMAL = 6,
+        TRANSFER_DST_OPTIMAL = 7,
+        PREINITIALIZED = 8,
+        DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = 1000117000,
+        DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL = 1000117001,
+        DEPTH_ATTACHMENT_OPTIMAL = 1000241000,
+        DEPTH_READ_ONLY_OPTIMAL = 1000241001,
+        STENCIL_ATTACHMENT_OPTIMAL = 1000241002,
+        STENCIL_READ_ONLY_OPTIMAL = 1000241003,
+        READ_ONLY_OPTIMAL = 1000314000,
+        ATTACHMENT_OPTIMAL = 1000314001,
+        PRESENT_SRC_KHR = 1000001002,
+        VIDEO_DECODE_DST_KHR = 1000024000,
+        VIDEO_DECODE_SRC_KHR = 1000024001,
+        VIDEO_DECODE_DPB_KHR = 1000024002,
+        SHARED_PRESENT_KHR = 1000111000,
+        FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000,
+        FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR = 1000164003,
+        RENDERING_LOCAL_READ_KHR = 1000232000,
+        VIDEO_ENCODE_DST_KHR = 1000299000,
+        VIDEO_ENCODE_SRC_KHR = 1000299001,
+        VIDEO_ENCODE_DPB_KHR = 1000299002,
+        ATTACHMENT_FEEDBACK_LOOP_OPTIMAL_EXT = 1000339000,
+    };
+
+    enum class ImageFilter : uint32_t
+    {
+        Nearest,
+        Linear,
+    };
+
+    enum class ImageFit
+    {
+        None,
+        Center,
+        Fill,
+        FillAspect,
+    };
+
+    enum class SamplerAddressMode : uint32_t
+    {
+        REPEAT = 0,
+        MIRRORED_REPEAT = 1,
+        CLAMP_TO_EDGE = 2,
+        CLAMP_TO_BORDER = 3,
+        MIRROR_CLAMP_TO_EDGE = 4,
+    };
+
+    enum class BorderColor : uint32_t
+    {
+        FLOAT_TRANSPARENT_BLACK = 0,
+        INT_TRANSPARENT_BLACK = 1,
+        FLOAT_OPAQUE_BLACK = 2,
+        INT_OPAQUE_BLACK = 3,
+        FLOAT_OPAQUE_WHITE = 4,
+        INT_OPAQUE_WHITE = 5,
+        FLOAT_CUSTOM_EXT = 1000287003,
+        INT_CUSTOM_EXT = 1000287004,
+    };
+
+    enum class SamplerFilter : uint32_t
+    {
+        NEAREST = 0,
+        LINEAR = 1,
+    };
+
+    enum class SamplerMipmapMode : uint32_t
+    {
+        NEAREST = 0,
+        LINEAR = 1,
+    };
+
     enum class Format : uint32_t
     {
         Undefined = 0,
@@ -87,6 +167,11 @@ namespace Jangine::Gfx
         Indirect = 1 << 8      // = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
     };
 
+    inline MemoryUsage operator&(MemoryUsage a, MemoryUsage b)
+    {
+        return static_cast<MemoryUsage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+    }
+
     inline MemoryUsage operator|(MemoryUsage a, MemoryUsage b)
     {
         return static_cast<MemoryUsage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
@@ -99,6 +184,11 @@ namespace Jangine::Gfx
         Read = 1 << 1,
         ReadWrite = Write | Read
     };
+
+    inline MemoryAccess operator&(MemoryAccess a, MemoryAccess b)
+    {
+        return static_cast<MemoryAccess>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+    }
 
     inline MemoryAccess operator|(MemoryAccess a, MemoryAccess b)
     {
@@ -116,6 +206,11 @@ namespace Jangine::Gfx
         DepthAttachment = 1 << 5, // = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT
         InputAttachment = 1 << 6  // = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT
     };
+
+    inline PixelBufferUsage operator&(PixelBufferUsage a, PixelBufferUsage b)
+    {
+        return static_cast<PixelBufferUsage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+    }
 
     inline PixelBufferUsage operator|(PixelBufferUsage a, PixelBufferUsage b)
     {
@@ -146,7 +241,7 @@ namespace Jangine::Gfx
         GREATER_OR_EQUAL = 6,
         ALWAYS = 7,
     };
-    
+
     enum class FrontFace : uint32_t
     {
         COUNTER_CLOCKWISE = 0,
@@ -372,6 +467,36 @@ namespace std
                 return format_to(ctx.out(), "Fsr");
             default:
                 return format_to(ctx.out(), "Unknown AntialiasingMode");
+            }
+        }
+    };
+
+    template <>
+    struct formatter<Jangine::Gfx::MemoryUsage>
+    {
+        constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
+
+        template <typename FormatContext>
+        auto format(Jangine::Gfx::MemoryUsage memoryUsage, FormatContext &ctx) const
+        {
+            switch (memoryUsage)
+            {
+            case Jangine::Gfx::MemoryUsage::None:
+                return format_to(ctx.out(), "None");
+            case Jangine::Gfx::MemoryUsage::TransferSrc:
+                return format_to(ctx.out(), "TransferSrc");
+            case Jangine::Gfx::MemoryUsage::TransferDst:
+                return format_to(ctx.out(), "TransferDst");
+            case Jangine::Gfx::MemoryUsage::Storage:
+                return format_to(ctx.out(), "Storage");
+            case Jangine::Gfx::MemoryUsage::Uniform:
+                return format_to(ctx.out(), "Uniform");
+            case Jangine::Gfx::MemoryUsage::Index:
+                return format_to(ctx.out(), "Index");
+            case Jangine::Gfx::MemoryUsage::Vertex:
+                return format_to(ctx.out(), "Vertex");
+            default:
+                return format_to(ctx.out(), "Unknown MemoryUsage");
             }
         }
     };

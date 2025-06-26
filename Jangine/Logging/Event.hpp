@@ -31,7 +31,7 @@ namespace Jangine::Logging
         std::string message;
         std::string type;
         std::string method;
-        int32_t thread;
+        std::string thread;
 
         Event(
             Severity severity,
@@ -39,13 +39,13 @@ namespace Jangine::Logging
             std::string message,
             std::string type,
             std::string method,
-            int thread)
+            std::string thread)
             : severity(severity),
               timestamp(timestamp),
               message(std::move(message)),
               type(std::move(type)),
               method(std::move(method)),
-              thread(thread)
+              thread(std::move(thread))
         {
         }
 

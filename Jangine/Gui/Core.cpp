@@ -1,4 +1,6 @@
 #include "Core.hpp"
+#include "../Gfx/CommandBuffer2D.hpp"
+#include "../Gfx/Core2D.hpp"
 
 #define VK_VERSION_1_0
 typedef void *PFN_vkGetInstanceProcAddr;
@@ -104,6 +106,80 @@ namespace Jangine::Gui
         {
             glfwSetWindowPos(window, windowX, windowY);
         }
+    }
+
+    void Core::Render(double_t absoluteTime, float_t deltaTime)
+    {
+        (void)absoluteTime; // Avoid unused parameter warning
+        (void)deltaTime;    // Avoid unused parameter warning
+
+        int32_t ww, wh;
+        glfwGetWindowSize(glfwWindow, &ww, &wh);
+        float_t wwf = static_cast<float_t>(ww);
+        float_t whf = static_cast<float_t>(wh);
+
+        Gfx::Core2D *gfx2D = gfx->GetCore2D();
+        Gfx::CommandBuffer2D *commandBuffer = nullptr;
+
+        bool_t acquiredCommandBuffer = gfx2D->TryAcquireCommandBuffer(&commandBuffer);
+        if (!acquiredCommandBuffer)
+        {
+            //logger.Warning("Failed to acquire command buffer", __func__);
+            return;
+        }
+
+        {
+            commandBuffer->BeginBatch();
+
+            static constexpr float_t ControlsOffFromFrameSide = 7.f;
+            static constexpr float_t ControlButtonWidth = 40.f;
+            static constexpr float_t ControlsButtonSeparation = 2.f;
+            static const Eigen::Vector4f sizeOfFrame = Eigen::Vector4f(2.0f, 32.0f, 2.0f, 2.0f);
+            static const Color colorOfFrame = Color::FromUInt(0x282c34);
+
+            static constexpr bool_t mouseOnClose = false;
+            static constexpr bool_t mouseOnMaximize = false;
+            static constexpr bool_t mouseOnMinimize = false;
+            static constexpr bool_t mouseOnFrameControls = false;
+
+            auto controlsCloseRect = Gfx::Rectangle(wwf - ControlButtonWidth - ControlsOffFromFrameSide, 0.0f, wwf - ControlsOffFromFrameSide, sizeOfFrame.y());
+            auto controlsCloseIconRect = Gfx::Rectangle(0, 0, 8, 8).CenterOn(controlsCloseRect.center());
+            auto controlsMaximizeRect = Gfx::Rectangle(controlsCloseRect.left - ControlsButtonSeparation - ControlButtonWidth, 0.0f, controlsCloseRect.left - ControlsButtonSeparation, sizeOfFrame.y());
+            auto controlsMaximizeIconRect = Gfx::Rectangle(0, 0, 8, 8).CenterOn(controlsMaximizeRect.center());
+            auto controlsMinimizeRect = Gfx::Rectangle(controlsMaximizeRect.left - ControlsButtonSeparation - ControlButtonWidth, 0.0f, controlsMaximizeRect.left - ControlsButtonSeparation, sizeOfFrame.y());
+            auto controlsMinimizeIconRect = Gfx::Rectangle(0, 0, 8, 8).CenterOn(controlsMinimizeRect.center());
+
+            // Draw window frame
+            commandBuffer->FillRectangle(
+                Gfx::Rectangle(0, 0, wwf, sizeOfFrame.y()),
+                colorOfFrame);
+            commandBuffer->FillRectangle(
+                Gfx::Rectangle(wwf - sizeOfFrame.z(), sizeOfFrame.y(), wwf, whf - sizeOfFrame.w()),
+                colorOfFrame);
+            commandBuffer->FillRectangle(
+                Gfx::Rectangle(0, whf - sizeOfFrame.w(), wwf, whf),
+                colorOfFrame);
+            commandBuffer->FillRectangle(
+                Gfx::Rectangle(0, sizeOfFrame.y(), sizeOfFrame.x(), whf),
+                colorOfFrame);
+
+            commandBuffer->FillRectangle(
+                controlsCloseRect,
+                mouseOnClose ? Color::NordAuroraRed : colorOfFrame);
+            commandBuffer->FillRectangle(
+                controlsMaximizeRect,
+                mouseOnMaximize ? Color::White.WithAlpha(0.5f) : colorOfFrame);
+            commandBuffer->FillRectangle(
+                controlsMinimizeRect,
+                mouseOnMinimize ? Color::White.WithAlpha(0.5f) : colorOfFrame);
+
+            commandBuffer->FillRectangle(controlsCloseIconRect, Color::White);
+            commandBuffer->FillRectangle(controlsMaximizeIconRect, Color::White);
+            commandBuffer->FillRectangle(controlsMinimizeIconRect, Color::White);
+
+            commandBuffer->EndBatch();
+        }
+        gfx2D->SubmitCommandBuffer(commandBuffer);
     }
 
     Surface Core::GetSurface(void_t *surfaceCreationHandle) const

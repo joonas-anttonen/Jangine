@@ -28,6 +28,10 @@ namespace Jangine::Gui
 
     class JANGINE_API Core
     {
+        struct WindowFrameState
+        {
+            
+        };
 
     public:
         Core(const ApiParameters &parameters, Gfx::Core *gfx);
@@ -40,6 +44,8 @@ namespace Jangine::Gui
 
         void Create(const Parameters &parameters);
         Surface GetSurface(void_t *surfaceCreationHandle) const;
+
+        void Render(double_t absoluteTime, float_t deltaTime);
 
         bool_t ProcessEvents() const;
         bool_t WaitForEvents(uint32_t timeout_ms) const;

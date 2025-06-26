@@ -13,7 +13,9 @@ project(
 # External dependencies
 #
 vulkan = dependency('vulkan', required: true)
-eigen_includes = include_directories('external/eigen/include')
+eigen_dep = declare_dependency(
+  include_directories: include_directories('external/eigen/include')
+)
 glfw_includes = include_directories('external/glfw/include')
 glfw_lib = '../external/glfw/lib/glfw3.lib'
 json_includes = include_directories('external/json/include')
@@ -29,7 +31,7 @@ shader_compiler = executable(
         include_directories('Jangine/'),
         json_includes
     ],
-    dependencies: [vulkan],
+    dependencies: [vulkan, eigen_dep],
     cpp_args: [
         '-DJANGINE_SHADER_COMPILER'
     ],
@@ -85,12 +87,11 @@ jangine = library(
     ],
     include_directories: [
         include_directories('Jangine/'),
-        eigen_includes,
         glfw_includes,
         json_includes,
         vma_includes
     ],
-    dependencies: [vulkan],
+    dependencies: [vulkan, eigen_dep],
     cpp_args: [
         '-DJANGINE_BUILD'
     ],

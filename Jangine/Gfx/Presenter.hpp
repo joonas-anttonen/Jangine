@@ -19,8 +19,11 @@ namespace Jangine::Gfx
     public:
         struct Image
         {
-            VkImage image = nullptr;
-            VkImageView imageView = nullptr;
+            uint32_t width;
+            uint32_t height;
+            
+            VkImage vulkanImage = nullptr;
+            VkImageView vulkanImageView = nullptr;
         };
 
     private:
@@ -40,15 +43,28 @@ namespace Jangine::Gfx
         ~Presenter();
 
         void InitializeRendering(const DisplayParameters &displayParameters);
-        bool_t BeginFrame();
+        [[nodiscard]] bool_t BeginFrame();
         void EndFrame();
 
+        [[nodiscard]] inline CommandBuffer GetCurrentCommandBuffer() const
+        {
+            ThrowInvalidOperationIfNot(frameInProgress);
+            return CommandBuffer(perFrameResources[currentFrameIndex].commandBuffer);
+        }
+
+        [[nodiscard]] inline Image GetCurrentPresentationBuffer() const
+        {
+            ThrowInvalidOperationIfNot(frameInProgress);
+            return perFrameResources[currentFrameIndex].outputImage;
+        }
+
     private:
-        void ReleaseSwapChainIfAny();
+        void
+        ReleaseSwapChainIfAny();
         void ReleasePerFrame();
 
-        int32_t AcquireNextImage();
-        bool_t InitializeSwapchain();
+        [[nodiscard]] int32_t AcquireNextImage();
+        void InitializeSwapchain();
 
         VkInstance vulkanInstance = nullptr;
         VkDevice vulkanDevice = nullptr;
@@ -63,6 +79,7 @@ namespace Jangine::Gfx
 
         VkFence vulkanAcquireFence = nullptr;
 
+        bool_t frameInProgress = false;
         uint32_t currentFrameIndex = 0;
 
         std::vector<PerFrame> perFrameResources;
