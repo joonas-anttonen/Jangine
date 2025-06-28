@@ -27,6 +27,7 @@ namespace Jangine::Gfx
 {
     Core2D::Core2D(Gfx::Core *gfx)
         : gfx(gfx),
+          fontCollection(gfx),
           logger(Jangine::Core::GetLogger("Gfx::Core2D")),
           backBuffer(nullptr, std::ref(*gfx)),
           renderPipeline(nullptr, std::ref(*gfx)),
@@ -50,6 +51,9 @@ namespace Jangine::Gfx
     void Core2D::Create()
     {
         logger.Func(__func__);
+
+        defaultFont = &fontCollection.GetFont(Text::FontKey("BuiltIn", 32));
+        defaultShaper = defaultFont->CreateTextShaper();
 
         uint8_t data[4] = {255, 255, 255, 255};
         placeholderBuffer = gfx->CreatePixelBuffer(
@@ -289,24 +293,22 @@ namespace Jangine::Gfx
         {
             VkImageView commandTexture = nullptr;
             VkSampler commandSampler = VK_NULL_HANDLE;
-            bool useFontSmoothing = true;
+            bool useFontSmoothing = false;
 
-            // Texture/sampler selection logic (stubbed, adapt as needed)
+            // Select texture and sampler
             if (command.texture)
             {
                 commandTexture = command.texture->vulkanImageView;
                 commandSampler = linearPixelSampler->vulkanHandle;
             }
-            else if (command.font > 0)
+            else if (command.font)
             {
-                // TODO: fontTextures lookup
-                commandTexture = placeholderBuffer->vulkanImageView; // fontTextures[command.font];
+                commandTexture = command.font->GetPixelBuffer()->vulkanImageView;
                 commandSampler = linearPixelSampler->vulkanHandle;
             }
             else
             {
                 useFontSmoothing = false;
-                // TODO: fontTextures[0]
                 commandTexture = placeholderBuffer->vulkanImageView;
                 commandSampler = nearestPixelSampler->vulkanHandle;
             }

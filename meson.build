@@ -31,6 +31,30 @@ json = declare_dependency(include_directories: include_directories('external/jso
 vma = declare_dependency(include_directories: include_directories('external/vma/include'))
 
 #
+# Build the font compiler executable
+#
+font_compiler = executable(
+    'Jangine.Gfx.FontCompiler',
+    'Jangine/Gfx/Text/FontCompiler.cpp',
+    include_directories: [include_directories('Jangine/')],
+    dependencies: [vulkan, eigen, json, freetype, harfbuzz],
+    cpp_args: ['-DJANGINE_FONT_COMPILER'],
+)
+
+#
+# Use the font compiler to generate font headers
+#
+built_in_fonts = custom_target(
+    'built-in-fonts',
+    output: 'BuiltInFonts.hpp',
+    input: [
+        'Jangine/Gfx/Text/ProggyTiny.ttf',
+    ],
+    command: [font_compiler, '@OUTPUT@', '--namespace=Jangine::Gfx::Text', '@INPUT@'],
+    build_by_default: true,
+)
+
+#
 # Build the shader compiler executable
 #
 shader_compiler = executable(
@@ -86,7 +110,11 @@ jangine = library(
         'Jangine/Gfx/Presenter.cpp',
         'Jangine/Gfx/ShaderProgram.cpp',
         'Jangine/Gfx/Core2D.cpp',
+        'Jangine/Gfx/Text/Font.cpp',
+        'Jangine/Gfx/Text/FontCollection.cpp',
+        'Jangine/Gfx/Text/Shaper.cpp',
         'Jangine/Gui/Core.cpp',
+        built_in_fonts,
         built_in_shaders,
     ],
     include_directories: [include_directories('Jangine/')],

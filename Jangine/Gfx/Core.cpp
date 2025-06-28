@@ -561,7 +561,7 @@ namespace Jangine::Gfx
 
         if (renderingThreadId != std::this_thread::get_id())
         {
-            logger.Warning("Destroying pixel buffer from a different thread", __func__);
+            //logger.Warning("Destroying pixel buffer from a different thread", __func__);
         }
 
         {
@@ -660,7 +660,7 @@ namespace Jangine::Gfx
 
         if (renderingThreadId != std::this_thread::get_id())
         {
-            logger.Warning("Destroying memory buffer from a different thread", __func__);
+            //logger.Warning("Destroying memory buffer from a different thread", __func__);
         }
 
         {
@@ -715,7 +715,7 @@ namespace Jangine::Gfx
 
         if (renderingThreadId != std::this_thread::get_id())
         {
-            logger.Warning("Destroying pixel sampler from a different thread", __func__);
+            //logger.Warning("Destroying pixel sampler from a different thread", __func__);
         }
 
         {
@@ -909,7 +909,7 @@ namespace Jangine::Gfx
 
         if (renderingThreadId != std::this_thread::get_id())
         {
-            logger.Warning("Destroying pipeline from a different thread", __func__);
+            //logger.Warning("Destroying pipeline from a different thread", __func__);
         }
 
         {

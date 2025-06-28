@@ -6,6 +6,7 @@
 
 #include "Presenter.hpp"
 #include "CommandBuffer2D.hpp"
+#include "Text/FontCollection.hpp"
 
 namespace Jangine::Logging
 {
@@ -55,8 +56,19 @@ namespace Jangine::Gfx
             commandBufferQueue.push(buffer);
         }
 
+        const Text::Font *GetDefaultFont() const
+        {
+            return defaultFont;
+        }
+
+        Text::Shaper *GetDefaultShaper() const
+        {
+            return defaultShaper.get();
+        }
+
     private:
-        void InitializeCommandBufferPool()
+        void
+        InitializeCommandBufferPool()
         {
             commandBufferPool.resize(COMMAND_BUFFER_POOL_SIZE);
             for (size_t i = 0; i < COMMAND_BUFFER_POOL_SIZE; ++i)
@@ -95,6 +107,10 @@ namespace Jangine::Gfx
         Handle<PixelBuffer> backBuffer;
         Handle<Pipeline> renderPipeline;
         Handle<Pipeline> compositePipeline;
+
+        Text::FontCollection fontCollection;
+        const Text::Font *defaultFont = nullptr;
+        std::unique_ptr<Text::Shaper> defaultShaper = nullptr;
 
         SpinLock commandBufferPoolLock;
         std::vector<CommandBuffer2D> commandBufferPool;

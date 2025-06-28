@@ -6,12 +6,6 @@
 #include "../Color.hpp"
 #include "Enums.hpp"
 
-#include <cstdint>
-#include <optional>
-#include <format>
-#include <string>
-#include <stack>
-
 // Forward declarations for Vulkan handles
 typedef struct VkInstance_T *VkInstance;
 typedef struct VkDevice_T *VkDevice;
@@ -38,6 +32,13 @@ struct VkWriteDescriptorSet;
 
 namespace Jangine::Gfx
 {
+    struct Surface
+    {
+        void_t *vulkanHandle = nullptr;
+        uint32_t width = 0;
+        uint32_t height = 0;
+    };
+    
     struct CommandBuffer
     {
         friend class Core;
@@ -304,16 +305,13 @@ namespace Jangine::Gfx
         std::string ToString() const
         {
             return std::format(
-                "render: {}x{}, display: {}x{} [{}], verticalSync: {}, viewport: {}x{}, antialiasing: {}",
+                "render: {}x{}, display: {}x{} [{}], verticalSync: {}",
                 renderWidth,
                 renderHeight,
                 displayWidth,
                 displayHeight,
                 displayFormat,
-                verticalSync ? "true" : "false",
-                viewportWidth,
-                viewportHeight,
-                antialiasingMode);
+                verticalSync ? "true" : "false");
         }
 
         bool_t RenderSizeChanged(const DisplayParameters &other) const

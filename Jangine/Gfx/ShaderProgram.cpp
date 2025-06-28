@@ -94,7 +94,14 @@ int main(int argc, char *argv[])
 
     try
     {
-        Jangine::Gfx::IO::ShaderPackage::SerializeToHeader(shaderPrograms, headerFileName, arrayName, namespaceName);
+        std::ostringstream oss(std::ios::binary);
+        Jangine::Gfx::IO::ShaderPackage::Serialize(shaderPrograms, oss);
+
+        Jangine::IO::CreateBinaryHeader(
+            oss.view(),
+            headerFileName,
+            arrayName,
+            namespaceName);
         std::cout << "Header generated: " << headerFileName << "\n";
     }
     catch (const std::exception &ex)

@@ -110,14 +110,22 @@ namespace Jangine
 
     void Core::GuiThread(Gui::Core &gui)
     {
+        auto startTime = std::chrono::steady_clock::now();
+        auto lastFrameTime = startTime;
+
         while (gui.ProcessEvents())
         {
+            auto now = std::chrono::steady_clock::now();
+            double_t absoluteTime = std::chrono::duration<double_t>(now - startTime).count();
+            float_t deltaTime = std::chrono::duration<float_t>(now - lastFrameTime).count();
+            lastFrameTime = now;
+
             ProcessMainThreadQueue(gui);
 
-            gui.Render(0, 0);
+            gui.Render(absoluteTime, deltaTime);
 
             // Sleep for a short duration to avoid busy-waiting
-            gui.WaitForEvents(10);
+            gui.WaitForEvents(0.010);
         }
     }
 

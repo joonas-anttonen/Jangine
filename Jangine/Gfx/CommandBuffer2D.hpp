@@ -4,10 +4,15 @@
 #include "Shared.hpp"
 #include "Core.hpp"
 
-#include <iostream>
+#include "Text/Shaper.hpp"
 
 namespace Jangine::Gfx
 {
+    namespace Text
+    {
+        class Font;
+    }
+
     class CommandBuffer2D
     {
         friend class Core2D;
@@ -16,14 +21,20 @@ namespace Jangine::Gfx
         // Single draw command
         struct Command
         {
-            uint32_t vertexOffset;
-            uint32_t indexOffset;
-            uint32_t indexCount;
-            SharedHandle<PixelBuffer> texture;
-            int32_t font;
+            uint32_t vertexOffset = 0;
+            uint32_t indexOffset = 0;
+            uint32_t indexCount = 0;
+            SharedHandle<PixelBuffer> texture = nullptr;
+            const Text::Font *font = nullptr;
+
+            // Copy: NO Move: YES
+            Command &operator=(const Command &) = delete;
+            Command(const Command &) = delete;
+            Command &operator=(Command &&) = default;
+            Command(Command && from) = default;
 
             explicit Command() = default;
-            explicit Command(uint32_t vertexOffset, uint32_t indexOffset, uint32_t indexCount, SharedHandle<PixelBuffer> texture, int32_t font)
+            explicit Command(uint32_t vertexOffset, uint32_t indexOffset, uint32_t indexCount, SharedHandle<PixelBuffer> texture, const Text::Font *font)
                 : vertexOffset(vertexOffset), indexOffset(indexOffset), indexCount(indexCount), texture(texture), font(font) {}
         };
 
@@ -74,7 +85,7 @@ namespace Jangine::Gfx
         {
             CommandBatch &batch = batches.back();
             batch.commandCount++;
-            commands.push_back(Command(static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(indices.size()), 0, SharedHandle<PixelBuffer>(), -1));
+            commands.emplace_back(static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(indices.size()), 0, SharedHandle<PixelBuffer>(), nullptr);
             return commands.back();
         }
 
@@ -84,6 +95,26 @@ namespace Jangine::Gfx
             ThrowInvalidOperationIf(commands.empty());
 
             return commands.back();
+        }
+
+        void DrawText(const Text::Layout& layout, Eigen::Vector2f position, Color color)
+        {
+            ThrowInvalidOperationIfNot(batchInProgress);
+
+            // Check if new command is needed (font changed)
+            auto &currentCommand = GetCurrentCommand();
+            if (currentCommand.font != layout.font)
+            {
+                BeginCommand().font = layout.font;
+            }
+
+            for (const auto &glyph : layout.glyphs)
+            {
+                Eigen::Vector2f a = position + glyph.position;
+                Eigen::Vector2f c = a + glyph.size;
+
+                PushQuadUV(a, c, glyph.uv0, glyph.uv1, color);
+            }
         }
 
         void DrawImage(SharedHandle<PixelBuffer> image, Eigen::Vector2f targetPosition, Eigen::Vector2f targetExtent, ImageFit imageFit)

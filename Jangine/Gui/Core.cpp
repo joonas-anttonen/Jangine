@@ -124,7 +124,7 @@ namespace Jangine::Gui
         bool_t acquiredCommandBuffer = gfx2D->TryAcquireCommandBuffer(&commandBuffer);
         if (!acquiredCommandBuffer)
         {
-            //logger.Warning("Failed to acquire command buffer", __func__);
+            // logger.Warning("Failed to acquire command buffer", __func__);
             return;
         }
 
@@ -177,14 +177,22 @@ namespace Jangine::Gui
             commandBuffer->FillRectangle(controlsMaximizeIconRect, Color::White);
             commandBuffer->FillRectangle(controlsMinimizeIconRect, Color::White);
 
+            static std::string statusText;
+            static Gfx::Text::Layout statusLayout;
+
+            // Update with absolute time and delta time
+            statusText = std::format("Absolute Time: {:.2f}s, Delta Time: {:.2f}s", absoluteTime, deltaTime);
+            gfx2D->GetDefaultShaper()->CalculateTextLayout(statusText, 1.f, Eigen::Vector2f(wwf, whf), true, statusLayout);
+            commandBuffer->DrawText(statusLayout, Eigen::Vector2f(ControlsOffFromFrameSide + 2.f, sizeOfFrame.y() + 2.f), Color::White);
+
             commandBuffer->EndBatch();
         }
         gfx2D->SubmitCommandBuffer(commandBuffer);
     }
 
-    Surface Core::GetSurface(void_t *surfaceCreationHandle) const
+    Gfx::Surface Core::GetSurface(void_t *surfaceCreationHandle) const
     {
-        Surface surface;
+        Gfx::Surface surface;
         glfwCreateWindowSurface(static_cast<VkInstance>(surfaceCreationHandle), glfwWindow, nullptr, reinterpret_cast<VkSurfaceKHR *>(&surface.vulkanHandle));
         ThrowGlfwIfFailed("glfwCreateWindowSurface");
         glfwGetWindowSize(glfwWindow, reinterpret_cast<int32_t *>(&surface.width), reinterpret_cast<int32_t *>(&surface.height));
@@ -202,9 +210,9 @@ namespace Jangine::Gui
         return ShouldExit() == false;
     }
 
-    bool_t Core::WaitForEvents(uint32_t timeout_ms) const
+    bool_t Core::WaitForEvents(double_t timeout_s) const
     {
-        glfwWaitEventsTimeout(timeout_ms);
+        glfwWaitEventsTimeout(timeout_s);
 
         return ShouldExit() == false;
     }

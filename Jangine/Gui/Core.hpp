@@ -43,12 +43,12 @@ namespace Jangine::Gui
         Core(Core &&) = delete;
 
         void Create(const Parameters &parameters);
-        Surface GetSurface(void_t *surfaceCreationHandle) const;
+        Gfx::Surface GetSurface(void_t *surfaceCreationHandle) const;
 
         void Render(double_t absoluteTime, float_t deltaTime);
 
         bool_t ProcessEvents() const;
-        bool_t WaitForEvents(uint32_t timeout_ms) const;
+        bool_t WaitForEvents(double_t timeout_s) const;
         bool_t ShouldExit() const;
         static void WakeUp();
 
