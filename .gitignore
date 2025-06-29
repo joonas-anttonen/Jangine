@@ -78,3 +78,7 @@ vcpkg_manifest.lock
 /external/vma/include/
 /external/vma/src/
 /external/vma/LICENSE*
+/external/webp/include/
+/external/webp/lib/
+/external/webp/src/
+/external/webp/LICENSE*

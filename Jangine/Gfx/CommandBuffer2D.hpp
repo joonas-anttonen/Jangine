@@ -18,12 +18,20 @@ namespace Jangine::Gfx
         friend class Core2D;
 
     public:
+        enum class CommandUsage
+        {
+            Geometry,
+            Text,
+            Image,
+        };
+
         // Single draw command
         struct Command
         {
             uint32_t vertexOffset = 0;
             uint32_t indexOffset = 0;
             uint32_t indexCount = 0;
+            SharedHandle<PixelBufferSource> pixelBufferSource = nullptr;
             SharedHandle<PixelBuffer> texture = nullptr;
             const Text::Font *font = nullptr;
 

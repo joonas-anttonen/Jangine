@@ -29,6 +29,11 @@ harfbuzz = declare_dependency(
 )
 json = declare_dependency(include_directories: include_directories('external/json/include'))
 vma = declare_dependency(include_directories: include_directories('external/vma/include'))
+webp = declare_dependency(
+    include_directories: include_directories('external/webp/include'),
+    link_args: ['../external/webp/lib/libsharpyuv.lib', '../external/webp/lib/libwebp.lib', '../external/webp/lib/libwebpdecoder.lib',
+                 '../external/webp/lib/libwebpdemux.lib', '../external/webp/lib/libwebpmux.lib'],
+)
 
 #
 # Build the font compiler executable
@@ -100,6 +105,9 @@ else
     error('Unsupported platform for dxcompiler copy')
 endif
 
+#
+# Main library
+#
 jangine = library(
     'Jangine',
     [
@@ -108,18 +116,23 @@ jangine = library(
         'Jangine/Logging/Logger.cpp',
         'Jangine/Gfx/Core.cpp',
         'Jangine/Gfx/Presenter.cpp',
+        'Jangine/Gfx/PixelBuffer.cpp',
         'Jangine/Gfx/ShaderProgram.cpp',
         'Jangine/Gfx/Core2D.cpp',
         'Jangine/Gfx/Text/Font.cpp',
         'Jangine/Gfx/Text/FontCollection.cpp',
         'Jangine/Gfx/Text/Shaper.cpp',
+        'Jangine/Gfx/IO/WebP.cpp',
         'Jangine/Gui/Core.cpp',
         built_in_fonts,
         built_in_shaders,
     ],
     include_directories: [include_directories('Jangine/')],
-    dependencies: [vulkan, eigen, freetype, glfw, harfbuzz, json, vma],
+    dependencies: [vulkan, eigen, freetype, glfw, harfbuzz, json, vma, webp],
     cpp_args: ['-DJANGINE_BUILD'],
 )
 
+#
+# Test executable
+#
 executable('Jangine.Test', 'Jangine.Test/Jangine.Test.cpp', link_with: jangine)

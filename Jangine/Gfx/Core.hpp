@@ -5,6 +5,7 @@
 #include "../Color.hpp"
 #include "ShaderProgram.hpp"
 #include "Presenter.hpp"
+#include "PixelBuffer.hpp"
 #include "../Core.hpp"
 
 #include <array>
@@ -136,7 +137,7 @@ namespace Jangine::Gfx
         // Only valid for host-visible and/or host-coherent memory
         void WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const uint8_t> data);
 
-        Handle<MemoryBuffer> CreateMemoryBuffer(uint32_t size, MemoryUsage usage, MemoryAccess access);
+        Handle<MemoryBuffer> CreateMemoryBuffer(uint32_t size, MemoryBufferUsage usage, MemoryAccess access);
         void DestroyMemoryBuffer(MemoryBuffer *memoryBuffer);
         void operator()(MemoryBuffer *mb) { DestroyMemoryBuffer(mb); }
 

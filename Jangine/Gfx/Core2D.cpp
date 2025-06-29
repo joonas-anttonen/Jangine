@@ -65,12 +65,12 @@ namespace Jangine::Gfx
 
         vertexBuffer = gfx->CreateMemoryBuffer(
             MAX_VERTICES * sizeof(Vertex2f),
-            MemoryUsage::Vertex,
+            MemoryBufferUsage::Vertex,
             MemoryAccess::Write);
 
         indexBuffer = gfx->CreateMemoryBuffer(
             MAX_INDICES * sizeof(uint16_t),
-            MemoryUsage::Index,
+            MemoryBufferUsage::Index,
             MemoryAccess::Write);
 
         PixelSamplerParameters nearestParameters = {

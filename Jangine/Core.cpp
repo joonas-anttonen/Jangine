@@ -3,6 +3,8 @@
 #include "Gfx/Core.hpp"
 #include "Gui/Core.hpp"
 
+#include "ThreadPool.hpp"
+
 namespace Jangine
 {
     Core *Core::instance = nullptr;

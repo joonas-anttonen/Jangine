@@ -257,30 +257,30 @@ namespace Jangine::Gfx
         return result;
     }
 
-    std::string GetMemoryUsageString(MemoryUsage usage)
+    std::string GetMemoryUsageString(MemoryBufferUsage usage)
     {
-        if (usage == MemoryUsage::None)
+        if (usage == MemoryBufferUsage::None)
             return "None";
 
         std::string result;
 
-        if ((usage & MemoryUsage::TransferSrc) == MemoryUsage::TransferSrc)
+        if ((usage & MemoryBufferUsage::TransferSrc) == MemoryBufferUsage::TransferSrc)
             result += "TransferSrc | ";
-        if ((usage & MemoryUsage::TransferDst) == MemoryUsage::TransferDst)
+        if ((usage & MemoryBufferUsage::TransferDst) == MemoryBufferUsage::TransferDst)
             result += "TransferDst | ";
-        if ((usage & MemoryUsage::UniformTexel) == MemoryUsage::UniformTexel)
+        if ((usage & MemoryBufferUsage::UniformTexel) == MemoryBufferUsage::UniformTexel)
             result += "UniformTexel | ";
-        if ((usage & MemoryUsage::StorageTexel) == MemoryUsage::StorageTexel)
+        if ((usage & MemoryBufferUsage::StorageTexel) == MemoryBufferUsage::StorageTexel)
             result += "StorageTexel | ";
-        if ((usage & MemoryUsage::Uniform) == MemoryUsage::Uniform)
+        if ((usage & MemoryBufferUsage::Uniform) == MemoryBufferUsage::Uniform)
             result += "Uniform | ";
-        if ((usage & MemoryUsage::Storage) == MemoryUsage::Storage)
+        if ((usage & MemoryBufferUsage::Storage) == MemoryBufferUsage::Storage)
             result += "Storage | ";
-        if ((usage & MemoryUsage::Index) == MemoryUsage::Index)
+        if ((usage & MemoryBufferUsage::Index) == MemoryBufferUsage::Index)
             result += "Index | ";
-        if ((usage & MemoryUsage::Vertex) == MemoryUsage::Vertex)
+        if ((usage & MemoryBufferUsage::Vertex) == MemoryBufferUsage::Vertex)
             result += "Vertex | ";
-        if ((usage & MemoryUsage::Indirect) == MemoryUsage::Indirect)
+        if ((usage & MemoryBufferUsage::Indirect) == MemoryBufferUsage::Indirect)
             result += "Indirect | ";
 
         if (!result.empty())
@@ -435,7 +435,7 @@ namespace Jangine::Gfx
     {
         Handle<MemoryBuffer> stagingBuffer = CreateMemoryBuffer(
             static_cast<uint32_t>(data.size()),
-            MemoryUsage::TransferSrc,
+            MemoryBufferUsage::TransferSrc,
             MemoryAccess::Write);
 
         WriteMemoryBuffer(stagingBuffer.get(), data);
@@ -602,7 +602,7 @@ namespace Jangine::Gfx
         ThrowVulkanIfFailed(vmaFlushAllocation(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation, 0, data.size()));
     }
 
-    Handle<MemoryBuffer> Core::CreateMemoryBuffer(uint32_t size, MemoryUsage usage, MemoryAccess access)
+    Handle<MemoryBuffer> Core::CreateMemoryBuffer(uint32_t size, MemoryBufferUsage usage, MemoryAccess access)
     {
         VkBufferCreateInfo bufferCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,

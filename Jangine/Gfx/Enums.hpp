@@ -153,7 +153,7 @@ namespace Jangine::Gfx
         UltraPerformance
     };
 
-    enum class MemoryUsage : uint32_t
+    enum class MemoryBufferUsage : uint32_t
     {
         None = 0,
         TransferSrc = 1 << 0,  // = VK_BUFFER_USAGE_TRANSFER_SRC_BIT
@@ -167,14 +167,14 @@ namespace Jangine::Gfx
         Indirect = 1 << 8      // = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
     };
 
-    inline MemoryUsage operator&(MemoryUsage a, MemoryUsage b)
+    inline MemoryBufferUsage operator&(MemoryBufferUsage a, MemoryBufferUsage b)
     {
-        return static_cast<MemoryUsage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+        return static_cast<MemoryBufferUsage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
     }
 
-    inline MemoryUsage operator|(MemoryUsage a, MemoryUsage b)
+    inline MemoryBufferUsage operator|(MemoryBufferUsage a, MemoryBufferUsage b)
     {
-        return static_cast<MemoryUsage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+        return static_cast<MemoryBufferUsage>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
     }
 
     enum class MemoryAccess : uint32_t
@@ -472,28 +472,28 @@ namespace std
     };
 
     template <>
-    struct formatter<Jangine::Gfx::MemoryUsage>
+    struct formatter<Jangine::Gfx::MemoryBufferUsage>
     {
         constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
 
         template <typename FormatContext>
-        auto format(Jangine::Gfx::MemoryUsage memoryUsage, FormatContext &ctx) const
+        auto format(Jangine::Gfx::MemoryBufferUsage memoryUsage, FormatContext &ctx) const
         {
             switch (memoryUsage)
             {
-            case Jangine::Gfx::MemoryUsage::None:
+            case Jangine::Gfx::MemoryBufferUsage::None:
                 return format_to(ctx.out(), "None");
-            case Jangine::Gfx::MemoryUsage::TransferSrc:
+            case Jangine::Gfx::MemoryBufferUsage::TransferSrc:
                 return format_to(ctx.out(), "TransferSrc");
-            case Jangine::Gfx::MemoryUsage::TransferDst:
+            case Jangine::Gfx::MemoryBufferUsage::TransferDst:
                 return format_to(ctx.out(), "TransferDst");
-            case Jangine::Gfx::MemoryUsage::Storage:
+            case Jangine::Gfx::MemoryBufferUsage::Storage:
                 return format_to(ctx.out(), "Storage");
-            case Jangine::Gfx::MemoryUsage::Uniform:
+            case Jangine::Gfx::MemoryBufferUsage::Uniform:
                 return format_to(ctx.out(), "Uniform");
-            case Jangine::Gfx::MemoryUsage::Index:
+            case Jangine::Gfx::MemoryBufferUsage::Index:
                 return format_to(ctx.out(), "Index");
-            case Jangine::Gfx::MemoryUsage::Vertex:
+            case Jangine::Gfx::MemoryBufferUsage::Vertex:
                 return format_to(ctx.out(), "Vertex");
             default:
                 return format_to(ctx.out(), "Unknown MemoryUsage");

@@ -39,6 +39,7 @@
 #include <stack>
 #include <string>
 #include <typeinfo>
+#include <thread>
 
 typedef bool bool_t;
 typedef void void_t;

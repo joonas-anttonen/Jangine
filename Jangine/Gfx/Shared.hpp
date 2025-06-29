@@ -38,7 +38,7 @@ namespace Jangine::Gfx
         uint32_t width = 0;
         uint32_t height = 0;
     };
-    
+
     struct CommandBuffer
     {
         friend class Core;
