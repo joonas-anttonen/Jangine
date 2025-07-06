@@ -72,12 +72,12 @@ namespace Jangine::Gfx
 
             for (const auto &d : physicalDevices)
             {
-                if (d.type == PhysicalDeviceType::Discrete)
+                if (d.type == PhysicalDeviceType::DISCRETE_GPU)
                 {
                     optimalDevice = d;
                     break;
                 }
-                if (d.type == PhysicalDeviceType::Integrated)
+                if (d.type == PhysicalDeviceType::INTEGRATED_GPU)
                 {
                     optimalDevice = d;
                 }
