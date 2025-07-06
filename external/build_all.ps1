@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$externalDirs = @("glfw", "vma", "eigen")
+$externalDirs = @("eigen", "freetype", "glfw", "harfbuzz", "json", "vma", "webp")
 
 foreach ($dir in $externalDirs) {
     Push-Location $dir
