@@ -8,7 +8,7 @@
                 "${workspaceFolder}/external/glfw/include",
                 "${workspaceFolder}/external/json/include",
                 "${workspaceFolder}/external/vma/include",
-                "C:/VulkanSDK/1.4.313.0/Include"
+                "${env:VULKAN_SDK}/Include"
             ],
             "defines": [
                 "_DEBUG",
