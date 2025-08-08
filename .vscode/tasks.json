@@ -3,6 +3,7 @@
     "tasks": [
         {
             "label": "Build",
+            "detail": "Build the project",
             "type": "process",
             "command": "meson",
             "args": [
@@ -21,6 +22,7 @@
         },
         {
             "label": "Run",
+            "detail": "Run the project",
             "dependsOn": "Build",
             "type": "process",
             "command": ".\\Jangine.Test.exe",

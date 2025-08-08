@@ -124,13 +124,11 @@ namespace Jangine::Gui
         bool_t acquiredCommandBuffer = gfx2D->TryAcquireCommandBuffer(&commandBuffer);
         if (!acquiredCommandBuffer)
         {
-            // logger.Warning("Failed to acquire command buffer", __func__);
+            logger.Warning("Failed to acquire command buffer", __func__);
             return;
         }
 
         {
-            commandBuffer->BeginBatch();
-
             static constexpr float_t ControlsOffFromFrameSide = 7.f;
             static constexpr float_t ControlButtonWidth = 40.f;
             static constexpr float_t ControlsButtonSeparation = 2.f;
@@ -148,6 +146,8 @@ namespace Jangine::Gui
             auto controlsMaximizeIconRect = Gfx::Rectangle(0, 0, 8, 8).CenterOn(controlsMaximizeRect.center());
             auto controlsMinimizeRect = Gfx::Rectangle(controlsMaximizeRect.left - ControlsButtonSeparation - ControlButtonWidth, 0.0f, controlsMaximizeRect.left - ControlsButtonSeparation, sizeOfFrame.y());
             auto controlsMinimizeIconRect = Gfx::Rectangle(0, 0, 8, 8).CenterOn(controlsMinimizeRect.center());
+
+            commandBuffer->BeginBatch();
 
             // Draw window frame
             commandBuffer->FillRectangle(

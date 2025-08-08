@@ -28,6 +28,12 @@ namespace Jangine::Gfx
 
         Core2D(Gfx::Core *gfx);
         ~Core2D();
+        
+        // Copy: NO Move: NO
+        Core2D &operator=(const Core2D &) = delete;
+        Core2D(const Core2D &) = delete;
+        Core2D &operator=(Core2D &&) = delete;
+        Core2D(Core2D &&from) = delete;
 
         void Create();
         void InitializeRendering(const DisplayParameters &wantedDisplayParameters);
@@ -67,8 +73,7 @@ namespace Jangine::Gfx
         }
 
     private:
-        void
-        InitializeCommandBufferPool()
+        void InitializeCommandBufferPool()
         {
             commandBufferPool.resize(COMMAND_BUFFER_POOL_SIZE);
             for (size_t i = 0; i < COMMAND_BUFFER_POOL_SIZE; ++i)

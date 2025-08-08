@@ -18,6 +18,15 @@ namespace Jangine::Gfx
         friend class Core2D;
 
     public:
+
+        CommandBuffer2D() = default;
+
+        // Copy: NO Move: YES
+        CommandBuffer2D &operator=(const CommandBuffer2D &) = delete;
+        CommandBuffer2D(const CommandBuffer2D &) = delete;
+        CommandBuffer2D &operator=(CommandBuffer2D &&) = default;
+        CommandBuffer2D(CommandBuffer2D &&from) = default;
+
         enum class CommandUsage
         {
             Geometry,
@@ -221,18 +230,18 @@ namespace Jangine::Gfx
 
         void PushQuadUV(Eigen::Vector2f a, const Eigen::Vector2f c, Eigen::Vector2f a_uv, Eigen::Vector2f c_uv, Color color)
         {
+            auto quadStartIndex = static_cast<uint16_t>(vertices.size());
+            indices.push_back(quadStartIndex + 0);
+            indices.push_back(quadStartIndex + 1);
+            indices.push_back(quadStartIndex + 2);
+            indices.push_back(quadStartIndex + 0);
+            indices.push_back(quadStartIndex + 2);
+            indices.push_back(quadStartIndex + 3);
+
             auto b = Eigen::Vector2f(c.x(), a.y());
             auto d = Eigen::Vector2f(a.x(), c.y());
             auto b_uv = Eigen::Vector2f(c_uv.x(), a_uv.y());
             auto d_uv = Eigen::Vector2f(a_uv.x(), c_uv.y());
-
-            auto currentVertexCount = vertices.size();
-            indices.push_back(static_cast<uint16_t>(currentVertexCount + 0));
-            indices.push_back(static_cast<uint16_t>(currentVertexCount + 1));
-            indices.push_back(static_cast<uint16_t>(currentVertexCount + 2));
-            indices.push_back(static_cast<uint16_t>(currentVertexCount + 0));
-            indices.push_back(static_cast<uint16_t>(currentVertexCount + 2));
-            indices.push_back(static_cast<uint16_t>(currentVertexCount + 3));
 
             vertices.push_back(Vertex2f(a, a_uv, GetColorVector4f(color)));
             vertices.push_back(Vertex2f(b, b_uv, GetColorVector4f(color)));
