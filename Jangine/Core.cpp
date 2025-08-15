@@ -24,7 +24,7 @@ namespace Jangine
 
     void Core::Run(const Parameters &parameters)
     {
-        log.SetThreadIdMapping("Main");
+        log.SetCurrentThreadName("Main");
         log.GetLogger("Core").Func(__func__);
 
         try
@@ -152,7 +152,7 @@ namespace Jangine
     {
         try
         {
-            log.SetThreadIdMapping("Gfx");
+            log.SetCurrentThreadName("Gfx");
             gfx.SetThreadId(std::this_thread::get_id());
 
             while (!gfxThreadExitRequested.load(std::memory_order_relaxed))

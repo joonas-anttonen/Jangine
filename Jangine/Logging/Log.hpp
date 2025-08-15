@@ -59,7 +59,7 @@ namespace Jangine::Logging
         }
 
         // Maps the current thread ID to a name (thread-safe)
-        void SetThreadIdMapping(const std::string &name)
+        void SetCurrentThreadName(const std::string &name)
         {
             std::unique_lock lock(threadIdLock_);
             threadIdToName_[std::this_thread::get_id()] = name;

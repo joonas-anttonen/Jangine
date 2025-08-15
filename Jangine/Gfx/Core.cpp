@@ -561,7 +561,7 @@ namespace Jangine::Gfx
 
         if (renderingThreadId != std::this_thread::get_id())
         {
-            //logger.Warning("Destroying pixel buffer from a different thread", __func__);
+            // logger.Warning("Destroying pixel buffer from a different thread", __func__);
         }
 
         {
@@ -660,7 +660,7 @@ namespace Jangine::Gfx
 
         if (renderingThreadId != std::this_thread::get_id())
         {
-            //logger.Warning("Destroying memory buffer from a different thread", __func__);
+            // logger.Warning("Destroying memory buffer from a different thread", __func__);
         }
 
         {
@@ -715,7 +715,7 @@ namespace Jangine::Gfx
 
         if (renderingThreadId != std::this_thread::get_id())
         {
-            //logger.Warning("Destroying pixel sampler from a different thread", __func__);
+            // logger.Warning("Destroying pixel sampler from a different thread", __func__);
         }
 
         {
@@ -909,7 +909,7 @@ namespace Jangine::Gfx
 
         if (renderingThreadId != std::this_thread::get_id())
         {
-            //logger.Warning("Destroying pipeline from a different thread", __func__);
+            // logger.Warning("Destroying pipeline from a different thread", __func__);
         }
 
         {
@@ -1556,19 +1556,10 @@ namespace Jangine::Gfx
                                                const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
                                                void *pUserData) -> VkBool32
                 {
+                    (void)messageSeverity;
                     (void)messageType;
                     (void)pUserData;
-
-                    auto logger = Jangine::Core::GetLogger("Gfx::Vulkan");
-                    auto message = pCallbackData->pMessage ? pCallbackData->pMessage : "";
-
-                    if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
-                        logger.Error(message);
-                    else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-                        logger.Warning(message);
-                    else
-                        logger.Debug(message);
-
+                    Jangine::Core::GetLogger("Gfx::Vulkan").Error(pCallbackData->pMessage ? pCallbackData->pMessage : "");
                     return VK_FALSE;
                 };
 

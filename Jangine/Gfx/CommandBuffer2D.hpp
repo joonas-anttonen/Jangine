@@ -20,53 +20,45 @@ namespace Jangine::Gfx
     public:
 
         CommandBuffer2D() = default;
-
-        // Copy: NO Move: YES
+        ~CommandBuffer2D() = default;
         CommandBuffer2D &operator=(const CommandBuffer2D &) = delete;
         CommandBuffer2D(const CommandBuffer2D &) = delete;
         CommandBuffer2D &operator=(CommandBuffer2D &&) = default;
         CommandBuffer2D(CommandBuffer2D &&from) = default;
 
-        enum class CommandUsage
-        {
-            Geometry,
-            Text,
-            Image,
-        };
-
-        // Single draw command
+        /// @brief Single draw command
         struct Command
         {
-            uint32_t vertexOffset = 0;
-            uint32_t indexOffset = 0;
-            uint32_t indexCount = 0;
-            SharedHandle<PixelBufferSource> pixelBufferSource = nullptr;
-            SharedHandle<PixelBuffer> texture = nullptr;
-            const Text::Font *font = nullptr;
-
-            // Copy: NO Move: YES
+            explicit Command()
+                : vertexOffset(0), indexOffset(0), indexCount(0), texture(nullptr), font(nullptr) {}
+            explicit Command(uint32_t vertexOffset, uint32_t indexOffset)
+                : vertexOffset(vertexOffset), indexOffset(indexOffset), indexCount(0), texture(SharedHandle<PixelBuffer>()), font(nullptr) {}
             Command &operator=(const Command &) = delete;
             Command(const Command &) = delete;
             Command &operator=(Command &&) = default;
             Command(Command && from) = default;
 
-            explicit Command() = default;
-            explicit Command(uint32_t vertexOffset, uint32_t indexOffset, uint32_t indexCount, SharedHandle<PixelBuffer> texture, const Text::Font *font)
-                : vertexOffset(vertexOffset), indexOffset(indexOffset), indexCount(indexCount), texture(texture), font(font) {}
+            uint32_t vertexOffset;
+            uint32_t indexOffset;
+            uint32_t indexCount;
+            SharedHandle<PixelBuffer> texture;
+            const Text::Font *font;
         };
 
-        // Batch of draw commands
+        /// @brief Batch of draw commands
         struct CommandBatch
         {
+            explicit CommandBatch()
+                : firstCommandIndex(0), commandCount(0), surface(nullptr) {}
+            explicit CommandBatch(uint32_t firstCommandIndex)
+                : firstCommandIndex(firstCommandIndex), commandCount(0), surface(nullptr) {}
+
             uint32_t firstCommandIndex;
             uint32_t commandCount;
             PixelBuffer *surface;
-
-            explicit CommandBatch() = default;
-            explicit CommandBatch(uint32_t firstCommandIndex, uint32_t commandCount = 0, PixelBuffer *surface = nullptr)
-                : firstCommandIndex(firstCommandIndex), commandCount(commandCount), surface(surface) {}
         };
 
+        /// @brief Resets the command buffer to its initial state.
         void Reset()
         {
             commands.clear();
@@ -102,7 +94,7 @@ namespace Jangine::Gfx
         {
             CommandBatch &batch = batches.back();
             batch.commandCount++;
-            commands.emplace_back(static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(indices.size()), 0, SharedHandle<PixelBuffer>(), nullptr);
+            commands.emplace_back(static_cast<uint32_t>(vertices.size()), static_cast<uint32_t>(indices.size()));
             return commands.back();
         }
 

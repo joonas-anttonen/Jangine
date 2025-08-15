@@ -167,11 +167,11 @@ namespace Jangine::Gfx
         renderPipeline = gfx->CreatePipeline(mainParams);
 
         // Composition pipeline (no vertex input)
-        PipelineParameters compParams;
-        compParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-2d-composition"),
+        PipelineParameters compositionParams;
+        compositionParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-2d-composition"),
                                                                "Shader program 'built-in-2d-composition' not found in cache.");
-        compParams.pushConstantRanges = {};
-        compParams.descriptorLayout = {
+        compositionParams.pushConstantRanges = {};
+        compositionParams.descriptorLayout = {
             {.binding = 0,
              .descriptorType = DescriptorType::SAMPLED_IMAGE,
              .descriptorCount = 1,
@@ -180,19 +180,19 @@ namespace Jangine::Gfx
              .descriptorType = DescriptorType::SAMPLER,
              .descriptorCount = 1,
              .stages = ShaderStage::FRAGMENT}};
-        compParams.topology = PrimitiveTopology::TRIANGLE_LIST;
-        compParams.cullMode = CullMode::NONE;
-        compParams.frontFace = FrontFace::COUNTER_CLOCKWISE;
-        compParams.depthTestEnabled = false;
-        compParams.depthWriteEnabled = false;
-        compParams.depthCompareOp = CompareOp::ALWAYS;
-        compParams.vertexInputBindings = {};
-        compParams.vertexInputAttributes = {};
-        compParams.attachments = {
+        compositionParams.topology = PrimitiveTopology::TRIANGLE_LIST;
+        compositionParams.cullMode = CullMode::NONE;
+        compositionParams.frontFace = FrontFace::COUNTER_CLOCKWISE;
+        compositionParams.depthTestEnabled = false;
+        compositionParams.depthWriteEnabled = false;
+        compositionParams.depthCompareOp = CompareOp::ALWAYS;
+        compositionParams.vertexInputBindings = {};
+        compositionParams.vertexInputAttributes = {};
+        compositionParams.attachments = {
             {.format = Format::BGRA8,
              .blend = straightAlphaBlend}};
 
-        compositePipeline = gfx->CreatePipeline(compParams);
+        compositePipeline = gfx->CreatePipeline(compositionParams);
     }
 
     void Core2D::Render(const Presenter &presenter)
@@ -242,7 +242,6 @@ namespace Jangine::Gfx
     {
         VkCommandBuffer vulkanCommandBuffer = commandBuffer.vulkanHandle;
 
-        // Set up the color attachment info
         VkRenderingAttachmentInfo colorAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
             .pNext = nullptr,
@@ -257,13 +256,13 @@ namespace Jangine::Gfx
 
         VkRenderingAttachmentInfo colorAttachments[] = {colorAttachment};
 
-        VkExtent2D extent = {targetBuffer->width, targetBuffer->height};
+        VkExtent2D targetExtent = {.width = targetBuffer->width, .height = targetBuffer->height};
 
         VkRenderingInfo renderingInfo{
             .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
             .pNext = nullptr,
             .flags = 0,
-            .renderArea = {{0, 0}, {extent.width, extent.height}},
+            .renderArea = {{0, 0}, {targetExtent.width, targetExtent.height}},
             .layerCount = 1,
             .viewMask = 0,
             .colorAttachmentCount = 1,
@@ -274,11 +273,11 @@ namespace Jangine::Gfx
         VkViewport viewport{
             .x = 0.0f,
             .y = 0.0f,
-            .width = static_cast<float>(extent.width),
-            .height = static_cast<float>(extent.height),
+            .width = static_cast<float_t>(targetExtent.width),
+            .height = static_cast<float_t>(targetExtent.height),
             .minDepth = 0.0f,
             .maxDepth = 1.0f};
-        VkRect2D scissor{{0, 0}, {extent.width, extent.height}};
+        VkRect2D scissor{{0, 0}, {targetExtent.width, targetExtent.height}};
 
         vkCmdBeginRendering(vulkanCommandBuffer, &renderingInfo);
         vkCmdBindPipeline(vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline->vulkanHandle);
@@ -291,11 +290,9 @@ namespace Jangine::Gfx
 
         for (const auto &command : commands)
         {
-            VkImageView commandTexture = nullptr;
-            VkSampler commandSampler = VK_NULL_HANDLE;
-            bool useFontSmoothing = false;
+            VkImageView commandTexture = placeholderBuffer->vulkanImageView;
+            VkSampler commandSampler = nearestPixelSampler->vulkanHandle;
 
-            // Select texture and sampler
             if (command.texture)
             {
                 commandTexture = command.texture->vulkanImageView;
@@ -306,17 +303,10 @@ namespace Jangine::Gfx
                 commandTexture = command.font->GetPixelBuffer()->vulkanImageView;
                 commandSampler = linearPixelSampler->vulkanHandle;
             }
-            else
-            {
-                useFontSmoothing = false;
-                commandTexture = placeholderBuffer->vulkanImageView;
-                commandSampler = nearestPixelSampler->vulkanHandle;
-            }
 
             PushConstants pushConstants{
-                .scale = Eigen::Vector2f(2.0f / extent.width, 2.0f / extent.height),
-                .translation = Eigen::Vector2f(-1.0f, -1.0f),
-                .smoothing = useFontSmoothing ? 1u : 0u};
+                .scale = Eigen::Vector2f(2.0f / targetExtent.width, 2.0f / targetExtent.height),
+                .smoothing = 1};
 
             VkDescriptorImageInfo imageInfo{
                 .sampler = VK_NULL_HANDLE,
@@ -374,6 +364,7 @@ namespace Jangine::Gfx
 
         vkCmdEndRendering(vulkanCommandBuffer);
 
+        // FIXME: Stop cheating!
         gfx->FullBarrier(commandBuffer);
     }
 

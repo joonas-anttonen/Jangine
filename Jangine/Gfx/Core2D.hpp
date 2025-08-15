@@ -21,15 +21,12 @@ namespace Jangine::Gfx
         struct PushConstants
         {
             Eigen::Vector2f scale;
-            Eigen::Vector2f translation;
             uint32_t smoothing;
-            Eigen::Vector3f padding; // Padding to ensure 16-byte alignment
+            uint32_t padding; // Padding to ensure 16-byte alignment
         };
 
         Core2D(Gfx::Core *gfx);
         ~Core2D();
-        
-        // Copy: NO Move: NO
         Core2D &operator=(const Core2D &) = delete;
         Core2D(const Core2D &) = delete;
         Core2D &operator=(Core2D &&) = delete;
