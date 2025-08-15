@@ -102,12 +102,19 @@ namespace Jangine::Gfx
     {
         logger.Func(__func__);
 
-        backBuffer = gfx->CreatePixelBuffer(
-            wantedDisplayParameters.displayWidth,
-            wantedDisplayParameters.displayHeight,
-            wantedDisplayParameters.displayFormat,
-            PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
-                PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc);
+        bool_t outputSizeChanged = displayParameters.SurfaceSizeChanged(wantedDisplayParameters);
+        displayParameters = wantedDisplayParameters;
+
+        bool_t recreateBackBuffer = !backBuffer || outputSizeChanged;
+        if (recreateBackBuffer)
+        {
+            backBuffer = gfx->CreatePixelBuffer(
+                displayParameters.surfaceWidth,
+                displayParameters.surfaceHeight,
+                displayParameters.surfaceFormat,
+                PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
+                    PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc);
+        }
 
         PipelineParameters::AttachmentBlend straightAlphaBlend = {
             .blendEnable = true,
@@ -121,78 +128,84 @@ namespace Jangine::Gfx
                               ColorComponent::B | ColorComponent::A};
 
         // Main 2D pipeline
-        PipelineParameters mainParams;
-        mainParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-2d"),
-                                                               "Shader program 'built-in-2d' not found in cache.");
-        mainParams.pushConstantRanges = {
-            {.stageFlags = ShaderStage::VERTEX | ShaderStage::FRAGMENT,
-             .offset = 0,
-             .size = sizeof(PushConstants)}};
-        mainParams.descriptorLayout = {
-            {.binding = 0,
-             .descriptorType = DescriptorType::SAMPLED_IMAGE,
-             .descriptorCount = 1,
-             .stages = ShaderStage::FRAGMENT},
-            {.binding = 1,
-             .descriptorType = DescriptorType::SAMPLER,
-             .descriptorCount = 1,
-             .stages = ShaderStage::FRAGMENT}};
-        mainParams.topology = PrimitiveTopology::TRIANGLE_LIST;
-        mainParams.cullMode = CullMode::NONE;
-        mainParams.frontFace = FrontFace::COUNTER_CLOCKWISE;
-        mainParams.depthTestEnabled = false;
-        mainParams.depthWriteEnabled = false;
-        mainParams.depthCompareOp = CompareOp::ALWAYS;
-        mainParams.vertexInputBindings = {
-            {.binding = 0,
-             .stride = sizeof(Vertex2f),
-             .inputRate = VertexInputRate::VERTEX}};
-        mainParams.vertexInputAttributes = {
-            {.location = 0,
-             .binding = 0,
-             .format = Format::RG32,
-             .offset = offsetof(Vertex2f, position)},
-            {.location = 1,
-             .binding = 0,
-             .format = Format::RG32,
-             .offset = offsetof(Vertex2f, uv)},
-            {.location = 2,
-             .binding = 0,
-             .format = Format::RGBA32,
-             .offset = offsetof(Vertex2f, color)}};
-        mainParams.attachments = {
-            {.format = Format::BGRA8,
-             .blend = straightAlphaBlend}};
+        if (!renderPipeline)
+        {
+            PipelineParameters mainParams;
+            mainParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-2d"),
+                                                                   "Shader program 'built-in-2d' not found in cache.");
+            mainParams.pushConstantRanges = {
+                {.stageFlags = ShaderStage::VERTEX | ShaderStage::FRAGMENT,
+                 .offset = 0,
+                 .size = sizeof(PushConstants)}};
+            mainParams.descriptorLayout = {
+                {.binding = 0,
+                 .descriptorType = DescriptorType::SAMPLED_IMAGE,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 1,
+                 .descriptorType = DescriptorType::SAMPLER,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT}};
+            mainParams.topology = PrimitiveTopology::TRIANGLE_LIST;
+            mainParams.cullMode = CullMode::NONE;
+            mainParams.frontFace = FrontFace::COUNTER_CLOCKWISE;
+            mainParams.depthTestEnabled = false;
+            mainParams.depthWriteEnabled = false;
+            mainParams.depthCompareOp = CompareOp::ALWAYS;
+            mainParams.vertexInputBindings = {
+                {.binding = 0,
+                 .stride = sizeof(Vertex2f),
+                 .inputRate = VertexInputRate::VERTEX}};
+            mainParams.vertexInputAttributes = {
+                {.location = 0,
+                 .binding = 0,
+                 .format = Format::RG32,
+                 .offset = offsetof(Vertex2f, position)},
+                {.location = 1,
+                 .binding = 0,
+                 .format = Format::RG32,
+                 .offset = offsetof(Vertex2f, uv)},
+                {.location = 2,
+                 .binding = 0,
+                 .format = Format::RGBA32,
+                 .offset = offsetof(Vertex2f, color)}};
+            mainParams.attachments = {
+                {.format = Format::BGRA8,
+                 .blend = straightAlphaBlend}};
 
-        renderPipeline = gfx->CreatePipeline(mainParams);
+            renderPipeline = gfx->CreatePipeline(mainParams);
+        }
 
         // Composition pipeline (no vertex input)
-        PipelineParameters compositionParams;
-        compositionParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-2d-composition"),
-                                                               "Shader program 'built-in-2d-composition' not found in cache.");
-        compositionParams.pushConstantRanges = {};
-        compositionParams.descriptorLayout = {
-            {.binding = 0,
-             .descriptorType = DescriptorType::SAMPLED_IMAGE,
-             .descriptorCount = 1,
-             .stages = ShaderStage::FRAGMENT},
-            {.binding = 1,
-             .descriptorType = DescriptorType::SAMPLER,
-             .descriptorCount = 1,
-             .stages = ShaderStage::FRAGMENT}};
-        compositionParams.topology = PrimitiveTopology::TRIANGLE_LIST;
-        compositionParams.cullMode = CullMode::NONE;
-        compositionParams.frontFace = FrontFace::COUNTER_CLOCKWISE;
-        compositionParams.depthTestEnabled = false;
-        compositionParams.depthWriteEnabled = false;
-        compositionParams.depthCompareOp = CompareOp::ALWAYS;
-        compositionParams.vertexInputBindings = {};
-        compositionParams.vertexInputAttributes = {};
-        compositionParams.attachments = {
-            {.format = Format::BGRA8,
-             .blend = straightAlphaBlend}};
+        if (!compositePipeline)
+        {
+            PipelineParameters compositionParams;
+            compositionParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-2d-composition"),
+                                                                          "Shader program 'built-in-2d-composition' not found in cache.");
+            compositionParams.pushConstantRanges = {};
+            compositionParams.descriptorLayout = {
+                {.binding = 0,
+                 .descriptorType = DescriptorType::SAMPLED_IMAGE,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 1,
+                 .descriptorType = DescriptorType::SAMPLER,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT}};
+            compositionParams.topology = PrimitiveTopology::TRIANGLE_LIST;
+            compositionParams.cullMode = CullMode::NONE;
+            compositionParams.frontFace = FrontFace::COUNTER_CLOCKWISE;
+            compositionParams.depthTestEnabled = false;
+            compositionParams.depthWriteEnabled = false;
+            compositionParams.depthCompareOp = CompareOp::ALWAYS;
+            compositionParams.vertexInputBindings = {};
+            compositionParams.vertexInputAttributes = {};
+            compositionParams.attachments = {
+                {.format = Format::BGRA8,
+                 .blend = straightAlphaBlend}};
 
-        compositePipeline = gfx->CreatePipeline(compositionParams);
+            compositePipeline = gfx->CreatePipeline(compositionParams);
+        }
     }
 
     void Core2D::Render(const Presenter &presenter)

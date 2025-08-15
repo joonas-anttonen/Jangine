@@ -274,10 +274,10 @@ namespace Jangine::Gfx
         uint32_t displayWidth = 0;
         uint32_t displayHeight = 0;
         uint32_t displayRefreshRate = 0;
-        Format displayFormat = Format::Undefined;
+        Format surfaceFormat = Format::Undefined;
         bool_t verticalSync = false;
-        uint32_t viewportWidth = 0;
-        uint32_t viewportHeight = 0;
+        uint32_t surfaceWidth = 0;
+        uint32_t surfaceHeight = 0;
         AntialiasingMode antialiasingMode = AntialiasingMode::None;
         Color clearColor = Color::FromUInt(0x232731);
 
@@ -305,13 +305,20 @@ namespace Jangine::Gfx
         std::string ToString() const
         {
             return std::format(
-                "render: {}x{}, display: {}x{} [{}], verticalSync: {}",
+                "render: {}x{}, display: {}x{}, surface: {}x{} [{}], vsync: {}",
                 renderWidth,
                 renderHeight,
                 displayWidth,
                 displayHeight,
-                displayFormat,
+                surfaceWidth,
+                surfaceHeight,
+                surfaceFormat,
                 verticalSync ? "true" : "false");
+        }
+
+        bool_t AntialiasingModeChanged(const DisplayParameters &other) const
+        {
+            return antialiasingMode != other.antialiasingMode;
         }
 
         bool_t RenderSizeChanged(const DisplayParameters &other) const
@@ -319,17 +326,22 @@ namespace Jangine::Gfx
             return renderWidth != other.renderWidth || renderHeight != other.renderHeight;
         }
 
+        bool_t SurfaceSizeChanged(const DisplayParameters &other) const
+        {
+            return surfaceWidth != other.surfaceWidth || surfaceHeight != other.surfaceHeight;
+        }
+
         bool_t DisplaySizeChanged(const DisplayParameters &other) const
         {
             return displayWidth != other.displayWidth || displayHeight != other.displayHeight;
         }
 
-        bool_t DisplayFormatChanged(const DisplayParameters &other) const
+        bool_t SurfaceFormatChanged(const DisplayParameters &other) const
         {
-            return displayFormat != other.displayFormat;
+            return surfaceFormat != other.surfaceFormat;
         }
 
-        bool_t DisplayVerticalSyncChanged(const DisplayParameters &other) const
+        bool_t VerticalSyncChanged(const DisplayParameters &other) const
         {
             return verticalSync != other.verticalSync;
         }
@@ -344,9 +356,9 @@ namespace Jangine::Gfx
             return displayWidth != extent.Width || displayHeight != extent.Height;
         }
 
-        bool_t DisplayFormatChanged(Format format) const
+        bool_t SurfaceFormatChanged(Format format) const
         {
-            return displayFormat != format;
+            return surfaceFormat != format;
         }
     };
 

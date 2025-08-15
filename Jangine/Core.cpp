@@ -157,7 +157,6 @@ namespace Jangine
 
             while (!gfxThreadExitRequested.load(std::memory_order_relaxed))
             {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 ProcessGfxThreadQueue(gfx);
 
                 gfx.Render(0.0, 0.0);

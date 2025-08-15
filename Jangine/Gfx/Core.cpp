@@ -1,6 +1,7 @@
 #include "Core.hpp"
 #include "Presenter.hpp"
 #include "Core2D.hpp"
+#include "Core3D.hpp"
 
 #include "../Logging/Logger.hpp"
 
@@ -90,6 +91,12 @@ namespace Jangine::Gfx
             core2D = nullptr;
         }
 
+        if (core3D)
+        {
+            delete core3D;
+            core3D = nullptr;
+        }
+
         if (presenter)
         {
             delete presenter;
@@ -149,6 +156,9 @@ namespace Jangine::Gfx
 
         core2D = new Core2D(this);
         core2D->Create();
+
+        core3D = new Core3D(this);
+        core3D->Create();
     }
 
     void Core::CreatePresenter(const Surface &surface)
@@ -167,15 +177,15 @@ namespace Jangine::Gfx
             reinterpret_cast<VkSurfaceKHR>(surface.vulkanHandle));
 
         DisplayParameters newDisplayParameters = currentDisplayParameters;
-        newDisplayParameters.displayWidth = surface.width;
-        newDisplayParameters.displayHeight = surface.height;
-        newDisplayParameters.displayFormat = Format::BGRA8;
+        newDisplayParameters.surfaceWidth = surface.width;
+        newDisplayParameters.surfaceHeight = surface.height;
+        newDisplayParameters.surfaceFormat = Format::BGRA8;
         SetDisplayParameters(newDisplayParameters);
     }
 
     void Core::InitializeRendering(const DisplayParameters &displayParameters)
     {
-        logger.Func(__func__);
+        logger.Debug(displayParameters.ToString(), __func__);
 
         this->currentDisplayParameters = displayParameters;
 
@@ -186,6 +196,10 @@ namespace Jangine::Gfx
         if (core2D)
         {
             core2D->InitializeRendering(displayParameters);
+        }
+        if (core3D)
+        {
+            core3D->InitializeRendering(displayParameters);
         }
     }
 
@@ -215,6 +229,11 @@ namespace Jangine::Gfx
         {
             logger.Warning("Presenter cannot render at this time. Skipping frame.");
             return;
+        }
+
+        if (core3D)
+        {
+            core3D->Render(*presenter);
         }
 
         if (core2D)

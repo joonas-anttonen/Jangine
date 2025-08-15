@@ -124,9 +124,9 @@ namespace Jangine::Gfx
         DisplayParameters currentDisplayParameters = displayParameters;
         displayParameters = wantedDisplayParameters;
 
-        if (currentDisplayParameters.DisplaySizeChanged(wantedDisplayParameters) ||
-            currentDisplayParameters.DisplayFormatChanged(wantedDisplayParameters) ||
-            currentDisplayParameters.DisplayVerticalSyncChanged(wantedDisplayParameters))
+        if (currentDisplayParameters.SurfaceSizeChanged(wantedDisplayParameters) ||
+            currentDisplayParameters.SurfaceFormatChanged(wantedDisplayParameters) ||
+            currentDisplayParameters.VerticalSyncChanged(wantedDisplayParameters))
         {
             InitializeSwapchain();
         }
@@ -379,11 +379,11 @@ namespace Jangine::Gfx
         if (surfaceCapabilities.currentExtent.width == UINT32_MAX)
         {
             swapChainExtent.width = std::clamp(
-                static_cast<uint32_t>(displayParameters.displayWidth),
+                static_cast<uint32_t>(displayParameters.surfaceWidth),
                 surfaceCapabilities.minImageExtent.width,
                 surfaceCapabilities.maxImageExtent.width);
             swapChainExtent.height = std::clamp(
-                static_cast<uint32_t>(displayParameters.displayHeight),
+                static_cast<uint32_t>(displayParameters.surfaceHeight),
                 surfaceCapabilities.minImageExtent.height,
                 surfaceCapabilities.maxImageExtent.height);
         }

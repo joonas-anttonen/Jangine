@@ -87,6 +87,7 @@ namespace Jangine::Gfx
     enum class Format : uint32_t
     {
         Undefined = 0,
+        R16G16 = 83, // VK_FORMAT_R16G16_SFLOAT
         R32 = 100,
         RG32 = 103,
         RGB32 = 106,

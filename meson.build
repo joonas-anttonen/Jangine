@@ -119,6 +119,7 @@ jangine = library(
         'Jangine/Gfx/PixelBuffer.cpp',
         'Jangine/Gfx/ShaderProgram.cpp',
         'Jangine/Gfx/Core2D.cpp',
+        'Jangine/Gfx/Core3D.cpp',
         'Jangine/Gfx/Text/Font.cpp',
         'Jangine/Gfx/Text/FontCollection.cpp',
         'Jangine/Gfx/Text/Shaper.cpp',

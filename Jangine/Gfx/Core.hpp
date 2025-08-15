@@ -96,6 +96,11 @@ namespace Jangine::Gfx
 
         void InitializeRendering(const DisplayParameters &displayParameters);
 
+        Format GetDeviceDepthFormat() const
+        {
+            return deviceDepthFormat;
+        }
+
         const DisplayParameters &GetDisplayParameters()
         {
             std::lock_guard<SpinLock> lock(displayParametersLock);
@@ -231,6 +236,8 @@ namespace Jangine::Gfx
         DisplayParameters currentDisplayParameters = {
             .renderWidth = 1280,
             .renderHeight = 720,
+            .displayWidth = 1280,
+            .displayHeight = 720,
         };
 
         Samples deviceSampleCount = Samples::X1;

@@ -18,7 +18,6 @@ namespace Jangine::Gfx
         friend class Core2D;
 
     public:
-
         CommandBuffer2D() = default;
         ~CommandBuffer2D() = default;
         CommandBuffer2D &operator=(const CommandBuffer2D &) = delete;
@@ -36,7 +35,7 @@ namespace Jangine::Gfx
             Command &operator=(const Command &) = delete;
             Command(const Command &) = delete;
             Command &operator=(Command &&) = default;
-            Command(Command && from) = default;
+            Command(Command &&from) = default;
 
             uint32_t vertexOffset;
             uint32_t indexOffset;
@@ -106,7 +105,7 @@ namespace Jangine::Gfx
             return commands.back();
         }
 
-        void DrawText(const Text::Layout& layout, Eigen::Vector2f position, Color color)
+        void DrawText(const Text::Layout &layout, Eigen::Vector2f position, Color color)
         {
             ThrowInvalidOperationIfNot(batchInProgress);
 
@@ -175,14 +174,14 @@ namespace Jangine::Gfx
             PushQuadUV(finalImagePosition, finalImagePosition + finalImageExtent, uv0, uv1, Color::White);
         }
 
-        void DrawRectangle(Rectangle rectangle, Color color, float thickness = 1.0f)
+        void DrawRectangle(Rectangle rectangle, Color color, float_t thickness = 1.0f)
         {
             DrawRectangle(rectangle.position(), rectangle.position() + rectangle.extent(), color, thickness);
         }
 
-        void DrawRectangle(Eigen::Vector2f a, Eigen::Vector2f c, Color color, float thickness = 1.0f)
+        void DrawRectangle(Eigen::Vector2f a, Eigen::Vector2f c, Color color, float_t thickness = 1.0f)
         {
-            float half_thickness = thickness * 0.5f;
+            float_t half_thickness = thickness * 0.5f;
 
             // Top edge
             PushQuadUV(
@@ -220,7 +219,7 @@ namespace Jangine::Gfx
             PushQuadUV(a, c, Eigen::Vector2f(0, 0), Eigen::Vector2f(1, 1), color);
         }
 
-        void PushQuadUV(Eigen::Vector2f a, const Eigen::Vector2f c, Eigen::Vector2f a_uv, Eigen::Vector2f c_uv, Color color)
+        void PushQuadUV(Eigen::Vector2f a, Eigen::Vector2f c, Eigen::Vector2f a_uv, Eigen::Vector2f c_uv, Color color)
         {
             auto quadStartIndex = static_cast<uint16_t>(vertices.size());
             indices.push_back(quadStartIndex + 0);

@@ -93,9 +93,9 @@ namespace Jangine::Gui
                 Jangine::Core::GetInstance().PostToGfxThread([core, width, height]()
                                                              {
                     Gfx::DisplayParameters newDisplayParameters = core->gfx->GetDisplayParameters();
-                    newDisplayParameters.displayWidth = static_cast<uint32_t>(width);
-                    newDisplayParameters.displayHeight = static_cast<uint32_t>(height);
-                    core->gfx->SetDisplayParameters(newDisplayParameters);
+                    newDisplayParameters.surfaceWidth = static_cast<uint32_t>(width);
+                    newDisplayParameters.surfaceHeight = static_cast<uint32_t>(height);
+                    core->gfx->InitializeRendering(newDisplayParameters);
                 });
             } });
 

@@ -99,6 +99,8 @@ namespace Jangine::Gfx
 
         Gfx::Core *gfx = nullptr;
 
+        DisplayParameters displayParameters;
+
         Handle<PixelSampler> nearestPixelSampler;
         Handle<PixelSampler> linearPixelSampler;
 
