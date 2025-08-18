@@ -117,12 +117,12 @@ namespace Jangine
 
         while (gui.ProcessEvents())
         {
+            ProcessMainThreadQueue(gui);
+
             auto now = std::chrono::steady_clock::now();
             double_t absoluteTime = std::chrono::duration<double_t>(now - startTime).count();
             float_t deltaTime = std::chrono::duration<float_t>(now - lastFrameTime).count();
             lastFrameTime = now;
-
-            ProcessMainThreadQueue(gui);
 
             gui.Render(absoluteTime, deltaTime);
 
@@ -155,11 +155,19 @@ namespace Jangine
             log.SetCurrentThreadName("Gfx");
             gfx.SetThreadId(std::this_thread::get_id());
 
+            auto startTime = std::chrono::steady_clock::now();
+            auto lastFrameTime = startTime;
+
             while (!gfxThreadExitRequested.load(std::memory_order_relaxed))
             {
                 ProcessGfxThreadQueue(gfx);
 
-                gfx.Render(0.0, 0.0);
+                auto now = std::chrono::steady_clock::now();
+                double_t absoluteTime = std::chrono::duration<double_t>(now - startTime).count();
+                float_t deltaTime = std::chrono::duration<float_t>(now - lastFrameTime).count();
+                lastFrameTime = now;
+
+                gfx.Render(absoluteTime, deltaTime);
             }
         }
         catch (const Jangine::JangineException &e)

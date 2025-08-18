@@ -14,17 +14,17 @@ namespace Jangine::Gfx
     public:
         float_t GetDragDeltaX() const
         {
-            return 0;
+            return 0.0f;
         }
 
         float_t GetDragDeltaY() const
         {
-            return 0;
+            return 0.0f;
         }
 
         float_t GetZoomDelta() const
         {
-            return 0;
+            return 0.0f;
         }
     };
 
@@ -40,21 +40,21 @@ namespace Jangine::Gfx
 
         BlenderCamera();
 
-        void Update(const UserInput &input, float_t deltaTime);
+        void SetPerspective(float_t in_fovY, float_t in_aspect, float_t in_near, float_t in_far);
+        void SetOrthographic(float_t in_width, float_t in_height, float_t in_near, float_t in_far);
 
-        // Setters
-        //void SetPosition(const Eigen::Vector3f &pos);
-        //void SetOrientation(const Eigen::Quaternionf &orientation);
-        //void SetPerspective(float_t fovY, float_t aspect, float_t near, float_t far);
+        void Update(const UserInput &input, float_t deltaTime);
 
         // Getters
         [[nodiscard]] const Eigen::Vector3f &GetPosition() const { return position; }
+        [[nodiscard]] const Eigen::Vector3f &GetTarget() const { return target; }
         [[nodiscard]] const Eigen::Quaternionf &GetOrientation() const { return orientation; }
 
         // Matrix access
         [[nodiscard]] const Eigen::Matrix4f &GetViewMatrix() const { return viewMatrix; }
         [[nodiscard]] const Eigen::Matrix4f &GetInverseViewMatrix() const { return inverseViewMatrix; }
         [[nodiscard]] const Eigen::Matrix4f &GetProjectionMatrix() const { return projectionMatrix; }
+        [[nodiscard]] const Eigen::Matrix4f &GetViewProjectionMatrix() const { return viewProjectionMatrix; }
 
     private:
         void UpdateViewMatrix();
@@ -74,6 +74,7 @@ namespace Jangine::Gfx
         mutable Eigen::Matrix4f viewMatrix{Eigen::Matrix4f::Identity()};
         mutable Eigen::Matrix4f inverseViewMatrix{Eigen::Matrix4f::Identity()};
         mutable Eigen::Matrix4f projectionMatrix{Eigen::Matrix4f::Identity()};
+        mutable Eigen::Matrix4f viewProjectionMatrix{Eigen::Matrix4f::Identity()};
         mutable bool_t dirtyView{true};
         mutable bool_t dirtyProj{true};
 

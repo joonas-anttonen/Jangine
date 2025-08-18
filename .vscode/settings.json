@@ -93,7 +93,9 @@
         "strstream": "cpp",
         "core": "cpp",
         "stack": "cpp",
-        "cstdarg": "cpp"
+        "cstdarg": "cpp",
+        "numbers": "cpp",
+        "expected": "cpp"
     },
     "C_Cpp.default.compileCommands": "j:\\projects\\Jangine\\builddir/compile_commands.json"
 }

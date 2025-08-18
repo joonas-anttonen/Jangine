@@ -205,9 +205,6 @@ namespace Jangine::Gfx
 
     void Core::Render(double_t absoluteTime, float_t deltaTime)
     {
-        (void)absoluteTime; // Avoid unused parameter warning
-        (void)deltaTime;    // Avoid unused parameter warning
-
         if (!presenter)
         {
             logger.Error("Presenter is not initialized. Cannot render.");
@@ -233,12 +230,12 @@ namespace Jangine::Gfx
 
         if (core3D)
         {
-            core3D->Render(*presenter);
+            core3D->Render(*presenter, absoluteTime, deltaTime);
         }
 
         if (core2D)
         {
-            core2D->Render(*presenter);
+            core2D->Render(*presenter, absoluteTime, deltaTime);
         }
 
         if (!pendingScreenCapture)

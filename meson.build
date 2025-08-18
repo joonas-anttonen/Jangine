@@ -79,6 +79,7 @@ built_in_shaders = custom_target(
     input: [
         'Jangine/Gfx/Shaders/built-in-2d.hlsl',
         'Jangine/Gfx/Shaders/built-in-2d-composition.hlsl',
+        'Jangine/Gfx/Shaders/built-in-3d-shape.hlsl',
     ],
     command: [shader_compiler, '@OUTPUT@', '--namespace=Jangine::Gfx', '@INPUT@'],
     build_by_default: true,
@@ -120,6 +121,7 @@ jangine = library(
         'Jangine/Gfx/ShaderProgram.cpp',
         'Jangine/Gfx/Core2D.cpp',
         'Jangine/Gfx/Core3D.cpp',
+        'Jangine/Gfx/Camera.cpp',
         'Jangine/Gfx/Text/Font.cpp',
         'Jangine/Gfx/Text/FontCollection.cpp',
         'Jangine/Gfx/Text/Shaper.cpp',

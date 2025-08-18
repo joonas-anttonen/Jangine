@@ -34,7 +34,7 @@ namespace Jangine::Gfx
 
         void Create();
         void InitializeRendering(const DisplayParameters &wantedDisplayParameters);
-        void Render(const Presenter &presenter);
+        void Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime);
 
         // Try to acquire a command buffer from the pool
         // Returns true if a command buffer was acquired, false otherwise (render thread is busy with previous submissions)

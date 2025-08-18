@@ -43,6 +43,7 @@ namespace Jangine::Gfx
     {
         friend class Core;
         friend class Core2D;
+        friend class Core3D;
         friend class Presenter;
 
     private:
@@ -281,6 +282,13 @@ namespace Jangine::Gfx
         AntialiasingMode antialiasingMode = AntialiasingMode::None;
         Color clearColor = Color::FromUInt(0x232731);
 
+        /// @brief Get the aspect ratio of the surface.
+        /// @return The aspect ratio (width / height) of the surface.
+        float_t GetAspectRatio() const
+        {
+            return static_cast<float_t>(surfaceWidth) / static_cast<float_t>(surfaceHeight);
+        }
+
         static float GetRenderScaleFactor(AntialiasingMode aaMode, UpscalingMode upscaleMode)
         {
             if (aaMode == AntialiasingMode::Fsr)
@@ -367,6 +375,7 @@ namespace Jangine::Gfx
     {
         friend class Core;
         friend class Core2D;
+        friend class Core3D;
 
     private:
         PixelBuffer(
@@ -414,6 +423,7 @@ namespace Jangine::Gfx
     {
         friend class Core;
         friend class Core2D;
+        friend class Core3D;
 
     private:
         MemoryBuffer(

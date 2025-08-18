@@ -89,6 +89,22 @@ namespace Jangine::Gfx
 
 namespace Jangine
 {
+    namespace Math
+    {
+        constexpr float_t pi = 3.14159265358979323846f;
+        constexpr float_t tau = 2 * pi;
+
+        constexpr float_t deg_to_rad(float_t degrees)
+        {
+            return degrees * (pi / 180.0f);
+        }
+
+        constexpr float_t rad_to_deg(float_t radians)
+        {
+            return radians * (180.0f / pi);
+        }
+    }
+
     inline std::string DurationToSIString(std::chrono::microseconds duration)
     {
         if (duration.count() < 1000)

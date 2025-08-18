@@ -4,7 +4,27 @@ namespace Jangine::Gfx
 {
     BlenderCamera::BlenderCamera()
     {
-        position = Eigen::Vector3f(0.0f, 0.0f, 5.0f);
+        // position = Eigen::Vector3f(0.0f, 2.5f, 5.0f);
+    }
+
+    void BlenderCamera::SetPerspective(float_t in_fovY, float_t in_aspect, float_t in_near, float_t in_far)
+    {
+        fovY = in_fovY;
+        aspect = in_aspect;
+        near = in_near;
+        far = in_far;
+        projectionType = ProjectionType::Perspective;
+        dirtyProj = true;
+    }
+
+    void BlenderCamera::SetOrthographic(float_t in_width, float_t in_height, float_t in_near, float_t in_far)
+    {
+        orthoWidth = in_width;
+        orthoHeight = in_height;
+        near = in_near;
+        far = in_far;
+        projectionType = ProjectionType::Orthographic;
+        dirtyProj = true;
     }
 
     void BlenderCamera::Update(const UserInput &input, float_t deltaTime)
@@ -15,7 +35,7 @@ namespace Jangine::Gfx
 
         // Orbit: update yaw and pitch angles
         static float_t yaw = 0.0f;
-        static float_t pitch = 0.0f;
+        static float_t pitch = 0.0f; // Start looking down at 45 degrees
         float_t sensitivity = 0.01f;
 
         if (dragX != 0.0f || dragY != 0.0f)
@@ -38,11 +58,11 @@ namespace Jangine::Gfx
             }
             else // Orthographic
             {
-                float_t scale = 1.0f - zoomDelta * zoomSpeed * 0.1f * deltaTime;
+                float_t scale = zoomDelta * zoomSpeed * deltaTime;
                 orthoWidth *= scale;
                 orthoHeight *= scale;
-                orthoWidth = std::max(orthoWidth, 0.1f);
-                orthoHeight = std::max(orthoHeight, 0.1f);
+                orthoWidth = std::min(std::max(orthoWidth, 0.1f), 100.0f);
+                orthoHeight = std::min(std::max(orthoHeight, 0.1f), 100.0f);
                 dirtyProj = true;
             }
         }
@@ -51,7 +71,7 @@ namespace Jangine::Gfx
         Eigen::AngleAxisf yawRot(yaw, Eigen::Vector3f::UnitY());
         Eigen::AngleAxisf pitchRot(pitch, Eigen::Vector3f::UnitX());
         Eigen::Vector3f offset = yawRot * pitchRot * Eigen::Vector3f(0, 0, distance);
-        position = target + offset;
+        position = target + -1 * offset;
 
         // Look at target
         Eigen::Vector3f forward = (target - position).normalized();
@@ -66,6 +86,8 @@ namespace Jangine::Gfx
 
         dirtyView = true;
 
+        bool dirtyViewProj = dirtyProj || dirtyView;
+
         if (dirtyView)
         {
             UpdateViewMatrix();
@@ -77,6 +99,11 @@ namespace Jangine::Gfx
             UpdateProjectionMatrix();
             dirtyProj = false;
         }
+
+        if (dirtyViewProj)
+        {
+            viewProjectionMatrix = projectionMatrix * viewMatrix;
+        }
     }
 
     void BlenderCamera::UpdateViewMatrix()
@@ -86,22 +113,15 @@ namespace Jangine::Gfx
         Eigen::Vector3f right = Eigen::Vector3f::UnitY().cross(forward).normalized();
         Eigen::Vector3f up = forward.cross(right);
 
-        Eigen::Matrix4f view = Eigen::Matrix4f::Identity();
-        view.block<3, 1>(0, 0) = right;
-        view.block<3, 1>(0, 1) = up;
-        view.block<3, 1>(0, 2) = -forward;
-        view.block<3, 1>(0, 3) = position;
+        // Construct the isometry (rotation + translation)
+        Eigen::Isometry3f iso = Eigen::Isometry3f::Identity();
+        iso.linear().col(0) = right;
+        iso.linear().col(1) = up;
+        iso.linear().col(2) = forward;
+        iso.translation() = position;
 
-        // Invert rotation and translation
-        Eigen::Matrix3f rot = view.block<3, 3>(0, 0);
-        Eigen::Vector3f trans = view.block<3, 1>(0, 3);
-        viewMatrix.topLeftCorner<3, 3>() = rot.transpose();
-        viewMatrix.topRightCorner<3, 1>() = -rot.transpose() * trans;
-        viewMatrix.row(3) = Eigen::Vector4f(0, 0, 0, 1);
-
-        inverseViewMatrix.topLeftCorner<3, 3>() = rot;
-        inverseViewMatrix.topRightCorner<3, 1>() = trans;
-        inverseViewMatrix.row(3) = Eigen::Vector4f(0, 0, 0, 1);
+        viewMatrix = iso.matrix();
+        inverseViewMatrix = iso.inverse().matrix();
     }
 
     void BlenderCamera::UpdateProjectionMatrix()
@@ -112,8 +132,9 @@ namespace Jangine::Gfx
             projectionMatrix.setZero();
             projectionMatrix(0, 0) = f / aspect;
             projectionMatrix(1, 1) = f;
-            projectionMatrix(2, 2) = (far + near) / (near - far);
-            projectionMatrix(2, 3) = (2.0f * far * near) / (near - far);
+            // Vulkan: Z in [0, 1]
+            projectionMatrix(2, 2) = far / (near - far);
+            projectionMatrix(2, 3) = -(far * near) / (far - near);
             projectionMatrix(3, 2) = -1.0f;
         }
         else
@@ -126,10 +147,11 @@ namespace Jangine::Gfx
             projectionMatrix.setZero();
             projectionMatrix(0, 0) = 2.0f / (right - left);
             projectionMatrix(1, 1) = 2.0f / (top - bottom);
-            projectionMatrix(2, 2) = -2.0f / (far - near);
+            // Vulkan: Z in [0, 1]
+            projectionMatrix(2, 2) = -1.0f / (far - near);
             projectionMatrix(0, 3) = -(right + left) / (right - left);
             projectionMatrix(1, 3) = -(top + bottom) / (top - bottom);
-            projectionMatrix(2, 3) = -(far + near) / (far - near);
+            projectionMatrix(2, 3) = -near / (far - near);
             projectionMatrix(3, 3) = 1.0f;
         }
     }

@@ -208,8 +208,12 @@ namespace Jangine::Gfx
         }
     }
 
-    void Core2D::Render(const Presenter &presenter)
+    void Core2D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
     {
+        // Avoid unused parameter warning
+        (void)absoluteTime; 
+        (void)deltaTime;
+
         bool_t commandBufferChanged = false;
 
         {
