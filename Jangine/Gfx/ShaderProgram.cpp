@@ -80,10 +80,13 @@ int main(int argc, char *argv[])
         std::string source((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         std::string programName = std::filesystem::path(file).stem().string();
         auto program = compiler.Compile(source, programName);
-        if (!program.stages.empty())
-            shaderPrograms[programName] = std::move(program);
-        else
-            std::cerr << "Failed to compile shader: " << file << "\n";
+        if (!program)
+        {
+            std::cout << "Failed to compile shader: " << file << "\n";
+            return 2;
+        }
+
+        shaderPrograms[programName] = std::move(program.value());
     }
 
     if (shaderPrograms.empty())
@@ -162,7 +165,7 @@ namespace Jangine::Gfx
             compiler->Release();
     }
 
-    ShaderProgram ShaderCompiler::Compile(const std::string_view sourceCode, const std::string_view programName)
+    std::optional<ShaderProgram> ShaderCompiler::Compile(const std::string_view sourceCode, const std::string_view programName)
     {
         std::vector<std::string> shaderStages;
         std::vector<std::string> shaderStagesEntryPoints;
@@ -279,7 +282,12 @@ namespace Jangine::Gfx
                 continue;
             }
 
-            stages.push_back(CompileStage(sourceCode, stage, shaderStagesEntryPoints[i]));
+            auto compiledStage = CompileStage(sourceCode, stage, shaderStagesEntryPoints[i]);
+            if (!compiledStage)
+            {
+                return std::nullopt;
+            }
+            stages.push_back(*compiledStage);
         }
 
         // Create ShaderProgram with the compiled stages
@@ -287,7 +295,7 @@ namespace Jangine::Gfx
         return shaderProgram;
     }
 
-    ShaderProgram::Stage ShaderCompiler::CompileStage(const std::string_view sourceCode, ShaderStage stage, const std::string_view entryPoint)
+    std::optional<ShaderProgram::Stage> ShaderCompiler::CompileStage(const std::string_view sourceCode, ShaderStage stage, const std::string_view entryPoint)
     {
         // Create blob from source code
         DxcBuffer sourceBuffer = {
@@ -334,14 +342,13 @@ namespace Jangine::Gfx
             {
                 if (errors->GetBufferSize() > 0)
                 {
-                    std::cerr << "DXC error: "
-                              << std::string(static_cast<const char *>(errors->GetBufferPointer()), errors->GetBufferSize())
+                    std::cerr << std::string(static_cast<const char *>(errors->GetBufferPointer()), errors->GetBufferSize())
                               << std::endl;
                 }
                 errors->Release();
             }
 
-            std::cerr << "Shader compilation failed: " << std::hex << hr << std::endl;
+            return std::nullopt;
         }
 
         // Get compiled SPIR-V

@@ -40,8 +40,6 @@ namespace Jangine::Gfx
         {
             Eigen::Matrix4f Transform;
 
-            int32_t _ScaleSpace;
-            int32_t Alignment;
             Eigen::Vector4f Color;
             Eigen::Vector4f ColorOuterStart;
             Eigen::Vector4f ColorInnerEnd;
@@ -50,6 +48,23 @@ namespace Jangine::Gfx
             float_t Thickness;
             float_t AngleStart;
             float_t AngleEnd;
+            int32_t ScaleSpace;
+            int32_t Alignment;
+        };
+
+        struct PerLineMeshData
+        {
+            Eigen::Matrix4f Transform;
+
+            Eigen::Vector3f Start;
+            float_t _Padding0;
+            Eigen::Vector3f End;
+            float_t _Padding1;
+            Eigen::Vector4f Color;
+            Eigen::Vector4f ColorEnd;
+            float_t Thickness;
+            int32_t ScaleSpace;
+            int32_t Alignment;
         };
 
     public:

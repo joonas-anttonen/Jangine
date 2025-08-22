@@ -42,8 +42,8 @@ namespace Jangine::Gfx
         ShaderCompiler(ShaderCompiler &&) = delete;
         ShaderCompiler &operator=(ShaderCompiler &&) = delete;
 
-        [[nodiscard]] ShaderProgram Compile(const std::string_view sourceCode, const std::string_view programName);
-        [[nodiscard]] ShaderProgram::Stage CompileStage(const std::string_view sourceCode, ShaderStage stage, const std::string_view entryPoint);
+        [[nodiscard]] std::optional<ShaderProgram> Compile(const std::string_view sourceCode, const std::string_view programName);
+        [[nodiscard]] std::optional<ShaderProgram::Stage> CompileStage(const std::string_view sourceCode, ShaderStage stage, const std::string_view entryPoint);
 
     private:
         IDxcUtils *utils = nullptr;

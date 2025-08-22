@@ -79,7 +79,8 @@ built_in_shaders = custom_target(
     input: [
         'Jangine/Gfx/Shaders/built-in-2d.hlsl',
         'Jangine/Gfx/Shaders/built-in-2d-composition.hlsl',
-        'Jangine/Gfx/Shaders/built-in-3d-shape.hlsl',
+        'Jangine/Gfx/Shaders/built-in-shape-disc.hlsl',
+        'Jangine/Gfx/Shaders/built-in-shape-line.hlsl',
     ],
     command: [shader_compiler, '@OUTPUT@', '--namespace=Jangine::Gfx', '@INPUT@'],
     build_by_default: true,

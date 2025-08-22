@@ -65,7 +65,7 @@ namespace Jangine::Gfx
             MemoryAccess::Write);
 
         perMeshBuffer = gfx->CreateMemoryBuffer(
-            sizeof(PerMeshData) * 1,
+            sizeof(PerMeshData) * 10,
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
     }
@@ -154,8 +154,8 @@ namespace Jangine::Gfx
                                   ColorComponent::B | ColorComponent::A};
 
             PipelineParameters shapePipelineParams;
-            shapePipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-3d-shape"),
-                                                                            "Shader program 'built-in-3d-shape' not found in cache.");
+            shapePipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-shape-disc"),
+                                                                            "Shader program 'built-in-shape-disc' not found in cache.");
             shapePipelineParams.pushConstantRanges = {};
             shapePipelineParams.descriptorLayout = {
                 {.binding = 0,
@@ -215,9 +215,9 @@ namespace Jangine::Gfx
             .maxDepth = 1.0f};
         VkRect2D scissor{{0, 0}, {renderExtent.width, renderExtent.height}};
 
-         float_t orthoWidth = 10.0f;
-         float_t orthoHeight = orthoWidth / displayParameters.GetAspectRatio();
-         camera.SetOrthographic(orthoWidth, orthoHeight, 0.1f, 100.0f);
+         //float_t orthoWidth = 10.0f;
+         //float_t orthoHeight = orthoWidth / displayParameters.GetAspectRatio();
+         //camera.SetOrthographic(orthoWidth, orthoHeight, 0.1f, 100.0f);
          camera.SetPerspective(Math::pi / 4.0f, displayParameters.GetAspectRatio(), 0.1f, 100.0f);
 
         UserInput input;
@@ -243,13 +243,18 @@ namespace Jangine::Gfx
         meshData.Transform = testIsometry.matrix();
         meshData.Alignment = 0; // 0 = no alignment, 1 = billboard
         meshData.Color = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
+        meshData.Thickness = 0.01f;
+
+        //meshData.ColorEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
+        //meshData.Start = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
+        //meshData.End = Eigen::Vector3f(252.0f, 0.1f, 10.0f);
+
+        meshData.AngleStart = 0.0f;
+        meshData.AngleEnd = 0.0f;
         meshData.ColorInnerEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
         meshData.ColorOuterStart = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
         meshData.ColorOuterEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
         meshData.Radius = 1.0f;
-        meshData.Thickness = 0.1f;
-        meshData.AngleStart = 0.0f;
-        meshData.AngleEnd = 0.0f;
 
         std::span<const uint8_t> perMeshDataSpan(reinterpret_cast<const uint8_t *>(&meshData), sizeof(meshData));
         gfx->WriteMemoryBuffer(perMeshBuffer.get(), perMeshDataSpan);

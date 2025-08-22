@@ -14,8 +14,6 @@ struct PerMeshData
 {
 	float4x4 Transform;
 
-	int _ScaleSpace;
-	int _Alignment;
 	float4 _Color;
 	float4 _ColorOuterStart;
 	float4 _ColorInnerEnd;
@@ -24,6 +22,8 @@ struct PerMeshData
 	float _Thickness;
 	float _AngleStart;
 	float _AngleEnd;
+	int _ScaleSpace;
+	int _Alignment;
 };
 
 [[vk::binding(0, 0)]] ConstantBuffer<PerSceneData> perScene;
@@ -404,7 +404,7 @@ float4 UnityObjectToClipPos(float3 pos)
 }
 
 [shader("vertex")]
-fragment_input vertex(vertex_input input, in uint vertexIndex : SV_VertexID)
+fragment_input vertex(vertex_input input)
 {
     fragment_input output = (fragment_input)0;
 
