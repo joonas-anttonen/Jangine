@@ -215,13 +215,12 @@ namespace Jangine::Gfx
             .maxDepth = 1.0f};
         VkRect2D scissor{{0, 0}, {renderExtent.width, renderExtent.height}};
 
-         //float_t orthoWidth = 10.0f;
-         //float_t orthoHeight = orthoWidth / displayParameters.GetAspectRatio();
-         //camera.SetOrthographic(orthoWidth, orthoHeight, 0.1f, 100.0f);
-         camera.SetPerspective(Math::pi / 4.0f, displayParameters.GetAspectRatio(), 0.1f, 100.0f);
+        // float_t orthoWidth = 10.0f;
+        // float_t orthoHeight = orthoWidth / displayParameters.GetAspectRatio();
+        // camera.SetOrthographic(orthoWidth, orthoHeight, 0.1f, 100.0f);
+        camera.SetPerspective(Math::PI / 4.0f, displayParameters.GetAspectRatio(), 0.1f, 100.0f);
 
-        UserInput input;
-        camera.Update(input, deltaTime);
+        camera.Update(gfx->GetUserInput(), deltaTime);
 
         PerSceneData sceneData{};
         sceneData.ViewProjection = camera.GetViewProjectionMatrix();
@@ -238,6 +237,7 @@ namespace Jangine::Gfx
         Eigen::Isometry3f testIsometry;
         testIsometry.setIdentity();
         testIsometry.linear() = Eigen::AngleAxisf(0.0f, Eigen::Vector3f::UnitY()).toRotationMatrix();
+        testIsometry.translation() = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
 
         PerMeshData meshData{};
         meshData.Transform = testIsometry.matrix();
@@ -245,16 +245,16 @@ namespace Jangine::Gfx
         meshData.Color = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
         meshData.Thickness = 0.01f;
 
-        //meshData.ColorEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
-        //meshData.Start = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
-        //meshData.End = Eigen::Vector3f(252.0f, 0.1f, 10.0f);
+        // meshData.ColorEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
+        // meshData.Start = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
+        // meshData.End = Eigen::Vector3f(252.0f, 0.1f, 10.0f);
 
         meshData.AngleStart = 0.0f;
         meshData.AngleEnd = 0.0f;
         meshData.ColorInnerEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
         meshData.ColorOuterStart = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
         meshData.ColorOuterEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
-        meshData.Radius = 1.0f;
+        meshData.Radius = 0.5f;
 
         std::span<const uint8_t> perMeshDataSpan(reinterpret_cast<const uint8_t *>(&meshData), sizeof(meshData));
         gfx->WriteMemoryBuffer(perMeshBuffer.get(), perMeshDataSpan);

@@ -95,7 +95,8 @@
         "stack": "cpp",
         "cstdarg": "cpp",
         "numbers": "cpp",
-        "expected": "cpp"
+        "expected": "cpp",
+        "*.inc": "cpp"
     },
     "C_Cpp.default.compileCommands": "j:\\projects\\Jangine\\builddir/compile_commands.json"
 }

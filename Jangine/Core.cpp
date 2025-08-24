@@ -49,10 +49,10 @@ namespace Jangine
 
             Gui::Parameters guiParameters{
                 .windowTitle = parameters.appName,
-                .windowX = {},
-                .windowY = {},
-                .windowWidth = {},
-                .windowHeight = {}};
+                .X = {},
+                .Y = {},
+                .Width = {},
+                .Height = {}};
             gui.Create(guiParameters);
 
             gfx.CreatePresenter(gui.GetSurface(gfx.GetSurfaceCreationHandle()));
@@ -148,6 +148,21 @@ namespace Jangine
         }
     }
 
+    void Core::ProcessGfxUserInputQueue(Gfx::Core &gfx)
+    {
+        {
+            std::lock_guard<SpinLock> lock(guiInputQueueLock);
+            std::swap(writeGuiInputEventQueue, readGuiInputEventQueue);
+        }
+
+        while (!readGuiInputEventQueue->empty())
+        {
+            auto event = std::move(readGuiInputEventQueue->front());
+            readGuiInputEventQueue->pop();
+            gfx.ApplyUserInput(event);
+        }
+    }
+
     void Core::GfxThread(Gfx::Core &gfx)
     {
         try
@@ -160,6 +175,7 @@ namespace Jangine
 
             while (!gfxThreadExitRequested.load(std::memory_order_relaxed))
             {
+                ProcessGfxUserInputQueue(gfx);
                 ProcessGfxThreadQueue(gfx);
 
                 auto now = std::chrono::steady_clock::now();

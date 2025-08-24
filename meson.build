@@ -139,4 +139,4 @@ jangine = library(
 #
 # Test executable
 #
-executable('Jangine.Test', 'Jangine.Test/Jangine.Test.cpp', link_with: jangine)
+executable('Jangine.Test', 'Jangine.Test/Jangine.Test.cpp', dependencies: [eigen], link_with: jangine)

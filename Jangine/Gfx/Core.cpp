@@ -205,6 +205,8 @@ namespace Jangine::Gfx
 
     void Core::Render(double_t absoluteTime, float_t deltaTime)
     {
+        userInput.Update(deltaTime);
+
         if (!presenter)
         {
             logger.Error("Presenter is not initialized. Cannot render.");

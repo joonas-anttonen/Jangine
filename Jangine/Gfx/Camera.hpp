@@ -9,25 +9,6 @@
 
 namespace Jangine::Gfx
 {
-    class UserInput
-    {
-    public:
-        float_t GetDragDeltaX() const
-        {
-            return 0.0f;
-        }
-
-        float_t GetDragDeltaY() const
-        {
-            return 0.0f;
-        }
-
-        float_t GetZoomDelta() const
-        {
-            return 0.0f;
-        }
-    };
-
     /// @brief Camera class for 3D rendering with Blender-like functionality.
     class BlenderCamera
     {
@@ -45,12 +26,9 @@ namespace Jangine::Gfx
 
         void Update(const UserInput &input, float_t deltaTime);
 
-        // Getters
         [[nodiscard]] const Eigen::Vector3f &GetPosition() const { return position; }
         [[nodiscard]] const Eigen::Vector3f &GetTarget() const { return target; }
-        [[nodiscard]] const Eigen::Quaternionf &GetOrientation() const { return orientation; }
 
-        // Matrix access
         [[nodiscard]] const Eigen::Matrix4f &GetViewMatrix() const { return viewMatrix; }
         [[nodiscard]] const Eigen::Matrix4f &GetInverseViewMatrix() const { return inverseViewMatrix; }
         [[nodiscard]] const Eigen::Matrix4f &GetProjectionMatrix() const { return projectionMatrix; }
@@ -65,18 +43,20 @@ namespace Jangine::Gfx
         float orthoHeight{10.0f};
 
         Eigen::Vector3f position{0.0f, 0.0f, 0.0f};
-        Eigen::Quaternionf orientation{Eigen::Quaternionf::Identity()};
         float_t fovY{45.0f};
         float_t aspect{1.0f};
         float_t near{0.1f};
         float_t far{100.0f};
 
-        mutable Eigen::Matrix4f viewMatrix{Eigen::Matrix4f::Identity()};
-        mutable Eigen::Matrix4f inverseViewMatrix{Eigen::Matrix4f::Identity()};
-        mutable Eigen::Matrix4f projectionMatrix{Eigen::Matrix4f::Identity()};
-        mutable Eigen::Matrix4f viewProjectionMatrix{Eigen::Matrix4f::Identity()};
-        mutable bool_t dirtyView{true};
-        mutable bool_t dirtyProj{true};
+        float_t yaw = 0.0f;
+        float_t pitch = 0.0f;
+
+        Eigen::Matrix4f viewMatrix{Eigen::Matrix4f::Identity()};
+        Eigen::Matrix4f inverseViewMatrix{Eigen::Matrix4f::Identity()};
+        Eigen::Matrix4f projectionMatrix{Eigen::Matrix4f::Identity()};
+        Eigen::Matrix4f viewProjectionMatrix{Eigen::Matrix4f::Identity()};
+        bool_t dirtyView{true};
+        bool_t dirtyProj{true};
 
         Eigen::Vector3f target{0.0f, 0.0f, 0.0f};
         float_t distance{5.0f};

@@ -7,15 +7,7 @@
 #include "Presenter.hpp"
 #include "PixelBuffer.hpp"
 #include "../Core.hpp"
-
-#include <array>
-#include <vector>
-#include <span>
-#include <string>
-#include <unordered_map>
-#include <istream>
-#include <cstdint>
-#include <stdexcept>
+#include "../UserInput.hpp"
 
 namespace Jangine::Gfx
 {
@@ -137,6 +129,16 @@ namespace Jangine::Gfx
             return core3D;
         }
 
+        auto ApplyUserInput(UserInput::Event &event)
+        {
+            userInput.ApplyEvent(event);
+        }
+
+        const UserInput &GetUserInput() const
+        {
+            return userInput;
+        }
+
         // Write data to a memory buffer
         // This is a mapped memory write using memcpy
         // Only valid for host-visible and/or host-coherent memory
@@ -239,6 +241,8 @@ namespace Jangine::Gfx
             .displayWidth = 1280,
             .displayHeight = 720,
         };
+
+        UserInput userInput;
 
         Samples deviceSampleCount = Samples::X1;
         Format deviceDepthFormat = Format::Undefined;

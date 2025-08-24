@@ -31,15 +31,21 @@
 #include <fstream>
 #include <format>
 #include <functional>
-#include <memory>
 #include <iostream>
+#include <istream>
+#include <memory>
 #include <optional>
 #include <span>
 #include <sstream>
 #include <stack>
+#include <stdexcept>
 #include <string>
-#include <typeinfo>
 #include <thread>
+#include <typeinfo>
+#include <unordered_map>
+#include <vector>
+
+#include <Eigen/Core>
 
 typedef bool bool_t;
 typedef void void_t;
@@ -91,17 +97,17 @@ namespace Jangine
 {
     namespace Math
     {
-        constexpr float_t pi = 3.14159265358979323846f;
-        constexpr float_t tau = 2 * pi;
+        constexpr float_t PI = 3.14159265358979323846f;
+        constexpr float_t TAU = 2 * PI;
 
         constexpr float_t deg_to_rad(float_t degrees)
         {
-            return degrees * (pi / 180.0f);
+            return degrees * (PI / 180.0f);
         }
 
         constexpr float_t rad_to_deg(float_t radians)
         {
-            return radians * (180.0f / pi);
+            return radians * (180.0f / PI);
         }
     }
 

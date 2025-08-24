@@ -2,6 +2,7 @@
 
 #include "Shared.hpp"
 #include "Logging/Log.hpp"
+#include "UserInput.hpp"
 
 #include <string>
 #include <queue>
@@ -36,9 +37,9 @@ namespace Jangine
     class JANGINE_API Core
     {
     public:
+
         Core();
         ~Core() = default;
-
         Core &operator=(const Core &) = delete;
         Core(const Core &) = delete;
         Core &operator=(Core &&) = delete;
@@ -83,11 +84,18 @@ namespace Jangine
             return fut;
         }
 
+        auto PostUserInput(UserInput::Event event)
+        {
+            std::lock_guard<SpinLock> lock(guiInputQueueLock);
+            writeGuiInputEventQueue->push(event);
+        }
+
         static const Logging::Logger &GetLogger(const std::string &name);
 
     private:
         void ProcessMainThreadQueue(Gui::Core &gui);
         void ProcessGfxThreadQueue(Gfx::Core &gfx);
+        void ProcessGfxUserInputQueue(Gfx::Core &gfx);
 
         void GuiThreadWakeUp();
         void GuiThread(Gui::Core &gui);
@@ -107,6 +115,11 @@ namespace Jangine
         std::queue<std::function<void()>> gfxThreadQueue;
         std::queue<std::function<void()>> *writeGfxThreadQueue = &gfxThreadQueue;
         std::queue<std::function<void()>> *readGfxThreadQueue = &gfxThreadQueue;
+
+        SpinLock guiInputQueueLock;
+        std::queue<UserInput::Event> guiInputEventQueue;
+        std::queue<UserInput::Event> *writeGuiInputEventQueue = &guiInputEventQueue;
+        std::queue<UserInput::Event> *readGuiInputEventQueue = &guiInputEventQueue;
 
         static Core *instance;
     };

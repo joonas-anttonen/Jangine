@@ -1,7 +1,5 @@
 #pragma once
 
-#include <Eigen/Core>
-
 #include "../Shared.hpp"
 #include "../Color.hpp"
 #include "Enums.hpp"

@@ -4,7 +4,6 @@ namespace Jangine::Gfx
 {
     BlenderCamera::BlenderCamera()
     {
-        // position = Eigen::Vector3f(0.0f, 2.5f, 5.0f);
     }
 
     void BlenderCamera::SetPerspective(float_t in_fovY, float_t in_aspect, float_t in_near, float_t in_far)
@@ -29,36 +28,24 @@ namespace Jangine::Gfx
 
     void BlenderCamera::Update(const UserInput &input, float_t deltaTime)
     {
-        float_t dragX = input.GetDragDeltaX();
-        float_t dragY = input.GetDragDeltaY();
-        float_t zoomDelta = input.GetZoomDelta();
+        Eigen::Vector2f turn = input.GetTurnDelta();
+        Eigen::Vector2f move = input.GetMoveDelta();
+        float_t zoom = input.GetZoomDelta();
 
-        // Orbit: update yaw and pitch angles
-        static float_t yaw = 0.0f;
-        static float_t pitch = 0.0f; // Start looking down at 45 degrees
-        float_t sensitivity = 0.01f;
-
-        if (dragX != 0.0f || dragY != 0.0f)
+        // 1. Adjust camera distance ("scale")
+        if (zoom != 0.0f)
         {
-            yaw -= dragX * sensitivity;
-            pitch -= dragY * sensitivity;
-            pitch = std::clamp(pitch, -1.5f, 1.5f); // Prevent flipping
-            dirtyView = true;
-        }
+            const float_t zoomMetersPerSecond = 1.0f * deltaTime;
 
-        // Zoom
-        if (zoomDelta != 0.0f)
-        {
-            float_t zoomSpeed = 2.0f;
             if (projectionType == ProjectionType::Perspective)
             {
-                distance -= zoomDelta * zoomSpeed * deltaTime;
+                distance -= zoom * zoomMetersPerSecond;
                 distance = std::max(distance, 0.1f); // Prevent negative/zero distance
                 dirtyView = true;
             }
-            else // Orthographic
+            else
             {
-                float_t scale = zoomDelta * zoomSpeed * deltaTime;
+                float_t scale = zoom * zoomMetersPerSecond * deltaTime;
                 orthoWidth *= scale;
                 orthoHeight *= scale;
                 orthoWidth = std::min(std::max(orthoWidth, 0.1f), 100.0f);
@@ -67,23 +54,31 @@ namespace Jangine::Gfx
             }
         }
 
-        // Calculate new position
-        Eigen::AngleAxisf yawRot(yaw, Eigen::Vector3f::UnitY());
-        Eigen::AngleAxisf pitchRot(pitch, Eigen::Vector3f::UnitX());
-        Eigen::Vector3f offset = yawRot * pitchRot * Eigen::Vector3f(0, 0, distance);
-        position = target + -1 * offset;
+        // 2. Rotate camera ("rotate")
+        if (!turn.isZero())
+        {
+            const float_t orbitRadiansPerSecond = Math::PI * deltaTime;
 
-        // Look at target
-        Eigen::Vector3f forward = (target - position).normalized();
-        Eigen::Vector3f right = Eigen::Vector3f::UnitY().cross(forward).normalized();
-        Eigen::Vector3f up = forward.cross(right);
+            yaw -= turn.x() * orbitRadiansPerSecond;
+            pitch -= turn.y() * orbitRadiansPerSecond;
+            pitch = std::clamp(pitch, -Math::PI * 0.5f + 0.01f, Math::PI * 0.5f - 0.01f);
+            //pitch = std::fmod(pitch, Math::pi * 2);
+            dirtyView = true;
+        }
 
-        Eigen::Matrix3f rot;
-        rot.col(0) = right;
-        rot.col(1) = up;
-        rot.col(2) = forward;
-        orientation = Eigen::Quaternionf(rot);
+        Eigen::Isometry3f rotation = Eigen::Isometry3f::Identity();
+        rotation.rotate(Eigen::AngleAxisf(yaw, Eigen::Vector3f::UnitY()));
+        rotation.rotate(Eigen::AngleAxisf(pitch, Eigen::Vector3f::UnitX()));
 
+        // 3. Move camera ("translate")
+        if (!move.isZero())
+        {
+            const float_t moveMetersPerSecond = 1.0f * deltaTime;
+
+            target += rotation * Eigen::Vector3f(move.x(), -move.y(), 0) * moveMetersPerSecond;
+        }
+
+        position = target + rotation * Eigen::Vector3f(0, 0, -distance);
         dirtyView = true;
 
         bool dirtyViewProj = dirtyProj || dirtyView;
@@ -108,20 +103,18 @@ namespace Jangine::Gfx
 
     void BlenderCamera::UpdateViewMatrix()
     {
-        // Look-at matrix
-        Eigen::Vector3f forward = (target - position).normalized();
-        Eigen::Vector3f right = Eigen::Vector3f::UnitY().cross(forward).normalized();
-        Eigen::Vector3f up = forward.cross(right);
+        Eigen::Vector3f f = (target - position).normalized();
+        Eigen::Vector3f r = Eigen::Vector3f::UnitY().cross(f).normalized();
+        Eigen::Vector3f u = f.cross(r);
 
-        // Construct the isometry (rotation + translation)
-        Eigen::Isometry3f iso = Eigen::Isometry3f::Identity();
-        iso.linear().col(0) = right;
-        iso.linear().col(1) = up;
-        iso.linear().col(2) = forward;
-        iso.translation() = position;
+        Eigen::Matrix4f view;
+        view.row(0) << r.x(), r.y(), r.z(), -r.dot(position);
+        view.row(1) << u.x(), u.y(), u.z(), -u.dot(position);
+        view.row(2) << -f.x(), -f.y(), -f.z(), f.dot(position);
+        view.row(3) << 0, 0, 0, 1;
 
-        viewMatrix = iso.matrix();
-        inverseViewMatrix = iso.inverse().matrix();
+        viewMatrix = view.matrix();
+        inverseViewMatrix = view.inverse().matrix();
     }
 
     void BlenderCamera::UpdateProjectionMatrix()
