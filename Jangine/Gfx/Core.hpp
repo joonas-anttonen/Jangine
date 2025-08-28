@@ -144,12 +144,12 @@ namespace Jangine::Gfx
 
         /// @brief Write data to a memory buffer directly using memcpy
         /// @note Only valid for host-visible and/or host-coherent memory
-        void WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data, uint32_t offset = 0);
+        void WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data, size_t offset = 0);
 
         /// @brief Write data to a memory buffer using a staging buffer
         void StageToMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data);
 
-        Handle<MemoryBuffer> CreateMemoryBuffer(uint32_t size, MemoryBufferUsage usage, MemoryAccess access);
+        Handle<MemoryBuffer> CreateMemoryBuffer(size_t size, MemoryBufferUsage usage, MemoryAccess access);
         void DestroyMemoryBuffer(MemoryBuffer *memoryBuffer);
         void operator()(MemoryBuffer *mb) { DestroyMemoryBuffer(mb); }
 

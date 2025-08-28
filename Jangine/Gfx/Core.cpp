@@ -599,7 +599,7 @@ namespace Jangine::Gfx
         }
     }
 
-    void Core::WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data, uint32_t offset)
+    void Core::WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data, size_t offset)
     {
         ThrowInvalidOperationIfNull(memoryBuffer);
 
@@ -645,7 +645,7 @@ namespace Jangine::Gfx
         EndSingleCommand(stagingCommand);
     }
 
-    Handle<MemoryBuffer> Core::CreateMemoryBuffer(uint32_t size, MemoryBufferUsage usage, MemoryAccess access)
+    Handle<MemoryBuffer> Core::CreateMemoryBuffer(size_t size, MemoryBufferUsage usage, MemoryAccess access)
     {
         VkBufferCreateInfo bufferCreateInfo = {
             .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,

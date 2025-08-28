@@ -96,6 +96,15 @@ namespace Jangine::Gfx
 
 namespace Jangine
 {
+    /// @brief Create a span of bytes from a vector of any type
+    template <typename T>
+    static constexpr std::span<const std::byte> Span(const std::vector<T> &vector)
+    {
+        return std::span<const std::byte>(
+            reinterpret_cast<const std::byte *>(vector.data()),
+            vector.size() * sizeof(T));
+    }
+
     namespace Math
     {
         constexpr float_t PI = 3.14159265358979323846f;

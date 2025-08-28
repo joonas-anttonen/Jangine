@@ -38,7 +38,7 @@ namespace Jangine::Gfx
 
     private:
         MemoryBuffer(
-            uint32_t size,
+            size_t size,
             VkBuffer vulkanBuffer,
             VmaAllocation vulkanAllocation)
             : size(size),
@@ -51,7 +51,7 @@ namespace Jangine::Gfx
         MemoryBuffer &operator=(MemoryBuffer &&) = delete;
 
     public:
-        const uint32_t size;
+        const size_t size;
 
     private:
         const VkBuffer vulkanBuffer;

@@ -15,14 +15,6 @@ namespace Jangine::Gfx
         PrimordialMesh(PrimordialMesh &&) = default;
     };
 
-    template <typename T>
-    static constexpr std::span<const std::byte> Span(const std::vector<T> &vector)
-    {
-        return std::span<const std::byte>(
-            reinterpret_cast<const std::byte *>(vector.data()),
-            vector.size() * sizeof(T));
-    }
-
     void Core3D::Add(const IO::Gltf::Model &gltf)
     {
         std::vector<MeshVertex> vertices;
@@ -151,19 +143,19 @@ namespace Jangine::Gfx
         }
 
         auto _vertexBuffer = gfx->CreateMemoryBuffer(
-            static_cast<uint32_t>(vertices.size() * sizeof(MeshVertex)),
+            vertices.size() * sizeof(MeshVertex),
             MemoryBufferUsage::Vertex | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
         gfx->StageToMemoryBuffer(_vertexBuffer.get(), Span(vertices));
 
         auto _indexBuffer = gfx->CreateMemoryBuffer(
-            static_cast<uint32_t>(indices.size() * sizeof(uint32_t)),
+            indices.size() * sizeof(uint32_t),
             MemoryBufferUsage::Index | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
         gfx->StageToMemoryBuffer(_indexBuffer.get(), Span(indices));
 
         auto _materialBuffer = gfx->CreateMemoryBuffer(
-            static_cast<uint32_t>(materials.size() * sizeof(MeshMaterial)),
+            materials.size() * sizeof(MeshMaterial),
             MemoryBufferUsage::Storage | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
         gfx->StageToMemoryBuffer(_materialBuffer.get(), Span(materials));
