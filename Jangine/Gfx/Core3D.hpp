@@ -189,6 +189,7 @@ namespace Jangine::Gfx
         Scene()
         {
             Node *world = new Node(Node::Type::Empty, Node::Id{0});
+            world->SetName("World");
             nodes.push_back(world);
         }
 
@@ -253,21 +254,21 @@ namespace Jangine::Gfx
         /// @brief Get the root node of the scene
         Node *GetWorld() { return nodes[0]; }
 
-        /// @brief Get a node by its Id
-        /// @throws InvalidOperationException if the Id is out of range
+        /// @brief Get a node by its Node::Id
+        /// @throws InvalidOperationException if the Node::Id is out of range
         Node *GetNode(Node::Id id)
         {
-            ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(meshes.size()),
-                                    std::format("Node ID {} is out of range.", id.value));
+            ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(nodes.size()),
+                                    std::format("Node::Id({}) is out of range.", id.value));
             return nodes[id];
         }
 
-        /// @brief Get a mesh by its Id
-        /// @throws InvalidOperationException if the Id is out of range
+        /// @brief Get a mesh by its Mesh::Id
+        /// @throws InvalidOperationException if the Mesh::Id is out of range
         const Mesh *GetMesh(Mesh::Id id) const
         {
             ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(meshes.size()),
-                                    std::format("Mesh ID {} is out of range.", id.value));
+                                    std::format("Mesh::Id({}) is out of range.", id.value));
             return &meshes[id.value];
         }
 
@@ -292,7 +293,7 @@ namespace Jangine::Gfx
 
         void Print(const Node *node, int depth = 0) const
         {
-            std::cout << std::format("{} Id: {} Name: {}", std::string(depth * 2, ' '), node->GetId().value, node->GetName()) << std::endl;
+            std::cout << std::format("{} {:03d} {}", std::string(depth * 2, ' '), node->GetId().value, node->GetName()) << std::endl;
             for (auto childId : node->GetDescendants())
             {
                 Print(nodes[childId.value], depth + 1);

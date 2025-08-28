@@ -71,7 +71,7 @@ namespace Jangine::Gfx
             MemoryAccess::Write);
 
         perMeshBuffer = gfx->CreateMemoryBuffer(
-            Math::AlignUp<uint32_t>(sizeof(PerMeshData), gfx->GetCapabilities().uniformBufferOffsetAlignment) * 1024,
+            Math::AlignUp(sizeof(PerMeshData), gfx->GetCapabilities().uniformBufferOffsetAlignment) * 1024,
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
 
@@ -81,12 +81,12 @@ namespace Jangine::Gfx
             MemoryAccess::Write);
 
         Gfx::IO::Gltf::Model model{};
-        Gfx::IO::Status modelStatus = Gfx::IO::Gltf::LoadFromFile("c:/users/jant/desktop/VRWP-C.glb", model);
+        Gfx::IO::Status modelStatus = Gfx::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack.glb", model);
 
         if (modelStatus == Gfx::IO::Status::SUCCESS)
         {
             Import(model);
-            scene.Print(scene.GetWorld(), 0);
+            scene.Print(scene.GetWorld());
         }
     }
 
@@ -149,7 +149,7 @@ namespace Jangine::Gfx
             OITData oitData = {
                 .count = 0,
                 .maxNodeCount = displayParameters.renderWidth * displayParameters.renderHeight * MAX_OIT_NODES_PER_PIXEL};
-            gfx->StageToMemoryBuffer(oitDataBuffer.get(), std::span<const std::byte>(reinterpret_cast<const std::byte *>(&oitData), sizeof(OITData)));
+            gfx->StageToMemoryBuffer(oitDataBuffer.get(), Span(oitData));
 
             oitNodeBuffer = gfx->CreateMemoryBuffer(
                 sizeof(OITNode) * oitData.maxNodeCount,
