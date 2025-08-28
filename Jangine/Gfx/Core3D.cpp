@@ -36,6 +36,10 @@ namespace Jangine::Gfx
           motionBuffer(nullptr, std::ref(*gfx)),
           displayBuffer(nullptr, std::ref(*gfx)),
           meshPipeline(nullptr, std::ref(*gfx)),
+          meshOITCompositionPipeline(nullptr, std::ref(*gfx)),
+          oitDataBuffer(nullptr, std::ref(*gfx)),
+          oitNodeBuffer(nullptr, std::ref(*gfx)),
+          oitNodeHeadBuffer(nullptr, std::ref(*gfx)),
           shapePipeline(nullptr, std::ref(*gfx)),
           logger(Jangine::Core::GetLogger("Gfx::Core3D"))
     {
@@ -135,6 +139,29 @@ namespace Jangine::Gfx
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Color);
+
+            // --------------------- OIT
+            oitDataBuffer = gfx->CreateMemoryBuffer(
+                sizeof(OITData),
+                MemoryBufferUsage::Storage | MemoryBufferUsage::TransferDst,
+                MemoryAccess::None);
+            OITData oitData = {
+                .count = 0,
+                .maxNodeCount = displayParameters.renderWidth * displayParameters.renderHeight * MAX_OIT_NODES_PER_PIXEL};
+            gfx->StageToMemoryBuffer(oitDataBuffer.get(), std::span<const std::byte>(reinterpret_cast<const std::byte *>(&oitData), sizeof(OITData)));
+
+            oitNodeBuffer = gfx->CreateMemoryBuffer(
+                sizeof(OITNode) * oitData.maxNodeCount,
+                MemoryBufferUsage::Storage,
+                MemoryAccess::None);
+
+            oitNodeHeadBuffer = gfx->CreatePixelBuffer(
+                wantedDisplayParameters.renderWidth,
+                wantedDisplayParameters.renderHeight,
+                Format::U32,
+                PixelBufferUsage::Storage | PixelBufferUsage::TransferDst | PixelBufferUsage::Sampled,
+                Aspect::Color);
+            // ---------------------
         }
 
         if (initializeDisplay)
@@ -236,6 +263,18 @@ namespace Jangine::Gfx
                 {.binding = 2,
                  .descriptorType = DescriptorType::STORAGE_BUFFER,
                  .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 3,
+                 .descriptorType = DescriptorType::STORAGE_BUFFER,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 4,
+                 .descriptorType = DescriptorType::STORAGE_BUFFER,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 5,
+                 .descriptorType = DescriptorType::STORAGE_IMAGE,
+                 .descriptorCount = 1,
                  .stages = ShaderStage::FRAGMENT}};
             meshPipelineParams.topology = PrimitiveTopology::TRIANGLE_LIST;
             meshPipelineParams.cullMode = CullMode::NONE;
@@ -265,10 +304,39 @@ namespace Jangine::Gfx
                  .blend = straightAlphaBlend}};
 
             meshPipeline = gfx->CreatePipeline(meshPipelineParams);
+
+            meshPipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-oit-composition"),
+                                                                           "Shader program 'built-in-oit-composition' not found in cache.");
+            meshPipelineParams.pushConstantRanges = {};
+            meshPipelineParams.descriptorLayout = {
+                {.binding = 0,
+                 .descriptorType = DescriptorType::STORAGE_BUFFER,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 1,
+                 .descriptorType = DescriptorType::SAMPLED_IMAGE,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 2,
+                 .descriptorType = DescriptorType::SAMPLED_IMAGE,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT}};
+            meshPipelineParams.cullMode = CullMode::NONE;
+            meshPipelineParams.frontFace = FrontFace::COUNTER_CLOCKWISE;
+            meshPipelineParams.depthTestEnabled = false;
+            meshPipelineParams.depthWriteEnabled = false;
+            meshPipelineParams.depthCompareOp = CompareOp::LESS_OR_EQUAL;
+            meshPipelineParams.vertexInputBindings = {};
+            meshPipelineParams.vertexInputAttributes = {};
+            meshPipelineParams.attachments = {
+                {.format = Format::RGBA32,
+                 .blend = straightAlphaBlend}};
+
+            meshOITCompositionPipeline = gfx->CreatePipeline(meshPipelineParams);
         }
 
-        camera.SetOrthographic(displayParameters.GetAspectRatio(), 10, -100.0f, 100.0f);
-        //camera.SetPerspective(displayParameters.GetAspectRatio(), Math::PI / 4.0f, 0.0f, 100.0f);
+        //camera.SetOrthographic(displayParameters.GetAspectRatio(), 10, -100.0f, 100.0f);
+        camera.SetPerspective(displayParameters.GetAspectRatio(), Math::PI / 4.0f, 0.1f, 100.0f);
     }
 
     void Core3D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
@@ -306,8 +374,7 @@ namespace Jangine::Gfx
             static_cast<float_t>(displayParameters.renderWidth),
             static_cast<float_t>(displayParameters.renderHeight));
 
-        std::span<const std::byte> perSceneDataSpan(reinterpret_cast<const std::byte *>(&sceneData), sizeof(sceneData));
-        gfx->WriteMemoryBuffer(perSceneBuffer.get(), perSceneDataSpan);
+        gfx->WriteMemoryBuffer(perSceneBuffer.get(), Span(sceneData));
 
         CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
 
@@ -315,6 +382,32 @@ namespace Jangine::Gfx
                                 renderBuffer.get(),
                                 ImageLayout::UNDEFINED,
                                 ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+
+        gfx->PixelBufferBarrier(commandBuffer,
+                                depthBuffer.get(),
+                                ImageLayout::UNDEFINED,
+                                ImageLayout::DEPTH_ATTACHMENT_OPTIMAL);
+
+        gfx->PixelBufferBarrier(commandBuffer,
+                                motionBuffer.get(),
+                                ImageLayout::UNDEFINED,
+                                ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+
+        // --------------------- OIT
+        gfx->PixelBufferBarrier(commandBuffer,
+                                oitNodeHeadBuffer.get(),
+                                ImageLayout::UNDEFINED,
+                                ImageLayout::GENERAL);
+
+        gfx->ClearPixelBuffer(commandBuffer,
+                              oitNodeHeadBuffer.get(),
+                              0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+                              ImageLayout::GENERAL);
+
+        gfx->FillBuffer(commandBuffer, oitDataBuffer.get(), 0, 0, sizeof(uint32_t));
+
+        gfx->TransferBarrier(commandBuffer);
+        // ---------------------
 
         VkRenderingAttachmentInfo colorAttachment{
             .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -385,31 +478,48 @@ namespace Jangine::Gfx
 
             for (const auto &primitive : mesh->GetPrimitives())
             {
+                if (primitive.materialHasTransparency)
+                {
+                    vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, false);
+                }
+                else
+                {
+                    vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, true);
+                }
+
                 perMeshData.Transform = node->GetWorldTransform().matrix();
                 perMeshData.MaterialIndex = primitive.materialIndex;
 
-                // TODO: Fix alignment issues
                 std::span<const std::byte> perMeshDataSpan(reinterpret_cast<const std::byte *>(&perMeshData), sizeof(perMeshData));
-                size_t alignment = gfx->GetCapabilities().uniformBufferOffsetAlignment;
-                size_t offset = drawCount++ * Math::AlignUp(sizeof(PerMeshData), alignment);
-                gfx->WriteMemoryBuffer(perMeshBuffer.get(), perMeshDataSpan, static_cast<uint32_t>(offset));
+                size_t perMeshOffset = drawCount++ * Math::AlignUp(sizeof(PerMeshData), gfx->GetCapabilities().uniformBufferOffsetAlignment);
+                gfx->WriteMemoryBuffer(perMeshBuffer.get(), perMeshDataSpan, static_cast<uint32_t>(perMeshOffset));
 
                 VkDescriptorBufferInfo perSceneBufferInfo{
                     .buffer = perSceneBuffer->vulkanBuffer,
                     .offset = 0,
                     .range = sizeof(PerSceneData)};
-
                 VkDescriptorBufferInfo perMeshBufferInfo{
                     .buffer = perMeshBuffer->vulkanBuffer,
-                    .offset = offset,
+                    .offset = perMeshOffset,
                     .range = sizeof(PerMeshData)};
-
                 VkDescriptorBufferInfo perMaterialBufferInfo{
                     .buffer = meshBuffer->GetMaterialBuffer()->vulkanBuffer,
                     .offset = 0,
                     .range = VK_WHOLE_SIZE};
+                VkDescriptorBufferInfo perOITDataBufferInfo{
+                    .buffer = oitDataBuffer->vulkanBuffer,
+                    .offset = 0,
+                    .range = VK_WHOLE_SIZE};
+                VkDescriptorBufferInfo perOITNodeBufferInfo{
+                    .buffer = oitNodeBuffer->vulkanBuffer,
+                    .offset = 0,
+                    .range = VK_WHOLE_SIZE};
+                VkDescriptorImageInfo perOITHeadBuffer{
+                    .sampler = VK_NULL_HANDLE,
+                    .imageView = oitNodeHeadBuffer->vulkanImageView,
+                    .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
 
-                VkWriteDescriptorSet descriptorWrites[3] = {
+                VkWriteDescriptorSet descriptorWrites[6] = {
                     {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                      .pNext = nullptr,
                      .dstSet = VK_NULL_HANDLE,
@@ -439,12 +549,42 @@ namespace Jangine::Gfx
                      .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                      .pImageInfo = nullptr,
                      .pBufferInfo = &perMaterialBufferInfo,
+                     .pTexelBufferView = nullptr},
+                    {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                     .pNext = nullptr,
+                     .dstSet = VK_NULL_HANDLE,
+                     .dstBinding = 3,
+                     .dstArrayElement = 0,
+                     .descriptorCount = 1,
+                     .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                     .pImageInfo = nullptr,
+                     .pBufferInfo = &perOITDataBufferInfo,
+                     .pTexelBufferView = nullptr},
+                    {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                     .pNext = nullptr,
+                     .dstSet = VK_NULL_HANDLE,
+                     .dstBinding = 4,
+                     .dstArrayElement = 0,
+                     .descriptorCount = 1,
+                     .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                     .pImageInfo = nullptr,
+                     .pBufferInfo = &perOITNodeBufferInfo,
+                     .pTexelBufferView = nullptr},
+                    {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                     .pNext = nullptr,
+                     .dstSet = VK_NULL_HANDLE,
+                     .dstBinding = 5,
+                     .dstArrayElement = 0,
+                     .descriptorCount = 1,
+                     .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                     .pImageInfo = &perOITHeadBuffer,
+                     .pBufferInfo = nullptr,
                      .pTexelBufferView = nullptr}};
 
                 gfx->PushDescriptorSets(
                     commandBuffer,
                     meshPipeline.get(),
-                    3,
+                    6,
                     descriptorWrites);
 
                 vkCmdDrawIndexed(
@@ -459,47 +599,119 @@ namespace Jangine::Gfx
 
         vkCmdEndRendering(commandBuffer.vulkanHandle);
 
-        // FIXME: Stop cheating!
-        gfx->FullBarrier(commandBuffer);
+        gfx->PixelBufferBarrier(commandBuffer,
+                                displayBuffer.get(),
+                                ImageLayout::UNDEFINED,
+                                ImageLayout::TRANSFER_DST_OPTIMAL);
+        gfx->PixelBufferBarrier(commandBuffer,
+                                depthBuffer.get(),
+                                ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
+                                ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+
+        // --------------------- OIT
+
+        colorAttachment = {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            .pNext = nullptr,
+            .imageView = renderBuffer->vulkanImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            .resolveMode = VK_RESOLVE_MODE_NONE,
+            .resolveImageView = VK_NULL_HANDLE,
+            .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+            .storeOp = VK_ATTACHMENT_STORE_OP_STORE};
+        colorAttachments[0] = colorAttachment;
+
+        renderingInfo = {
+            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .renderArea = {{0, 0}, {renderExtent.width, renderExtent.height}},
+            .layerCount = 1,
+            .viewMask = 0,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = colorAttachments,
+            .pDepthAttachment = nullptr,
+            .pStencilAttachment = nullptr};
+
+        vkCmdBeginRendering(commandBuffer.vulkanHandle, &renderingInfo);
+        vkCmdBindPipeline(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, meshOITCompositionPipeline->vulkanHandle);
+        vkCmdSetViewport(commandBuffer.vulkanHandle, 0, 1, &viewport);
+        vkCmdSetScissor(commandBuffer.vulkanHandle, 0, 1, &scissor);
+        vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, false);
+
+        VkDescriptorBufferInfo perOITNodeBufferInfo{
+            .buffer = oitNodeBuffer->vulkanBuffer,
+            .offset = 0,
+            .range = VK_WHOLE_SIZE};
+        VkDescriptorImageInfo perOITHeadBuffer{
+            .sampler = VK_NULL_HANDLE,
+            .imageView = oitNodeHeadBuffer->vulkanImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+        VkDescriptorImageInfo perDepthBuffer{
+            .sampler = VK_NULL_HANDLE,
+            .imageView = depthBuffer->vulkanImageView,
+            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+
+        VkWriteDescriptorSet descriptorWrites[3] = {
+            {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+             .pNext = nullptr,
+             .dstSet = VK_NULL_HANDLE,
+             .dstBinding = 0,
+             .dstArrayElement = 0,
+             .descriptorCount = 1,
+             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+             .pImageInfo = nullptr,
+             .pBufferInfo = &perOITNodeBufferInfo,
+             .pTexelBufferView = nullptr},
+            {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+             .pNext = nullptr,
+             .dstSet = VK_NULL_HANDLE,
+             .dstBinding = 1,
+             .dstArrayElement = 0,
+             .descriptorCount = 1,
+             .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+             .pImageInfo = &perOITHeadBuffer,
+             .pBufferInfo = nullptr,
+             .pTexelBufferView = nullptr},
+            {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+             .pNext = nullptr,
+             .dstSet = VK_NULL_HANDLE,
+             .dstBinding = 2,
+             .dstArrayElement = 0,
+             .descriptorCount = 1,
+             .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+             .pImageInfo = &perDepthBuffer,
+             .pBufferInfo = nullptr,
+             .pTexelBufferView = nullptr}};
+        gfx->PushDescriptorSets(
+            commandBuffer,
+            meshOITCompositionPipeline.get(),
+            3,
+            descriptorWrites);
+
+        vkCmdDraw(commandBuffer.vulkanHandle, 3, 1, 0, 0);
+
+        vkCmdEndRendering(commandBuffer.vulkanHandle);
 
         gfx->PixelBufferBarrier(commandBuffer,
                                 renderBuffer.get(),
                                 ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                                 ImageLayout::TRANSFER_SRC_OPTIMAL);
-        gfx->PixelBufferBarrier(commandBuffer,
-                                displayBuffer.get(),
-                                ImageLayout::UNDEFINED,
-                                ImageLayout::TRANSFER_DST_OPTIMAL);
 
         // render -> display
         {
-            VkImageBlit blitRegion{
-                .srcSubresource = {
-                    .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
-                    .mipLevel = 0,
-                    .baseArrayLayer = 0,
-                    .layerCount = 1},
-                .srcOffsets = {{0, 0, 0}, {static_cast<int32_t>(renderBuffer->width), static_cast<int32_t>(renderBuffer->height), 1}},
-                .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
-                .dstOffsets = {{0, 0, 0}, {static_cast<int32_t>(displayBuffer->width), static_cast<int32_t>(displayBuffer->height), 1}}};
-
-            vkCmdBlitImage(commandBuffer.vulkanHandle,
-                           renderBuffer->vulkanImage,
-                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                           displayBuffer->vulkanImage,
-                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                           1,
-                           &blitRegion,
-                           VK_FILTER_LINEAR);
+            gfx->BlitPixelBuffer(commandBuffer,
+                                 renderBuffer.get(),
+                                 displayBuffer.get(),
+                                 BlitFilter::LINEAR,
+                                 ImageLayout::TRANSFER_SRC_OPTIMAL,
+                                 ImageLayout::TRANSFER_DST_OPTIMAL);
         }
 
         // display -> presentation
         {
             Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
-            // gfx->PixelBufferBarrier(commandBuffer,
-            //                         presentationBuffer,
-            //                         ImageLayout::UNDEFINED,
-            //                         ImageLayout::TRANSFER_DST_OPTIMAL);
 
             gfx->PixelBufferBarrier(commandBuffer,
                                     displayBuffer.get(),

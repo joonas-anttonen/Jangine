@@ -72,6 +72,12 @@ namespace Jangine::Gfx
         INT_CUSTOM_EXT = 1000287004,
     };
 
+    enum class BlitFilter : uint32_t
+    {
+        NEAREST = 0,
+        LINEAR = 1,
+    };
+
     enum class SamplerFilter : uint32_t
     {
         NEAREST = 0,
@@ -88,6 +94,7 @@ namespace Jangine::Gfx
     {
         Undefined = 0,
         R16G16 = 83, // VK_FORMAT_R16G16_SFLOAT
+        U32 = 98,    // VK_FORMAT_R32_UINT
         R32 = 100,
         RG32 = 103,
         RGB32 = 106,

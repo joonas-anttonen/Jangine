@@ -105,6 +105,14 @@ namespace Jangine
             vector.size() * sizeof(T));
     }
 
+    template <typename T>
+    static constexpr std::span<const std::byte> Span(const T &value)
+    {
+        return std::span<const std::byte>(
+            reinterpret_cast<const std::byte *>(&value),
+            sizeof(T));
+    }
+
     namespace Math
     {
         constexpr float_t PI = 3.14159265358979323846f;
@@ -120,7 +128,7 @@ namespace Jangine
             return radians * (180.0f / PI);
         }
 
-        template<typename T = size_t>
+        template <typename T = size_t>
         static constexpr T AlignUp(size_t value, size_t alignment)
         {
             return static_cast<T>((value + alignment - 1) & ~(alignment - 1));

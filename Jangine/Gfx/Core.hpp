@@ -191,10 +191,21 @@ namespace Jangine::Gfx
 
         void FullBarrier(CommandBuffer commandBuffer);
 
+        void TransferBarrier(CommandBuffer commandBuffer);
+
         void PixelBufferBarrier(CommandBuffer commandBuffer, Presenter::Image &pixelBuffer, ImageLayout srcLayout, ImageLayout dstLayout);
         void PixelBufferBarrier(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, ImageLayout srcLayout, ImageLayout dstLayout);
 
-        void ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, Color clearColor);
+        void BlitPixelBuffer(CommandBuffer commandBuffer,
+                             PixelBuffer *srcBuffer,
+                             PixelBuffer *dstBuffer,
+                             BlitFilter filter = BlitFilter::LINEAR,
+                             ImageLayout srcCurrentLayout = ImageLayout::TRANSFER_SRC_OPTIMAL,
+                             ImageLayout dstCurrentLayout = ImageLayout::TRANSFER_DST_OPTIMAL);
+
+        void FillBuffer(CommandBuffer commandBuffer, MemoryBuffer *memoryBuffer, uint32_t value, size_t offset = 0, size_t size = ~0);
+        void ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, Color clearColor, ImageLayout currentLayout = ImageLayout::TRANSFER_DST_OPTIMAL);
+        void ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, uint32_t c0, uint32_t c1, uint32_t c2, uint32_t c3, ImageLayout currentLayout = ImageLayout::TRANSFER_DST_OPTIMAL);
 
         void PushDescriptorSets(CommandBuffer commandBuffer, Pipeline *pipeline, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *descriptorWrites);
 
@@ -243,10 +254,10 @@ namespace Jangine::Gfx
         SpinLock displayParametersLock;
         std::optional<DisplayParameters> wantedDisplayParameters;
         DisplayParameters currentDisplayParameters = {
-            .renderWidth = 1280,
-            .renderHeight = 720,
-            .displayWidth = 1280,
-            .displayHeight = 720,
+            .renderWidth = 2560,
+            .renderHeight = 1440,
+            .displayWidth = 2560,
+            .displayHeight = 1440,
         };
 
         UserInput userInput;

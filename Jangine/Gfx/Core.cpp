@@ -617,7 +617,7 @@ namespace Jangine::Gfx
         memcpy(static_cast<std::byte *>(pDst) + offset, data.data(), data.size());
 
         vmaUnmapMemory(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation);
-        ThrowVulkanIfFailed(vmaFlushAllocation(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation, 0, data.size()));
+        ThrowVulkanIfFailed(vmaFlushAllocation(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation, offset, data.size()));
     }
 
     void Core::StageToMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data)
@@ -810,7 +810,7 @@ namespace Jangine::Gfx
         viewportStateCreateInfo.viewportCount = 1;
         viewportStateCreateInfo.scissorCount = 1;
 
-        std::array<VkDynamicState, 2> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+        std::array<VkDynamicState, 3> dynamicStates = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE};
         VkPipelineDynamicStateCreateInfo dynamicStateCreateInfo{};
         dynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
         dynamicStateCreateInfo.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size());
@@ -1347,6 +1347,25 @@ namespace Jangine::Gfx
         vkCmdPipelineBarrier2(commandBuffer.vulkanHandle, &dependencyInfo);
     }
 
+    void Core::TransferBarrier(CommandBuffer commandBuffer)
+    {
+        VkMemoryBarrier2 memoryBarrier = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+            .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+            .dstAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT};
+
+        VkDependencyInfo dependencyInfo = {
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .pNext = nullptr,
+            .dependencyFlags = 0,
+            .memoryBarrierCount = 1,
+            .pMemoryBarriers = &memoryBarrier};
+
+        vkCmdPipelineBarrier2(commandBuffer.vulkanHandle, &dependencyInfo);
+    }
+
     static VkAccessFlagBits2 GetAccessFlags(ImageLayout layout)
     {
         switch (layout)
@@ -1366,6 +1385,11 @@ namespace Jangine::Gfx
             return VK_ACCESS_2_TRANSFER_READ_BIT;
         case ImageLayout::TRANSFER_DST_OPTIMAL:
             return VK_ACCESS_2_TRANSFER_WRITE_BIT;
+        case ImageLayout::GENERAL:
+            return VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT | VK_ACCESS_2_INPUT_ATTACHMENT_READ_BIT |
+                   VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
+                   VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT |
+                   VK_ACCESS_2_TRANSFER_READ_BIT | VK_ACCESS_2_TRANSFER_WRITE_BIT;
         default:
             ThrowInvalidOperationIf(true);
             return 0;
@@ -1391,6 +1415,8 @@ namespace Jangine::Gfx
             return VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT;
         case ImageLayout::PRESENT_SRC_KHR:
             return VK_PIPELINE_STAGE_2_BOTTOM_OF_PIPE_BIT;
+        case ImageLayout::GENERAL:
+            return VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
         default:
             ThrowInvalidOperationIf(true);
             return 0;
@@ -1467,7 +1493,34 @@ namespace Jangine::Gfx
         vkCmdPipelineBarrier2(commandBuffer.vulkanHandle, &dependencyInfo);
     }
 
-    void Core::ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, Color clearColor)
+    void Core::BlitPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *srcBuffer, PixelBuffer *dstBuffer, BlitFilter filter, ImageLayout srcCurrentLayout, ImageLayout dstCurrentLayout)
+    {
+        VkImageBlit blitRegion{
+            .srcSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1},
+            .srcOffsets = {{0, 0, 0}, {static_cast<int32_t>(srcBuffer->width), static_cast<int32_t>(srcBuffer->height), 1}},
+            .dstSubresource = {.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
+            .dstOffsets = {{0, 0, 0}, {static_cast<int32_t>(dstBuffer->width), static_cast<int32_t>(dstBuffer->height), 1}}};
+
+        vkCmdBlitImage(commandBuffer.vulkanHandle,
+                       srcBuffer->vulkanImage,
+                       static_cast<VkImageLayout>(srcCurrentLayout),
+                       dstBuffer->vulkanImage,
+                       static_cast<VkImageLayout>(dstCurrentLayout),
+                       1,
+                       &blitRegion,
+                       static_cast<VkFilter>(filter));
+    }
+
+    void Core::FillBuffer(CommandBuffer commandBuffer, MemoryBuffer *memoryBuffer, uint32_t value, size_t offset, size_t size)
+    {
+        vkCmdFillBuffer(commandBuffer.vulkanHandle, memoryBuffer->vulkanBuffer, offset, size, value);
+    }
+
+    void Core::ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, Color clearColor, ImageLayout currentLayout)
     {
         VkClearColorValue clearColorValue = {
             .float32 = {clearColor.r, clearColor.g, clearColor.b, clearColor.a}};
@@ -1479,7 +1532,22 @@ namespace Jangine::Gfx
             .baseArrayLayer = 0,
             .layerCount = 1};
 
-        vkCmdClearColorImage(commandBuffer.vulkanHandle, pixelBuffer->vulkanImage, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColorValue, 1, &subresourceRange);
+        vkCmdClearColorImage(commandBuffer.vulkanHandle, pixelBuffer->vulkanImage, static_cast<VkImageLayout>(currentLayout), &clearColorValue, 1, &subresourceRange);
+    }
+
+    void Core::ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, uint32_t c0, uint32_t c1, uint32_t c2, uint32_t c3, ImageLayout currentLayout)
+    {
+        VkClearColorValue clearColorValue = {
+            .uint32 = {c0, c1, c2, c3}};
+
+        VkImageSubresourceRange subresourceRange = {
+            .aspectMask = static_cast<VkImageAspectFlags>(pixelBuffer->aspect),
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1};
+
+        vkCmdClearColorImage(commandBuffer.vulkanHandle, pixelBuffer->vulkanImage, static_cast<VkImageLayout>(currentLayout), &clearColorValue, 1, &subresourceRange);
     }
 
     void Core::CreateInstance(const ApiParameters &params)

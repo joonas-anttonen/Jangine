@@ -70,6 +70,7 @@ namespace Jangine
         bool operator!=(const Color &other) const { return !(*this == other); }
 
         static const Color White, Black, Transparent;
+        static const Color Maximum;
 
         static const Color NordPolarNight1;   // nord0 - dark blue-gray
         static const Color NordPolarNight2;   // nord1 - slightly lighter blue-gray
@@ -92,6 +93,11 @@ namespace Jangine
     inline const Color Color::White = Color(1, 1, 1, 1);
     inline const Color Color::Black = Color(0, 0, 0, 1);
     inline const Color Color::Transparent = Color(0, 0, 0, 0);
+    inline const Color Color::Maximum = Color(
+        (float_t)std::numeric_limits<uint32_t>::max(), 
+        (float_t)std::numeric_limits<uint32_t>::max(), 
+        (float_t)std::numeric_limits<uint32_t>::max(), 
+        (float_t)std::numeric_limits<uint32_t>::max());
 
     inline const Color Color::NordPolarNight1 = Color::FromUInt(0x2E3440);   // dark blue-gray
     inline const Color Color::NordPolarNight2 = Color::FromUInt(0x3B4252);   // slightly lighter blue-gray

@@ -27,6 +27,25 @@ struct PerMeshData
 [[vk::binding(1, 0)]] ConstantBuffer<PerMeshData> perMesh;
 [[vk::binding(2, 0)]] StructuredBuffer<PerMaterialData> perMaterial;
 
+// --------------------- OIT
+
+struct OITData
+{
+    uint count;
+    uint maxNodeCount;
+};
+struct OITNode
+{
+    float4 color;
+    float depth;
+    uint next;
+};
+[[vk::binding(3, 0)]] RWStructuredBuffer<OITData> oitData;
+[[vk::binding(4, 0)]] RWStructuredBuffer<OITNode> oitNodes;
+[[vk::binding(5, 0)]] RWTexture2D<uint> oitNodeHeadImage;
+
+// ---------------------
+
 struct vertex_input
 {
 	float3 Position : POSITION0;
@@ -64,5 +83,38 @@ float4 fragment(fragment_input input) : SV_TARGET
 { 
     PerMaterialData material = perMaterial[input.MaterialIndex];
 
-    return float4(material.BaseColor.rgb, 1.0);
+    float3 ambient = float3(0.15, 0.15, 0.15);
+
+    // Simple lighting where light comes from the view direction
+    float3 L = normalize(perScene.ViewPosition - input.Position_World);
+    float NdotL = min(max(dot(input.Normal, L), 0.2), 0.8);
+
+    float3 diffuse = material.BaseColor.rgb * NdotL * 2;
+    float3 combined = saturate(ambient + diffuse);
+
+    // --------------------- OIT
+    if (material.BaseColor.a < 1.0f)
+    {
+        // Increase the node count
+        uint nodeIdx;
+        InterlockedAdd(oitData[0].count, 1, nodeIdx);
+
+        // Check LinkedListSBO is full
+        if (nodeIdx < oitData[0].maxNodeCount)
+        {
+            // Exchange new head index and previous head index
+            uint prevHeadIdx;
+            InterlockedExchange(oitNodeHeadImage[uint2(input.Position.xy)], nodeIdx, prevHeadIdx);
+
+            // Store node data
+            oitNodes[nodeIdx].color = float4(combined, material.BaseColor.a);
+            oitNodes[nodeIdx].depth = input.Position.z;
+            oitNodes[nodeIdx].next = prevHeadIdx;
+        }
+
+        discard;
+    }
+    // ---------------------
+
+    return float4(combined, 1.0);
 }

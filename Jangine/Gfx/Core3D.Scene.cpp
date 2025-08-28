@@ -135,6 +135,7 @@ namespace Jangine::Gfx
                 primitive.indexOffset = static_cast<uint32_t>(primitiveIndexOffset);
                 primitive.indexCount = static_cast<uint32_t>(indexAccessor.count);
                 primitive.materialIndex = static_cast<uint8_t>(gltfPrimitive.material);
+                primitive.materialHasTransparency = materials[primitive.materialIndex].base[3] < 1.0f;
 
                 primordialMesh.primitives.push_back(primitive);
             }

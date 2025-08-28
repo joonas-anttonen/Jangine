@@ -36,6 +36,7 @@ namespace Jangine::Gfx
         uint32_t indexOffset;
         uint32_t indexCount;
         uint8_t materialIndex;
+        bool_t materialHasTransparency;
     };
 
     /// @brief Vertex, index, and material buffer for one or more meshes
@@ -205,7 +206,7 @@ namespace Jangine::Gfx
         Node *CreateNode()
         {
             Node::Id id = static_cast<Node::Id>(nodes.size());
-            Node* node = new Node(Node::Type::Empty, id);
+            Node *node = new Node(Node::Type::Empty, id);
             nodes.push_back(node);
             node->ancestor = Node::Id{0}; // world
             GetWorld()->descendants.push_back(node->self);
@@ -215,7 +216,7 @@ namespace Jangine::Gfx
         MeshNode *CreateMeshNode(Mesh::Id meshId)
         {
             Node::Id id = static_cast<Node::Id>(nodes.size());
-            MeshNode* node = new MeshNode(id, meshId);
+            MeshNode *node = new MeshNode(id, meshId);
             nodes.push_back(node);
             node->ancestor = Node::Id{0}; // world
             GetWorld()->descendants.push_back(node->self);
@@ -260,7 +261,7 @@ namespace Jangine::Gfx
                                     std::format("Mesh ID {} is out of range.", id.value));
             return &meshes[id.value];
         }
-        const std::vector<Node*> &GetNodes() const { return nodes; }
+        const std::vector<Node *> &GetNodes() const { return nodes; }
 
         void Update()
         {
@@ -288,7 +289,7 @@ namespace Jangine::Gfx
         }
 
     private:
-        std::vector<Node*> nodes;
+        std::vector<Node *> nodes;
         std::vector<Mesh> meshes;
     };
 
@@ -353,6 +354,19 @@ namespace Jangine::Gfx
             int32_t Alignment;
         };
 
+        struct OITData
+        {
+            uint32_t count;
+            uint32_t maxNodeCount;
+        };
+
+        struct OITNode
+        {
+            Eigen::Vector4f color;
+            float_t depth;
+            uint32_t next;
+        };
+
     public:
         Core3D(Gfx::Core *gfx);
         ~Core3D();
@@ -371,9 +385,16 @@ namespace Jangine::Gfx
         static constexpr uint32_t MAX_VERTICES = 65536;
         static constexpr uint32_t MAX_INDICES = 65536;
 
+        static constexpr uint32_t MAX_OIT_NODES_PER_PIXEL = 10;
+
         Handle<MemoryBuffer> perSceneBuffer;
         Handle<MemoryBuffer> perMeshBuffer;
         Handle<Pipeline> meshPipeline;
+        Handle<Pipeline> meshOITCompositionPipeline;
+
+        Handle<MemoryBuffer> oitDataBuffer;
+        Handle<MemoryBuffer> oitNodeBuffer;
+        Handle<PixelBuffer> oitNodeHeadBuffer;
 
         Handle<PixelBuffer> renderBuffer;
         Handle<PixelBuffer> depthBuffer;

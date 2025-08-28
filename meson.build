@@ -80,6 +80,7 @@ built_in_shaders = custom_target(
         'Jangine/Gfx/Shaders/built-in-2d.hlsl',
         'Jangine/Gfx/Shaders/built-in-2d-composition.hlsl',
         'Jangine/Gfx/Shaders/built-in-mesh.hlsl',
+        'Jangine/Gfx/Shaders/built-in-oit-composition.hlsl',
         'Jangine/Gfx/Shaders/built-in-shape-disc.hlsl',
         'Jangine/Gfx/Shaders/built-in-shape-line.hlsl',
     ],
