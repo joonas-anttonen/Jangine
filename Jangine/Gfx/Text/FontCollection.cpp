@@ -248,7 +248,7 @@ namespace Jangine::Gfx::Text
         BuildAtlas(freetypeGlyphs, glyphs, atlasData, atlasSize);
 
         Handle<PixelBuffer> pixelBuffer = gfx->CreatePixelBuffer(
-            std::span<const uint8_t>(atlasData.data(), atlasData.size()),
+            std::span<const std::byte>(reinterpret_cast<const std::byte *>(atlasData.data()), atlasData.size()),
             atlasSize, atlasSize,
             Format::RGBA8,
             PixelBufferUsage::Sampled);

@@ -57,7 +57,7 @@ namespace Jangine::Gfx
 
         uint8_t data[4] = {255, 255, 255, 255};
         placeholderBuffer = gfx->CreatePixelBuffer(
-            std::span<uint8_t>(data, 4),
+            std::span<const std::byte>(reinterpret_cast<const std::byte *>(data), sizeof(data)),
             1,
             1,
             Format::RGBA8,

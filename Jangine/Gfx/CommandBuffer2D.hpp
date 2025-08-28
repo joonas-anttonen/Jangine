@@ -246,14 +246,14 @@ namespace Jangine::Gfx
     public:
         uint32_t index = 0;
 
-        [[nodiscard]] inline std::span<const uint8_t> GetVertexData() const
+        [[nodiscard]] inline std::span<const std::byte> GetVertexData() const
         {
-            return std::span(reinterpret_cast<const uint8_t *>(vertices.data()), vertices.size() * sizeof(Vertex2f));
+            return std::as_bytes(std::span(vertices));
         }
 
-        [[nodiscard]] inline std::span<const uint8_t> GetIndexData() const
+        [[nodiscard]] inline std::span<const std::byte> GetIndexData() const
         {
-            return std::span(reinterpret_cast<const uint8_t *>(indices.data()), indices.size() * sizeof(uint16_t));
+            return std::as_bytes(std::span(indices));
         }
 
         [[nodiscard]] inline std::span<const CommandBatch> GetBatches() const

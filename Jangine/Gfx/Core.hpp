@@ -43,6 +43,7 @@ namespace Jangine::Gfx
         {
             bool_t debugging;
             bool_t timestamps;
+            size_t uniformBufferOffsetAlignment;
         };
 
     public:
@@ -139,10 +140,14 @@ namespace Jangine::Gfx
             return userInput;
         }
 
-        // Write data to a memory buffer
-        // This is a mapped memory write using memcpy
-        // Only valid for host-visible and/or host-coherent memory
-        void WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const uint8_t> data);
+        const ApiCapabilities &GetCapabilities() const { return capabilities; }
+
+        /// @brief Write data to a memory buffer directly using memcpy
+        /// @note Only valid for host-visible and/or host-coherent memory
+        void WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data, uint32_t offset = 0);
+
+        /// @brief Write data to a memory buffer using a staging buffer
+        void StageToMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data);
 
         Handle<MemoryBuffer> CreateMemoryBuffer(uint32_t size, MemoryBufferUsage usage, MemoryAccess access);
         void DestroyMemoryBuffer(MemoryBuffer *memoryBuffer);
@@ -158,9 +163,11 @@ namespace Jangine::Gfx
 
         // Write data to a pixel buffer
         // This is a staged upload using a temporary buffer
-        void WritePixelBuffer(PixelBuffer *pixelBuffer, std::span<const uint8_t> data, ImageLayout srcLayout, ImageLayout dstLayout);
 
-        Handle<PixelBuffer> CreatePixelBuffer(std::span<const uint8_t> data,
+        /// @brief Write data to a pixel buffer using a staging buffer
+        void StageToPixelBuffer(PixelBuffer *pixelBuffer, std::span<const std::byte> data, ImageLayout srcLayout, ImageLayout dstLayout);
+
+        Handle<PixelBuffer> CreatePixelBuffer(std::span<const std::byte> data,
                                               uint32_t width,
                                               uint32_t height,
                                               Format format,

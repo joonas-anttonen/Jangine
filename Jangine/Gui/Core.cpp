@@ -503,7 +503,7 @@ namespace Jangine::Gui
         bool_t acquiredCommandBuffer = gfx2D->TryAcquireCommandBuffer(&commandBuffer);
         if (!acquiredCommandBuffer)
         {
-            logger.Warning("Failed to acquire command buffer", __func__);
+            //logger.Warning("Failed to acquire command buffer", __func__);
             return;
         }
 

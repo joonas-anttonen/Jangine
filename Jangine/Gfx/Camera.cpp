@@ -6,7 +6,7 @@ namespace Jangine::Gfx
     {
     }
 
-    void BlenderCamera::SetPerspective(float_t in_fovY, float_t in_aspect, float_t in_near, float_t in_far)
+    void BlenderCamera::SetPerspective(float_t in_aspect, float_t in_fovY, float_t in_near, float_t in_far)
     {
         fovY = in_fovY;
         aspect = in_aspect;
@@ -16,10 +16,11 @@ namespace Jangine::Gfx
         dirtyProj = true;
     }
 
-    void BlenderCamera::SetOrthographic(float_t in_width, float_t in_height, float_t in_near, float_t in_far)
+    void BlenderCamera::SetOrthographic(float_t in_aspect, float_t in_width, float_t in_near, float_t in_far)
     {
+        aspect = in_aspect;
         orthoWidth = in_width;
-        orthoHeight = in_height;
+        orthoHeight = in_width / aspect;
         near = in_near;
         far = in_far;
         projectionType = ProjectionType::Orthographic;
@@ -45,11 +46,11 @@ namespace Jangine::Gfx
             }
             else
             {
-                float_t scale = zoom * zoomMetersPerSecond * deltaTime;
-                orthoWidth *= scale;
-                orthoHeight *= scale;
-                orthoWidth = std::min(std::max(orthoWidth, 0.1f), 100.0f);
-                orthoHeight = std::min(std::max(orthoHeight, 0.1f), 100.0f);
+                orthoWidth -= zoom * zoomMetersPerSecond;
+                orthoWidth = std::max(orthoWidth, 0.1f);
+                orthoHeight = orthoWidth / aspect;
+                
+
                 dirtyProj = true;
             }
         }
@@ -59,7 +60,7 @@ namespace Jangine::Gfx
         {
             const float_t orbitRadiansPerSecond = Math::PI * deltaTime;
 
-            yaw -= turn.x() * orbitRadiansPerSecond;
+            yaw -= -turn.x() * orbitRadiansPerSecond;
             pitch -= turn.y() * orbitRadiansPerSecond;
             pitch = std::clamp(pitch, -Math::PI * 0.5f + 0.01f, Math::PI * 0.5f - 0.01f);
             //pitch = std::fmod(pitch, Math::pi * 2);
@@ -75,7 +76,7 @@ namespace Jangine::Gfx
         {
             const float_t moveMetersPerSecond = 1.0f * deltaTime;
 
-            target += rotation * Eigen::Vector3f(move.x(), -move.y(), 0) * moveMetersPerSecond;
+            target += rotation * Eigen::Vector3f(-move.x(), -move.y(), 0) * moveMetersPerSecond;
         }
 
         position = target + rotation * Eigen::Vector3f(0, 0, -distance);
@@ -104,8 +105,8 @@ namespace Jangine::Gfx
     void BlenderCamera::UpdateViewMatrix()
     {
         Eigen::Vector3f f = (target - position).normalized();
-        Eigen::Vector3f r = Eigen::Vector3f::UnitY().cross(f).normalized();
-        Eigen::Vector3f u = f.cross(r);
+        Eigen::Vector3f r = f.cross(Eigen::Vector3f::UnitY()).normalized(); // -X is right
+        Eigen::Vector3f u = r.cross(f);
 
         Eigen::Matrix4f view;
         view.row(0) << r.x(), r.y(), r.z(), -r.dot(position);

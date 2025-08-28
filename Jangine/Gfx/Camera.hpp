@@ -21,8 +21,8 @@ namespace Jangine::Gfx
 
         BlenderCamera();
 
-        void SetPerspective(float_t in_fovY, float_t in_aspect, float_t in_near, float_t in_far);
-        void SetOrthographic(float_t in_width, float_t in_height, float_t in_near, float_t in_far);
+        void SetPerspective(float_t in_aspect, float_t in_fovY, float_t in_near, float_t in_far);
+        void SetOrthographic(float_t in_aspect, float_t in_width, float_t in_near, float_t in_far);
 
         void Update(const UserInput &input, float_t deltaTime);
 

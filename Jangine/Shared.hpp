@@ -46,6 +46,7 @@
 #include <vector>
 
 #include <Eigen/Core>
+#include <Eigen/Geometry>
 
 typedef bool bool_t;
 typedef void void_t;
@@ -109,6 +110,12 @@ namespace Jangine
         {
             return radians * (180.0f / PI);
         }
+
+        template<typename T = size_t>
+        static constexpr T AlignUp(size_t value, size_t alignment)
+        {
+            return static_cast<T>((value + alignment - 1) & ~(alignment - 1));
+        }
     }
 
     inline std::string DurationToSIString(std::chrono::microseconds duration)
@@ -148,6 +155,15 @@ namespace Jangine
     {
         std::array<uint8_t, 16> bytes{};
     };
+
+    /*struct Identity
+    {
+        Guid guid;
+        std::string name;
+
+        explicit Identity(const Guid &guid, const std::string &name)
+            : guid(guid), name(name) {}
+    };*/
 
     class SpinLock
     {
@@ -253,6 +269,14 @@ namespace Jangine
         explicit InvalidDataException(const std::string &message)
             : JangineException("Invalid data: " + message) {}
     };
+
+    inline void ThrowInvalidDataIf(bool condition, const std::string &message = "")
+    {
+        if (condition)
+        {
+            throw InvalidDataException(message);
+        }
+    }
 
     inline void ThrowNotSupportedIf(bool condition, const std::string &message = "")
     {

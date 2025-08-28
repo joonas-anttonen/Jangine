@@ -7,10 +7,10 @@ struct IDxcCompiler3;
 
 namespace Jangine::Gfx
 {
-    // Complete shader pipeline, e.g. vertex + fragment, etc.
+    /// @brief Complete shader pipeline, e.g. vertex + fragment, etc.
     struct ShaderProgram
     {
-        // Single shader stage, e.g. vertex, fragment, compute, etc.
+        /// @brief Single shader stage, e.g. vertex, fragment, compute, etc.
         struct Stage
         {
             ShaderStage stage;
@@ -30,7 +30,7 @@ namespace Jangine::Gfx
             : name(shaderName), stages(std::move(shaderStages)) {}
     };
 
-    // Compiles HLSL shaders to SPIR-V bytecode using the DirectX Shader Compiler (DXC) API.
+    /// @brief Compiles HLSL shaders to SPIR-V bytecode using the DirectX Shader Compiler (DXC) API.
     class ShaderCompiler
     {
     public:

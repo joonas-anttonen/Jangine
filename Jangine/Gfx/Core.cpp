@@ -449,7 +449,7 @@ namespace Jangine::Gfx
         vkDestroyFence(vulkanDevice, singleCommand.fence, nullptr);
     }
 
-    void Core::WritePixelBuffer(PixelBuffer *pixelBuffer, std::span<const uint8_t> data, ImageLayout srcLayout, ImageLayout dstLayout)
+    void Core::StageToPixelBuffer(PixelBuffer *pixelBuffer, std::span<const std::byte> data, ImageLayout srcLayout, ImageLayout dstLayout)
     {
         Handle<MemoryBuffer> stagingBuffer = CreateMemoryBuffer(
             static_cast<uint32_t>(data.size()),
@@ -498,7 +498,7 @@ namespace Jangine::Gfx
         EndSingleCommand(stagingCommand);
     }
 
-    Handle<PixelBuffer> Core::CreatePixelBuffer(std::span<const uint8_t> data, uint32_t width, uint32_t height, Format format, PixelBufferUsage usage, Aspect aspect, Samples samples)
+    Handle<PixelBuffer> Core::CreatePixelBuffer(std::span<const std::byte> data, uint32_t width, uint32_t height, Format format, PixelBufferUsage usage, Aspect aspect, Samples samples)
     {
         Handle<PixelBuffer> pixelBuffer = CreatePixelBuffer(
             width,
@@ -508,7 +508,7 @@ namespace Jangine::Gfx
             aspect,
             samples);
 
-        WritePixelBuffer(pixelBuffer.get(), data, ImageLayout::UNDEFINED, ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+        StageToPixelBuffer(pixelBuffer.get(), data, ImageLayout::UNDEFINED, ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
         return pixelBuffer;
     }
@@ -599,7 +599,7 @@ namespace Jangine::Gfx
         }
     }
 
-    void Core::WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const uint8_t> data)
+    void Core::WriteMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data, uint32_t offset)
     {
         ThrowInvalidOperationIfNull(memoryBuffer);
 
@@ -609,15 +609,40 @@ namespace Jangine::Gfx
             return;
         }
 
-        ThrowInvalidOperationIf(data.size() > memoryBuffer->size, "Data size exceeds buffer size.");
+        ThrowInvalidOperationIf(data.size() + offset > memoryBuffer->size, "Data size exceeds buffer size.");
 
         void *pDst = nullptr;
         ThrowVulkanIfFailed(vmaMapMemory(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation, &pDst));
 
-        memcpy(pDst, data.data(), data.size());
+        memcpy(static_cast<std::byte *>(pDst) + offset, data.data(), data.size());
 
         vmaUnmapMemory(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation);
         ThrowVulkanIfFailed(vmaFlushAllocation(vulkanMemoryAllocator, memoryBuffer->vulkanAllocation, 0, data.size()));
+    }
+
+    void Core::StageToMemoryBuffer(MemoryBuffer *memoryBuffer, std::span<const std::byte> data)
+    {
+        Handle<MemoryBuffer> stagingBuffer = CreateMemoryBuffer(
+            static_cast<uint32_t>(data.size()),
+            MemoryBufferUsage::TransferSrc,
+            MemoryAccess::Write);
+
+        WriteMemoryBuffer(stagingBuffer.get(), data);
+
+        SingleCommand stagingCommand = BeginSingleCommand();
+
+        VkBufferCopy copyRegion = {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = data.size()};
+        vkCmdCopyBuffer(
+            stagingCommand.commandBuffer.vulkanHandle,
+            stagingBuffer->vulkanBuffer,
+            memoryBuffer->vulkanBuffer,
+            1,
+            &copyRegion);
+        SubmitSingleCommand(stagingCommand);
+        EndSingleCommand(stagingCommand);
     }
 
     Handle<MemoryBuffer> Core::CreateMemoryBuffer(uint32_t size, MemoryBufferUsage usage, MemoryAccess access)
@@ -1064,6 +1089,9 @@ namespace Jangine::Gfx
             .features = {}};
 
         vkGetPhysicalDeviceFeatures2(physicalDevice, &physicalDeviceFeatures2);
+
+        VkPhysicalDeviceLimits limits = physicalDeviceProperties.limits;
+        capabilities.uniformBufferOffsetAlignment = limits.minUniformBufferOffsetAlignment;
 
         ThrowNotSupportedIf(physicalDeviceFeatures2.features.samplerAnisotropy == 0, "samplerAnisotropy");
         ThrowNotSupportedIf(physicalDeviceFeatures2.features.geometryShader == 0, "geometryShader");

@@ -5,6 +5,8 @@
 
 #include "ThreadPool.hpp"
 
+#include "Gfx/IO/Gltf.hpp"
+
 namespace Jangine
 {
     Core *Core::instance = nullptr;

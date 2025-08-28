@@ -30,6 +30,34 @@ struct VkWriteDescriptorSet;
 
 namespace Jangine::Gfx
 {
+    class MemoryBuffer
+    {
+        friend class Core;
+        friend class Core2D;
+        friend class Core3D;
+
+    private:
+        MemoryBuffer(
+            uint32_t size,
+            VkBuffer vulkanBuffer,
+            VmaAllocation vulkanAllocation)
+            : size(size),
+              vulkanBuffer(vulkanBuffer),
+              vulkanAllocation(vulkanAllocation) {}
+
+        MemoryBuffer(const MemoryBuffer &) = delete;
+        MemoryBuffer &operator=(const MemoryBuffer &) = delete;
+        MemoryBuffer(MemoryBuffer &&) = delete;
+        MemoryBuffer &operator=(MemoryBuffer &&) = delete;
+
+    public:
+        const uint32_t size;
+
+    private:
+        const VkBuffer vulkanBuffer;
+        const VmaAllocation vulkanAllocation;
+    };
+
     struct Surface
     {
         void_t *vulkanHandle = nullptr;
@@ -414,34 +442,6 @@ namespace Jangine::Gfx
         const VkImage vulkanImage;
         const VkImageView vulkanImageView;
 
-        const VmaAllocation vulkanAllocation;
-    };
-
-    class MemoryBuffer
-    {
-        friend class Core;
-        friend class Core2D;
-        friend class Core3D;
-
-    private:
-        MemoryBuffer(
-            uint32_t size,
-            VkBuffer vulkanBuffer,
-            VmaAllocation vulkanAllocation)
-            : size(size),
-              vulkanBuffer(vulkanBuffer),
-              vulkanAllocation(vulkanAllocation) {}
-
-        MemoryBuffer(const MemoryBuffer &) = delete;
-        MemoryBuffer &operator=(const MemoryBuffer &) = delete;
-        MemoryBuffer(MemoryBuffer &&) = delete;
-        MemoryBuffer &operator=(MemoryBuffer &&) = delete;
-
-    public:
-        const uint32_t size;
-
-    private:
-        const VkBuffer vulkanBuffer;
         const VmaAllocation vulkanAllocation;
     };
 }
