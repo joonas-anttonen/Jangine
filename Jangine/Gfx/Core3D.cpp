@@ -85,7 +85,8 @@ namespace Jangine::Gfx
 
         if (modelStatus == Gfx::IO::Status::SUCCESS)
         {
-            Add(model);
+            Import(model);
+            scene.Print(scene.GetWorld(), 0);
         }
     }
 
@@ -335,8 +336,8 @@ namespace Jangine::Gfx
             meshOITCompositionPipeline = gfx->CreatePipeline(meshPipelineParams);
         }
 
-        //camera.SetOrthographic(displayParameters.GetAspectRatio(), 10, -100.0f, 100.0f);
-        camera.SetPerspective(displayParameters.GetAspectRatio(), Math::PI / 4.0f, 0.1f, 100.0f);
+        camera.SetOrthographic(displayParameters.GetAspectRatio(), 10, -100.0f, 100.0f);
+        // camera.SetPerspective(displayParameters.GetAspectRatio(), Math::PI / 4.0f, 0.1f, 100.0f);
     }
 
     void Core3D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)

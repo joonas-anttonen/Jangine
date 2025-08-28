@@ -151,12 +151,15 @@ namespace Jangine::Gfx
 
         Id GetId() const { return self; }
         Type GetType() const { return type; }
+        std::string_view GetName() const { return name; }
+        void SetName(std::string_view in_name) { name = in_name; }
 
     private:
         Type type;
         Id self;
         Id ancestor;
         std::vector<Id> descendants;
+        std::string name;
 
         Eigen::Isometry3f relativeTransform;
         Eigen::Isometry3f worldTransform;
@@ -171,16 +174,8 @@ namespace Jangine::Gfx
 
         MeshNode &operator=(const MeshNode &) = delete;
         MeshNode(const MeshNode &) = delete;
-        MeshNode &operator=(MeshNode &&from)
-        {
-            Node::operator=(std::move(from));
-            mesh = from.mesh;
-            return *this;
-        }
-        MeshNode(MeshNode &&from)
-            : Node(std::move(from)), mesh(from.mesh)
-        {
-        }
+        MeshNode &operator=(MeshNode &&) = default;
+        MeshNode(MeshNode &&) = default;
 
         Mesh::Id GetMeshId() const { return mesh; }
 
@@ -252,16 +247,32 @@ namespace Jangine::Gfx
         /// @brief Set the relative transform of the node
         void SetRelativeTransform(Node *node, const Eigen::Isometry3f &transform) { node->relativeTransform = transform; }
 
+        /// @brief Set the name of the node
+        void SetName(Node *node, std::string_view in_name) { node->SetName(in_name); }
+
+        /// @brief Get the root node of the scene
         Node *GetWorld() { return nodes[0]; }
-        Node *GetNode(Node::Id id) { return nodes[id]; }
+
+        /// @brief Get a node by its Id
+        /// @throws InvalidOperationException if the Id is out of range
+        Node *GetNode(Node::Id id)
+        {
+            ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(meshes.size()),
+                                    std::format("Node ID {} is out of range.", id.value));
+            return nodes[id];
+        }
+
+        /// @brief Get a mesh by its Id
+        /// @throws InvalidOperationException if the Id is out of range
         const Mesh *GetMesh(Mesh::Id id) const
         {
-            ThrowInvalidOperationIf(!id.has_value());
             ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(meshes.size()),
                                     std::format("Mesh ID {} is out of range.", id.value));
             return &meshes[id.value];
         }
+
         const std::vector<Node *> &GetNodes() const { return nodes; }
+        const std::vector<Mesh> &GetMeshes() const { return meshes; }
 
         void Update()
         {
@@ -281,7 +292,7 @@ namespace Jangine::Gfx
 
         void Print(const Node *node, int depth = 0) const
         {
-            std::cout << std::string(depth * 2, ' ') << "Node ID: " << node->GetId().value << "\n";
+            std::cout << std::format("{} Id: {} Name: {}", std::string(depth * 2, ' '), node->GetId().value, node->GetName()) << std::endl;
             for (auto childId : node->GetDescendants())
             {
                 Print(nodes[childId.value], depth + 1);
@@ -375,7 +386,8 @@ namespace Jangine::Gfx
         void InitializeRendering(const DisplayParameters &wantedDisplayParameters);
         void Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime);
 
-        void Add(const IO::Gltf::Model &gltf);
+        void Import(const IO::Gltf::Model &gltf);
+        void Export(IO::Gltf::Model &gltf) const;
 
     private:
         Core *gfx;

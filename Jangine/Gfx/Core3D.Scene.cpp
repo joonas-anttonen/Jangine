@@ -15,7 +15,7 @@ namespace Jangine::Gfx
         PrimordialMesh(PrimordialMesh &&) = default;
     };
 
-    void Core3D::Add(const IO::Gltf::Model &gltf)
+    void Core3D::Import(const IO::Gltf::Model &gltf)
     {
         std::vector<MeshVertex> vertices;
         std::vector<uint32_t> indices;
@@ -119,6 +119,9 @@ namespace Jangine::Gfx
                     vertex.normal = readNormal(i);
                     vertex.uv = readUV(i);
 
+                    // TODO: Handle no normals
+                    // TODO: Handle no uvs
+
                     vertices.push_back(vertex);
                 }
 
@@ -177,25 +180,27 @@ namespace Jangine::Gfx
             meshIds.push_back(meshId);
         }
 
-        std::unordered_map<uint32_t, Node::Id> gltfNodeToSceneNode;
+        std::unordered_map<size_t, Node::Id> gltfNodeToSceneNode;
 
         // First pass: create all nodes
         for (size_t i = 0; i < gltf.nodes.size(); ++i)
         {
+            Node *node;
+
             const auto &gltfNode = gltf.nodes[i];
             if (gltfNode.mesh >= 0)
             {
                 Mesh::Id meshId = meshIds[gltfNode.mesh];
-                MeshNode *node = scene.CreateMeshNode(meshId);
-                scene.SetRelativeTransform(node, gltfNode.transform);
-                gltfNodeToSceneNode[static_cast<uint32_t>(i)] = node->GetId();
+                node = scene.CreateMeshNode(meshId);
             }
             else
             {
-                Node *node = scene.CreateNode();
-                scene.SetRelativeTransform(node, gltfNode.transform);
-                gltfNodeToSceneNode[static_cast<uint32_t>(i)] = node->GetId();
+                node = scene.CreateNode();
             }
+
+            scene.SetRelativeTransform(node, gltfNode.transform);
+            scene.SetName(node, gltfNode.name);
+            gltfNodeToSceneNode[i] = node->GetId();
         }
 
         // Second pass: set up parent-child relationships
@@ -206,8 +211,19 @@ namespace Jangine::Gfx
             for (auto childGltfNodeId : gltfNode.children)
             {
                 Node *childSceneNode = scene.GetNode(gltfNodeToSceneNode[childGltfNodeId]);
-                scene.SetAncestor(childSceneNode, gltfNodeToSceneNode[static_cast<uint32_t>(i)]);
+                scene.SetAncestor(childSceneNode, gltfNodeToSceneNode[i]);
             }
         }
+    }
+
+    void Core3D::Export(IO::Gltf::Model &gltf) const
+    {
+        (void)gltf;
+
+        //std::vector<IO::Gltf::Model::Mesh> gltfMeshes;
+        //std::vector<IO::Gltf::Model::Node> gltfNodes;
+        //std::vector<IO::Gltf::Model::Accessor> gltfAccessors;
+        //std::vector<IO::Gltf::Model::BufferView> gltfBufferViews;
+        //std::vector<IO::Gltf::Model::Material> gltfMaterials;
     }
 }
