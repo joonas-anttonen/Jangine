@@ -35,6 +35,7 @@
 #include <istream>
 #include <memory>
 #include <optional>
+#include <random>
 #include <span>
 #include <sstream>
 #include <stack>

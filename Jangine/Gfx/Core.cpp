@@ -1328,6 +1328,14 @@ namespace Jangine::Gfx
         this->vulkanMemoryAllocator = allocator;
     }
 
+    void Core::BindBuffers(CommandBuffer commandBuffer, const MemoryBuffer *vertexBuffer, const MemoryBuffer *indexBuffer)
+    {
+        VkDeviceSize vtxBufferOffset = 0;
+        VkBuffer vtxBuffers[] = {vertexBuffer->vulkanBuffer};
+        vkCmdBindVertexBuffers(commandBuffer.vulkanHandle, 0, 1, vtxBuffers, &vtxBufferOffset);
+        vkCmdBindIndexBuffer(commandBuffer.vulkanHandle, indexBuffer->vulkanBuffer, 0, VK_INDEX_TYPE_UINT32);
+    }
+
     void Core::FullBarrier(CommandBuffer commandBuffer)
     {
         VkMemoryBarrier2 memoryBarrier = {

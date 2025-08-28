@@ -189,10 +189,10 @@ namespace Jangine::Gfx
             renderingThreadId = threadId;
         }
 
+        void BindBuffers(CommandBuffer commandBuffer, const MemoryBuffer *vertexBuffer, const MemoryBuffer *indexBuffer);
+
         void FullBarrier(CommandBuffer commandBuffer);
-
         void TransferBarrier(CommandBuffer commandBuffer);
-
         void PixelBufferBarrier(CommandBuffer commandBuffer, Presenter::Image &pixelBuffer, ImageLayout srcLayout, ImageLayout dstLayout);
         void PixelBufferBarrier(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, ImageLayout srcLayout, ImageLayout dstLayout);
 

@@ -322,10 +322,8 @@ namespace Jangine::Gfx
         struct PerMeshData
         {
             Eigen::Matrix4f Transform;
-            uint32_t MaterialIndex;
-            uint32_t _Padding0;
-            uint32_t _Padding1;
-            uint32_t _Padding2;
+            Eigen::Vector4f Color;
+            int32_t MaterialIndex;
         };
 
         struct ShapeVertex

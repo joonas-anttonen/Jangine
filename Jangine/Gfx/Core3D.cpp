@@ -260,7 +260,7 @@ namespace Jangine::Gfx
                 {.binding = 1,
                  .descriptorType = DescriptorType::UNIFORM_BUFFER,
                  .descriptorCount = 1,
-                 .stages = ShaderStage::VERTEX},
+                 .stages = ShaderStage::VERTEX | ShaderStage::FRAGMENT},
                 {.binding = 2,
                  .descriptorType = DescriptorType::STORAGE_BUFFER,
                  .descriptorCount = 1,
@@ -468,32 +468,22 @@ namespace Jangine::Gfx
             if (node->GetType() != Node::Type::Mesh)
                 continue;
 
+            perMeshData.Transform = node->GetWorldTransform().matrix();
+
             const MeshNode *meshNode = dynamic_cast<const MeshNode *>(node);
             const Mesh *mesh = scene.GetMesh(meshNode->GetMeshId());
             const MeshBuffer *meshBuffer = mesh->GetBuffer();
 
-            VkDeviceSize vtxBufferOffset = 0;
-            VkBuffer vtxBuffers[] = {meshBuffer->GetVertexBuffer()->vulkanBuffer};
-            vkCmdBindVertexBuffers(commandBuffer.vulkanHandle, 0, 1, vtxBuffers, &vtxBufferOffset);
-            vkCmdBindIndexBuffer(commandBuffer.vulkanHandle, meshBuffer->GetIndexBuffer()->vulkanBuffer, 0, VK_INDEX_TYPE_UINT32);
+            gfx->BindBuffers(commandBuffer, meshBuffer->GetVertexBuffer(), meshBuffer->GetIndexBuffer());
 
             for (const auto &primitive : mesh->GetPrimitives())
             {
-                if (primitive.materialHasTransparency)
-                {
-                    vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, false);
-                }
-                else
-                {
-                    vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, true);
-                }
+                vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, !primitive.materialHasTransparency);
 
-                perMeshData.Transform = node->GetWorldTransform().matrix();
                 perMeshData.MaterialIndex = primitive.materialIndex;
 
-                std::span<const std::byte> perMeshDataSpan(reinterpret_cast<const std::byte *>(&perMeshData), sizeof(perMeshData));
                 size_t perMeshOffset = drawCount++ * Math::AlignUp(sizeof(PerMeshData), gfx->GetCapabilities().uniformBufferOffsetAlignment);
-                gfx->WriteMemoryBuffer(perMeshBuffer.get(), perMeshDataSpan, static_cast<uint32_t>(perMeshOffset));
+                gfx->WriteMemoryBuffer(perMeshBuffer.get(), Span(perMeshData), perMeshOffset);
 
                 VkDescriptorBufferInfo perSceneBufferInfo{
                     .buffer = perSceneBuffer->vulkanBuffer,

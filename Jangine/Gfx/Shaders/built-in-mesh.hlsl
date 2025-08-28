@@ -20,6 +20,7 @@ struct PerMaterialData
 struct PerMeshData
 {
 	float4x4 Transform;
+    float4 Color;
     int MaterialIndex;
 };
 
@@ -81,7 +82,11 @@ fragment_input vertex(vertex_input input)
 [shader("pixel")]
 float4 fragment(fragment_input input) : SV_TARGET
 { 
-    PerMaterialData material = perMaterial[input.MaterialIndex];
+    PerMaterialData material = perMaterial[max(0, input.MaterialIndex)];
+    if (input.MaterialIndex < 0)
+    {
+        material.BaseColor = perMesh.Color;
+    }
 
     float3 ambient = float3(0.15, 0.15, 0.15);
 
