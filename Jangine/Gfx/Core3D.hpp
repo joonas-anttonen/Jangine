@@ -9,6 +9,7 @@
 #include "Camera.hpp"
 
 #include "IO/Gltf.hpp"
+#include "IO/Urdf.hpp"
 
 namespace Jangine::Logging
 {
@@ -35,7 +36,7 @@ namespace Jangine::Gfx
     {
         uint32_t indexOffset;
         uint32_t indexCount;
-        uint8_t materialIndex;
+        int8_t materialIndex;
         bool_t materialHasTransparency;
     };
 

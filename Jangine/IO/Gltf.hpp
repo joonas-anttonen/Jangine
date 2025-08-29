@@ -13,7 +13,7 @@ namespace Jangine::IO::Gltf
         using MeshIndex = int32_t;
         using NodeIndex = int32_t;
         using SceneIndex = int32_t;
-        using MaterialIndex = int32_t;
+        using MaterialIndex = uint32_t;
 
         /// @brief Metadata about the glTF asset.
         struct Asset
@@ -49,9 +49,9 @@ namespace Jangine::IO::Gltf
             {
                 struct Attributes
                 {
-                    AccessorIndex position;
-                    AccessorIndex normal;
-                    AccessorIndex uv;
+                    AccessorIndex position = -1;
+                    AccessorIndex normal = -1;
+                    AccessorIndex uv = -1;
 
                     friend void from_json(const nlohmann::json &j, Attributes &attributes)
                     {
@@ -61,17 +61,17 @@ namespace Jangine::IO::Gltf
                     }
                 };
 
+                AccessorIndex indices = -1;
+                MaterialIndex material = 0;
+                int32_t mode = 4;
                 Attributes attributes;
-                AccessorIndex indices;
-                MaterialIndex material;
-                int32_t mode;
 
                 friend void from_json(const nlohmann::json &j, Primitive &primitive)
                 {
                     primitive.attributes = j.at("attributes").get<Attributes>();
                     primitive.indices = j.value<AccessorIndex>("indices", -1);
-                    primitive.material = j.value<MaterialIndex>("material", 0); // NOTE: Even with a glTF with no materials defined, 0 index material is always present
-                    primitive.mode = j.value<int32_t>("mode", -1);
+                    primitive.material = j.value<MaterialIndex>("material", 0);
+                    primitive.mode = j.value<int32_t>("mode", 4);
                 }
             };
 
@@ -88,12 +88,47 @@ namespace Jangine::IO::Gltf
         /// @brief A node in the node hierarchy.
         struct Node
         {
+            // --------------------- Extensions
+            struct Extensions
+            {
+                struct KinematicsNode
+                {
+                    struct Joint
+                    {
+                    };
+
+                    struct Link
+                    {
+                    };
+
+                    struct Collision
+                    {
+                    };
+
+                    int32_t type;
+                    Joint joint;
+                    Link link;
+                };
+            };
+
+            Extensions::KinematicsNode kinematics;
+            // ---------------------
+
             std::string name;
+            NodeIndex parent;
             std::vector<NodeIndex> children;
             MeshIndex mesh;
 
             Eigen::Vector3f scale;
             Eigen::Isometry3f transform;
+
+            Node()
+                : parent(-1),
+                  mesh(-1),
+                  scale(Eigen::Vector3f::Ones()),
+                  transform(Eigen::Isometry3f::Identity())
+            {
+            }
 
             friend void from_json(const nlohmann::json &j, Node &node)
             {
@@ -139,6 +174,17 @@ namespace Jangine::IO::Gltf
 
                 node.transform = tf;
                 node.scale = s;
+
+                // --------------------- Extensions
+                if (j.contains("extensions"))
+                {
+                    auto ext = j.at("extensions");
+                    if (ext.contains("JANGINE_kinematics"))
+                    {
+                        node.kinematics.type = ext.at("JANGINE_kinematics").value("type", 0);
+                    }
+                }
+                // ---------------------
             }
         };
 
@@ -166,28 +212,25 @@ namespace Jangine::IO::Gltf
                 MAT4
             };
 
-            BufferViewIndex bufferView;
-            uint32_t byteOffset;
-            ComponentType componentType;
-            bool_t normalized;
-            uint32_t count;
-            Type type;
-            std::string name;
-
-            size_t stride;
+            Type type = Type::SCALAR;
+            ComponentType componentType = ComponentType::FLOAT;
+            BufferViewIndex bufferView = -1;
+            size_t offset = 0;
+            size_t count = 0;
+            size_t stride = 0;
+            bool_t normalized = false;
 
             friend void from_json(const nlohmann::json &j, Accessor &accessor)
             {
                 // Required fields
                 accessor.componentType = j.at("componentType").get<ComponentType>();
-                accessor.count = j.at("count").get<uint32_t>();
+                accessor.count = j.at("count").get<size_t>();
                 std::string typeString = j.at("type").get<std::string>();
 
                 // Optional fields
                 accessor.bufferView = j.value<BufferViewIndex>("bufferView", -1);
-                accessor.byteOffset = j.value<uint32_t>("byteOffset", 0);
+                accessor.offset = j.value<size_t>("byteOffset", 0);
                 accessor.normalized = j.value<bool_t>("normalized", false);
-                accessor.name = j.value<std::string>("name", "");
 
                 // Calculate stride
                 int32_t numComponents = 0;
@@ -228,17 +271,11 @@ namespace Jangine::IO::Gltf
                 }
 
                 int32_t componentSize = 0;
-                if (accessor.componentType == ComponentType::BYTE)
+                if (accessor.componentType == ComponentType::BYTE || accessor.componentType == ComponentType::UNSIGNED_BYTE)
                     componentSize = 1;
-                else if (accessor.componentType == ComponentType::UNSIGNED_BYTE)
-                    componentSize = 1;
-                else if (accessor.componentType == ComponentType::SHORT)
+                else if (accessor.componentType == ComponentType::SHORT || accessor.componentType == ComponentType::UNSIGNED_SHORT)
                     componentSize = 2;
-                else if (accessor.componentType == ComponentType::UNSIGNED_SHORT)
-                    componentSize = 2;
-                else if (accessor.componentType == ComponentType::UNSIGNED_INT)
-                    componentSize = 4;
-                else if (accessor.componentType == ComponentType::FLOAT)
+                else if (accessor.componentType == ComponentType::UNSIGNED_INT || accessor.componentType == ComponentType::FLOAT)
                     componentSize = 4;
 
                 accessor.stride = numComponents * componentSize;
@@ -248,14 +285,14 @@ namespace Jangine::IO::Gltf
         /// @brief A buffer points to binary geometry, animation, or skins.
         struct Buffer
         {
-            uint32_t byteLength;
+            size_t byteLength;
             std::string uri;
             std::string name;
 
             friend void from_json(const nlohmann::json &j, Buffer &buffer)
             {
                 // Required fields
-                buffer.byteLength = j.at("byteLength").get<uint32_t>();
+                buffer.byteLength = j.at("byteLength").get<size_t>();
 
                 // Optional fields
                 buffer.uri = j.value<std::string>("uri", "");
@@ -266,12 +303,11 @@ namespace Jangine::IO::Gltf
         /// @brief A view into a buffer generally representing a subset of the buffer.
         struct BufferView
         {
-            BufferIndex buffer;
-            size_t byteOffset;
-            size_t byteLength;
-            size_t byteStride;
-            int32_t target;
-            std::string name;
+            BufferIndex buffer = 0;
+            size_t byteOffset = 0;
+            size_t byteLength = 0;
+            size_t byteStride = 0;
+            size_t target = 34962;
 
             friend void from_json(const nlohmann::json &j, BufferView &bufferView)
             {
@@ -282,8 +318,7 @@ namespace Jangine::IO::Gltf
                 // Optional fields
                 bufferView.byteOffset = j.value<size_t>("byteOffset", 0);
                 bufferView.byteStride = j.value<size_t>("byteStride", 0);
-                bufferView.target = j.value<uint32_t>("target", 0);
-                bufferView.name = j.value<std::string>("name", "");
+                bufferView.target = j.value<size_t>("target", 34962);
             }
         };
 
@@ -293,8 +328,8 @@ namespace Jangine::IO::Gltf
             struct PbrMetallicRoughness
             {
                 std::array<float_t, 4> baseColorFactor;
-                float_t metallicFactor;
-                float_t roughnessFactor;
+                float_t metallicFactor = 0.0f;
+                float_t roughnessFactor = 0.5f;
 
                 friend void from_json(const nlohmann::json &j, PbrMetallicRoughness &pbr)
                 {
@@ -325,6 +360,9 @@ namespace Jangine::IO::Gltf
         std::vector<Accessor> accessors;
         std::vector<Buffer> buffers;
         std::vector<BufferView> bufferViews;
+
+        Model()
+            : defaultScene(-1) {}
 
         friend void from_json(const nlohmann::json &j, Model &model)
         {
@@ -405,8 +443,12 @@ namespace Jangine::IO::Gltf
                 Mesh newMesh = mesh;
                 for (auto &primitive : newMesh.primitives)
                 {
-                    primitive.indices += accessorOffset;
                     primitive.material += materialOffset;
+
+                    if (primitive.indices >= 0)
+                    {
+                        primitive.indices += accessorOffset;
+                    }
                     if (primitive.attributes.position >= 0)
                     {
                         primitive.attributes.position += accessorOffset;
@@ -432,6 +474,33 @@ namespace Jangine::IO::Gltf
                     node += nodeOffset;
                 }
                 scenes.push_back(newScene);
+            }
+
+            // Consolidate materials
+            {
+                std::unordered_map<std::string, MaterialIndex> materialMap;
+                std::vector<Material> uniqueMaterials;
+                for (auto &material : materials)
+                {
+                    if (materialMap.find(material.name) != materialMap.end())
+                        continue;
+
+                    materialMap[material.name] = static_cast<MaterialIndex>(uniqueMaterials.size());
+                    uniqueMaterials.push_back(material);
+                }
+
+                for (auto &mesh : meshes)
+                {
+                    for (auto &primitive : mesh.primitives)
+                    {
+                        if (primitive.material >= 0)
+                        {
+                            primitive.material = materialMap[materials[primitive.material].name];
+                        }
+                    }
+                }
+
+                materials = std::move(uniqueMaterials);
             }
         }
     };

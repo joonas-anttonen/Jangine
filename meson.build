@@ -134,6 +134,7 @@ jangine = library(
         'Jangine/Gfx/Text/FontCollection.cpp',
         'Jangine/Gfx/Text/Shaper.cpp',
         'Jangine/IO/Gltf.cpp',
+        'Jangine/IO/Urdf.cpp',
         'Jangine/IO/WebP.cpp',
         'Jangine/Gui/Core.cpp',
         built_in_fonts,

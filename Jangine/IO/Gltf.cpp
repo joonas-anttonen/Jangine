@@ -42,12 +42,21 @@ namespace Jangine::IO::Gltf
         std::vector<uint8_t> jsonChunkData(jsonChunkLength);
         fileStream.read(reinterpret_cast<char *>(jsonChunkData.data()), jsonChunkLength);
 
-        //std::ofstream jsonFile("glTF.json");
-        //jsonFile.write(reinterpret_cast<const char *>(jsonChunkData.data()), jsonChunkLength);
-        //jsonFile.close();
+        // std::ofstream jsonFile("glTF.json");
+        // jsonFile.write(reinterpret_cast<const char *>(jsonChunkData.data()), jsonChunkLength);
+        // jsonFile.close();
 
         nlohmann::json json = nlohmann::json::parse(jsonChunkData.begin(), jsonChunkData.end());
         model = json.get<Model>();
+
+        // Initialize parent indices
+        for (Model::NodeIndex i = 0; i < static_cast<Model::NodeIndex>(model.nodes.size()); i++)
+        {
+            for (Model::NodeIndex childIndex : model.nodes[i].children)
+            {
+                model.nodes[childIndex].parent = i;
+            }
+        }
 
         uint32_t binChunkLength = read_u32();
         uint32_t binChunkType = read_u32();

@@ -80,19 +80,35 @@ namespace Jangine::Gfx
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
 
-        Jangine::IO::Gltf::Model model{};
-        Jangine::IO::Status modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack.glb", model);
+        // Jangine::IO::Gltf::Model model{};
+        // Jangine::IO::Status modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack.glb", model);
+        // if (modelStatus == Jangine::IO::Status::SUCCESS)
+        //{
+        //     Jangine::IO::Gltf::Model cubeModel{};
+        //     modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack_CUBE.glb", cubeModel);
+        //     if (modelStatus == Jangine::IO::Status::SUCCESS)
+        //     {
+        //         model.Add(cubeModel);
+        //     }
+        //
+        //    Import(model);
+        //    scene.Print(scene.GetWorld());
+        //}
 
-        if (modelStatus == Jangine::IO::Status::SUCCESS)
+        Jangine::IO::Urdf::Model urdf = Jangine::IO::Urdf::Model{};
+        Jangine::IO::Gltf::Model urdfGltf = Jangine::IO::Gltf::Model{};
+        Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/skytrack/model.urdf", urdf, urdfGltf);
+        logger.Error(std::format("URDF -> {}", urdfStatus), __func__);
+        if (urdfStatus == Jangine::IO::Status::SUCCESS)
         {
-            Jangine::IO::Gltf::Model cubeModel{};
-            modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack_CUBE.glb", cubeModel);
-            if (modelStatus == Jangine::IO::Status::SUCCESS)
-            {
-                model.Add(cubeModel);
-            }
+            Import(urdfGltf);
 
-            Import(model);
+            // Transform the entire scene to match the URDF coordinate system (Z up, X forward)
+            Eigen::Isometry3f worldTransform = Eigen::Isometry3f::Identity();
+            worldTransform.linear() = Eigen::AngleAxisf(-Math::PI / 2.0f, Eigen::Vector3f::UnitX()).toRotationMatrix();
+            worldTransform.translation() = Eigen::Vector3f(0, 0, 0);
+
+            scene.SetRelativeTransform(scene.GetWorld(), worldTransform);
             scene.Print(scene.GetWorld());
         }
     }
@@ -476,6 +492,7 @@ namespace Jangine::Gfx
                 continue;
 
             perMeshData.Transform = node->GetWorldTransform().matrix();
+            perMeshData.Color = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
 
             const MeshNode *meshNode = dynamic_cast<const MeshNode *>(node);
             const Mesh *mesh = scene.GetMesh(meshNode->GetMeshId());

@@ -7,6 +7,7 @@
                 "${workspaceFolder}/external/eigen/include",
                 "${workspaceFolder}/external/glfw/include",
                 "${workspaceFolder}/external/json/include",
+                "${workspaceFolder}/external/tinyxml-2/include",
                 "${workspaceFolder}/external/vma/include",
                 "${env:VULKAN_SDK}/Include"
             ],

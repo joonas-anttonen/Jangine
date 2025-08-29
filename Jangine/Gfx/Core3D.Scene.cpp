@@ -34,6 +34,11 @@ namespace Jangine::Gfx
             materials.push_back(material);
         }
 
+        if (materials.empty())
+        {
+            materials.push_back(MeshMaterial{Eigen::Vector4f(1, 1, 1, 1), 0.0f, 0.5f});
+        }
+
         std::vector<PrimordialMesh> primordialMeshes;
         primordialMeshes.reserve(gltf.meshes.size());
 
@@ -60,7 +65,7 @@ namespace Jangine::Gfx
 
                 auto calculateOffset = [](const Jangine::IO::Gltf::Model::BufferView &bufferView, const Jangine::IO::Gltf::Model::Accessor &accessor, size_t i) -> size_t
                 {
-                    return bufferView.byteOffset + accessor.byteOffset + i * accessor.stride;
+                    return bufferView.byteOffset + accessor.offset + i * accessor.stride;
                 };
 
                 auto readPosition = [&](size_t i) -> Eigen::Vector3f
@@ -119,25 +124,52 @@ namespace Jangine::Gfx
                     vertex.normal = readNormal(i);
                     vertex.uv = readUV(i);
 
-                    // TODO: Handle no normals
-                    // TODO: Handle no uvs
-
                     vertices.push_back(vertex);
                 }
 
                 size_t primitiveIndexOffset = indices.size();
+                size_t indexCount = hasIndices ? indexAccessor.count : positionAccessor.count;
 
-                for (size_t i = 0; i < indexAccessor.count; i++)
+                if (!hasIndices)
                 {
-                    size_t index = readIndex(i);
+                    for (size_t i = 0; i < indexCount; i++)
+                    {
+                        indices.push_back(static_cast<uint32_t>(i + primitiveVertexOffset));
+                    }
+                }
+                else
+                {
+                    for (size_t i = 0; i < indexCount; i++)
+                    {
+                        size_t index = readIndex(i);
 
-                    indices.push_back(static_cast<uint32_t>(index + primitiveVertexOffset));
+                        indices.push_back(static_cast<uint32_t>(index + primitiveVertexOffset));
+                    }
+                }
+
+                if (!hasNormals)
+                {
+                    // Recalculate normals
+                    for (size_t i = 0; i < indexCount; i += 3)
+                    {
+                        uint32_t index0 = indices[primitiveIndexOffset + i + 0];
+                        uint32_t index1 = indices[primitiveIndexOffset + i + 1];
+                        uint32_t index2 = indices[primitiveIndexOffset + i + 2];
+
+                        Eigen::Vector3f edge1 = vertices[index1].position - vertices[index0].position;
+                        Eigen::Vector3f edge2 = vertices[index2].position - vertices[index0].position;
+                        Eigen::Vector3f faceNormal = edge1.cross(edge2).normalized();
+
+                        vertices[index0].normal = -1 * faceNormal;
+                        vertices[index1].normal = -1 * faceNormal;
+                        vertices[index2].normal = -1 * faceNormal;
+                    }
                 }
 
                 MeshPrimitive primitive;
                 primitive.indexOffset = static_cast<uint32_t>(primitiveIndexOffset);
-                primitive.indexCount = static_cast<uint32_t>(indexAccessor.count);
-                primitive.materialIndex = static_cast<uint8_t>(gltfPrimitive.material);
+                primitive.indexCount = static_cast<uint32_t>(indexCount);
+                primitive.materialIndex = static_cast<int8_t>(std::clamp(gltfPrimitive.material, 0u, static_cast<uint32_t>(materials.size() - 1)));
                 primitive.materialHasTransparency = materials[primitive.materialIndex].base[3] < 1.0f;
 
                 primordialMesh.primitives.push_back(primitive);
@@ -191,7 +223,7 @@ namespace Jangine::Gfx
             if (gltfNode.mesh >= 0)
             {
                 Mesh::Id meshId = meshIds[gltfNode.mesh];
-                MeshNode* meshNode = scene.CreateNode<MeshNode>();
+                MeshNode *meshNode = scene.CreateNode<MeshNode>();
                 meshNode->SetMeshId(meshId);
                 node = meshNode;
             }
@@ -222,10 +254,10 @@ namespace Jangine::Gfx
     {
         (void)gltf;
 
-        //std::vector<Jangine::IO::Gltf::Model::Mesh> gltfMeshes;
-        //std::vector<Jangine::IO::Gltf::Model::Node> gltfNodes;
-        //std::vector<Jangine::IO::Gltf::Model::Accessor> gltfAccessors;
-        //std::vector<Jangine::IO::Gltf::Model::BufferView> gltfBufferViews;
-        //std::vector<Jangine::IO::Gltf::Model::Material> gltfMaterials;
+        // std::vector<Jangine::IO::Gltf::Model::Mesh> gltfMeshes;
+        // std::vector<Jangine::IO::Gltf::Model::Node> gltfNodes;
+        // std::vector<Jangine::IO::Gltf::Model::Accessor> gltfAccessors;
+        // std::vector<Jangine::IO::Gltf::Model::BufferView> gltfBufferViews;
+        // std::vector<Jangine::IO::Gltf::Model::Material> gltfMaterials;
     }
 }
