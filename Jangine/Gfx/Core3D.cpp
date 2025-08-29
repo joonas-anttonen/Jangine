@@ -98,12 +98,11 @@ namespace Jangine::Gfx
         Jangine::IO::Urdf::Model urdf = Jangine::IO::Urdf::Model{};
         Jangine::IO::Gltf::Model urdfGltf = Jangine::IO::Gltf::Model{};
         Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/skytrack/model.urdf", urdf, urdfGltf);
-        logger.Error(std::format("URDF -> {}", urdfStatus), __func__);
         if (urdfStatus == Jangine::IO::Status::SUCCESS)
         {
             Import(urdfGltf);
 
-            // Transform the entire scene to match the URDF coordinate system (Z up, X forward)
+            // Transform the entire scene to match the URDF coordinate system (Z up)
             Eigen::Isometry3f worldTransform = Eigen::Isometry3f::Identity();
             worldTransform.linear() = Eigen::AngleAxisf(-Math::PI / 2.0f, Eigen::Vector3f::UnitX()).toRotationMatrix();
             worldTransform.translation() = Eigen::Vector3f(0, 0, 0);
@@ -359,7 +358,7 @@ namespace Jangine::Gfx
             meshOITCompositionPipeline = gfx->CreatePipeline(meshPipelineParams);
         }
 
-        camera.SetOrthographic(displayParameters.GetAspectRatio(), 10, -100.0f, 100.0f);
+        camera.SetOrthographic(displayParameters.GetAspectRatio(), camera.GetOrthographicFoV(), -100.0f, 100.0f);
         // camera.SetPerspective(displayParameters.GetAspectRatio(), Math::PI / 4.0f, 0.1f, 100.0f);
     }
 

@@ -20,7 +20,6 @@ namespace Jangine::Gfx
     {
         aspect = in_aspect;
         orthoWidth = in_width;
-        orthoHeight = in_width / aspect;
         near = in_near;
         far = in_far;
         projectionType = ProjectionType::Orthographic;
@@ -33,6 +32,21 @@ namespace Jangine::Gfx
         Eigen::Vector2f move = input.GetMoveDelta();
         float_t zoom = input.GetZoomDelta();
 
+        float_t distanceScaling = 1.0f;
+        float_t distanceScalingVariable = projectionType == ProjectionType::Perspective ? distance : orthoWidth;
+
+        // Smoothly slow down zooming when close to the target
+        if (distanceScalingVariable <= 5.0f)
+        {
+            distanceScaling = (distanceScalingVariable - 1.0f) / 9.0f;
+            distanceScaling = std::clamp(distanceScaling, 0.1f, 1.0f);
+        }
+        else if (distanceScalingVariable > 5.0f)
+        {
+            distanceScaling = (distanceScalingVariable - 10.0f) / 90.0f + 1.0f;
+            distanceScaling = std::clamp(distanceScaling, 1.0f, 2.0f);
+        }
+
         // 1. Adjust camera distance ("scale")
         if (zoom != 0.0f)
         {
@@ -40,17 +54,14 @@ namespace Jangine::Gfx
 
             if (projectionType == ProjectionType::Perspective)
             {
-                distance -= zoom * zoomMetersPerSecond;
+                distance -= zoom * zoomMetersPerSecond * distanceScaling;
                 distance = std::max(distance, 0.1f); // Prevent negative/zero distance
                 dirtyView = true;
             }
             else
             {
-                orthoWidth -= zoom * zoomMetersPerSecond;
+                orthoWidth -= zoom * zoomMetersPerSecond * distanceScaling;
                 orthoWidth = std::max(orthoWidth, 0.1f);
-                orthoHeight = orthoWidth / aspect;
-                
-
                 dirtyProj = true;
             }
         }
@@ -58,12 +69,11 @@ namespace Jangine::Gfx
         // 2. Rotate camera ("rotate")
         if (!turn.isZero())
         {
-            const float_t orbitRadiansPerSecond = Math::PI * deltaTime;
+            const float_t orbitRadiansPerSecond = Math::PI * 0.5f * deltaTime * std::clamp(distanceScaling, 0.5f, 1.0f);
 
             yaw -= -turn.x() * orbitRadiansPerSecond;
             pitch -= turn.y() * orbitRadiansPerSecond;
             pitch = std::clamp(pitch, -Math::PI * 0.5f + 0.01f, Math::PI * 0.5f - 0.01f);
-            //pitch = std::fmod(pitch, Math::pi * 2);
             dirtyView = true;
         }
 
@@ -133,6 +143,7 @@ namespace Jangine::Gfx
         }
         else
         {
+            float_t orthoHeight = orthoWidth / aspect;
             float_t left = -orthoWidth * 0.5f;
             float_t right = orthoWidth * 0.5f;
             float_t bottom = -orthoHeight * 0.5f;

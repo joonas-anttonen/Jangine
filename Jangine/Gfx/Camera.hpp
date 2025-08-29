@@ -29,6 +29,9 @@ namespace Jangine::Gfx
         [[nodiscard]] const Eigen::Vector3f &GetPosition() const { return position; }
         [[nodiscard]] const Eigen::Vector3f &GetTarget() const { return target; }
 
+        [[nodiscard]] float_t GetPerspectiveFoV() const { return fovY; }
+        [[nodiscard]] float_t GetOrthographicFoV() const { return orthoWidth; }
+
         [[nodiscard]] const Eigen::Matrix4f &GetViewMatrix() const { return viewMatrix; }
         [[nodiscard]] const Eigen::Matrix4f &GetInverseViewMatrix() const { return inverseViewMatrix; }
         [[nodiscard]] const Eigen::Matrix4f &GetProjectionMatrix() const { return projectionMatrix; }
@@ -39,8 +42,7 @@ namespace Jangine::Gfx
         void UpdateProjectionMatrix();
 
         ProjectionType projectionType{ProjectionType::Perspective};
-        float orthoWidth{10.0f};
-        float orthoHeight{10.0f};
+        float_t orthoWidth{10.0f};
 
         Eigen::Vector3f position{0.0f, 0.0f, 0.0f};
         float_t fovY{45.0f};
