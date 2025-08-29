@@ -191,11 +191,13 @@ namespace Jangine::Gfx
             if (gltfNode.mesh >= 0)
             {
                 Mesh::Id meshId = meshIds[gltfNode.mesh];
-                node = scene.CreateMeshNode(meshId);
+                MeshNode* meshNode = scene.CreateNode<MeshNode>();
+                meshNode->SetMeshId(meshId);
+                node = meshNode;
             }
             else
             {
-                node = scene.CreateNode();
+                node = scene.CreateNode<Node>();
             }
 
             scene.SetRelativeTransform(node, gltfNode.transform);

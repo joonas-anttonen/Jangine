@@ -43,6 +43,7 @@
 #include <string>
 #include <thread>
 #include <typeinfo>
+#include <typeindex>
 #include <unordered_map>
 #include <vector>
 

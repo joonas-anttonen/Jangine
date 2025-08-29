@@ -110,13 +110,6 @@ namespace Jangine::Gfx
     {
         friend class Scene;
 
-        /// @brief Type of the node.
-        enum class Type
-        {
-            Empty,
-            Mesh,
-        };
-
         struct Id
         {
             Id() : value(-1) {}
@@ -126,7 +119,7 @@ namespace Jangine::Gfx
             operator size_t() const { return static_cast<size_t>(value); }
         };
 
-        explicit Node(Type type, Id id)
+        explicit Node(std::type_index type, Id id)
             : type(type),
               self(id),
               ancestor(-1),
@@ -150,12 +143,12 @@ namespace Jangine::Gfx
         const std::vector<Id> &GetDescendants() const { return descendants; }
 
         Id GetId() const { return self; }
-        Type GetType() const { return type; }
+        std::type_index GetType() const { return type; }
         std::string_view GetName() const { return name; }
         void SetName(std::string_view in_name) { name = in_name; }
 
     private:
-        Type type;
+        std::type_index type;
         Id self;
         Id ancestor;
         std::vector<Id> descendants;
@@ -167,20 +160,22 @@ namespace Jangine::Gfx
 
     struct MeshNode : Node
     {
-        explicit MeshNode(Id id, Mesh::Id mesh)
-            : Node(Type::Mesh, id), mesh(mesh)
-        {
-        }
-
+        explicit MeshNode(std::type_index type, Id id)
+            : Node(type, id),
+              mesh(Mesh::Id{-1}) {}
         MeshNode &operator=(const MeshNode &) = delete;
         MeshNode(const MeshNode &) = delete;
         MeshNode &operator=(MeshNode &&) = default;
         MeshNode(MeshNode &&) = default;
 
         Mesh::Id GetMeshId() const { return mesh; }
+        void SetMeshId(Mesh::Id in_id) { mesh = in_id; }
 
         Mesh::Id mesh;
     };
+
+    template <class T, class U>
+    concept Derived = std::is_base_of<U, T>::value;
 
     /// @brief Scene graph structure
     class Scene
@@ -188,7 +183,7 @@ namespace Jangine::Gfx
     public:
         Scene()
         {
-            Node *world = new Node(Node::Type::Empty, Node::Id{0});
+            Node *world = new Node(typeid(Node), Node::Id{0});
             world->SetName("World");
             nodes.push_back(world);
         }
@@ -199,24 +194,15 @@ namespace Jangine::Gfx
         Scene &operator=(Scene &&) = default;
         Scene(Scene &&from) = default;
 
-        Node *CreateNode()
+        template <Derived<Node> T>
+        T *CreateNode()
         {
             Node::Id id = static_cast<Node::Id>(nodes.size());
-            Node *node = new Node(Node::Type::Empty, id);
+            T *node = new T(typeid(T), id);
             nodes.push_back(node);
             node->ancestor = Node::Id{0}; // world
             GetWorld()->descendants.push_back(node->self);
             return node;
-        }
-
-        MeshNode *CreateMeshNode(Mesh::Id meshId)
-        {
-            Node::Id id = static_cast<Node::Id>(nodes.size());
-            MeshNode *node = new MeshNode(id, meshId);
-            nodes.push_back(node);
-            node->ancestor = Node::Id{0}; // world
-            GetWorld()->descendants.push_back(node->self);
-            return dynamic_cast<MeshNode *>(nodes.back());
         }
 
         Mesh::Id AddMesh(Mesh &&mesh)

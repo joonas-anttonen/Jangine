@@ -465,7 +465,7 @@ namespace Jangine::Gfx
         {
             const Node *node = nodes[i];
 
-            if (node->GetType() != Node::Type::Mesh)
+            if (node->GetType() != typeid(MeshNode))
                 continue;
 
             perMeshData.Transform = node->GetWorldTransform().matrix();
