@@ -1,11 +1,11 @@
 #pragma once
 
-#include "../Shared.hpp"
+#include "Shared.hpp"
 
 typedef struct WebPData WebPData;
 typedef struct WebPAnimDecoder WebPAnimDecoder;
 
-namespace Jangine::Gfx::IO
+namespace Jangine::IO
 {
     struct WebPDecodeState
     {

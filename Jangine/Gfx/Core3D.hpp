@@ -371,8 +371,8 @@ namespace Jangine::Gfx
         void InitializeRendering(const DisplayParameters &wantedDisplayParameters);
         void Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime);
 
-        void Import(const IO::Gltf::Model &gltf);
-        void Export(IO::Gltf::Model &gltf) const;
+        void Import(const Jangine::IO::Gltf::Model &gltf);
+        void Export(Jangine::IO::Gltf::Model &gltf) const;
 
     private:
         Core *gfx;

@@ -2,7 +2,7 @@
 
 #include <webp/demux.h>
 
-namespace Jangine::Gfx::IO
+namespace Jangine::IO
 {
     WebPDecodeState::WebPDecodeState(std::span<const uint8_t> data)
     {

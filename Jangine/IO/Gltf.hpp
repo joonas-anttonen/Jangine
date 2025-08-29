@@ -3,7 +3,7 @@
 #include "IO.hpp"
 #include <nlohmann/json.hpp>
 
-namespace Jangine::Gfx::IO::Gltf
+namespace Jangine::IO::Gltf
 {
     struct Model
     {
@@ -332,5 +332,5 @@ namespace Jangine::Gfx::IO::Gltf
         }
     };
 
-    Jangine::Gfx::IO::Status LoadFromFile(const std::string &filename, Model &model);
+    Jangine::IO::Status LoadFromFile(const std::string &filename, Model &model);
 }

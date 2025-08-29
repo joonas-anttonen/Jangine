@@ -15,7 +15,7 @@ namespace Jangine::Gfx
         PrimordialMesh(PrimordialMesh &&) = default;
     };
 
-    void Core3D::Import(const IO::Gltf::Model &gltf)
+    void Core3D::Import(const Jangine::IO::Gltf::Model &gltf)
     {
         std::vector<MeshVertex> vertices;
         std::vector<uint32_t> indices;
@@ -49,23 +49,23 @@ namespace Jangine::Gfx
                 bool_t hasIndices = gltfPrimitive.indices != -1;
 
                 // TODO: Support no positions?
-                IO::Gltf::Model::Accessor positionAccessor = gltf.accessors[gltfPrimitive.attributes.position];
-                IO::Gltf::Model::BufferView positionBufferView = gltf.bufferViews[positionAccessor.bufferView];
-                IO::Gltf::Model::Accessor normalAccessor = hasNormals ? gltf.accessors[gltfPrimitive.attributes.normal] : IO::Gltf::Model::Accessor{};
-                IO::Gltf::Model::BufferView normalBufferView = hasNormals ? gltf.bufferViews[normalAccessor.bufferView] : IO::Gltf::Model::BufferView{};
-                IO::Gltf::Model::Accessor uvAccessor = hasUVs ? gltf.accessors[gltfPrimitive.attributes.texcoord] : IO::Gltf::Model::Accessor{};
-                IO::Gltf::Model::BufferView uvBufferView = hasUVs ? gltf.bufferViews[uvAccessor.bufferView] : IO::Gltf::Model::BufferView{};
-                IO::Gltf::Model::Accessor indexAccessor = hasIndices ? gltf.accessors[gltfPrimitive.indices] : IO::Gltf::Model::Accessor{};
-                IO::Gltf::Model::BufferView indexBufferView = hasIndices ? gltf.bufferViews[indexAccessor.bufferView] : IO::Gltf::Model::BufferView{};
+                Jangine::IO::Gltf::Model::Accessor positionAccessor = gltf.accessors[gltfPrimitive.attributes.position];
+                Jangine::IO::Gltf::Model::BufferView positionBufferView = gltf.bufferViews[positionAccessor.bufferView];
+                Jangine::IO::Gltf::Model::Accessor normalAccessor = hasNormals ? gltf.accessors[gltfPrimitive.attributes.normal] : Jangine::IO::Gltf::Model::Accessor{};
+                Jangine::IO::Gltf::Model::BufferView normalBufferView = hasNormals ? gltf.bufferViews[normalAccessor.bufferView] : Jangine::IO::Gltf::Model::BufferView{};
+                Jangine::IO::Gltf::Model::Accessor uvAccessor = hasUVs ? gltf.accessors[gltfPrimitive.attributes.texcoord] : Jangine::IO::Gltf::Model::Accessor{};
+                Jangine::IO::Gltf::Model::BufferView uvBufferView = hasUVs ? gltf.bufferViews[uvAccessor.bufferView] : Jangine::IO::Gltf::Model::BufferView{};
+                Jangine::IO::Gltf::Model::Accessor indexAccessor = hasIndices ? gltf.accessors[gltfPrimitive.indices] : Jangine::IO::Gltf::Model::Accessor{};
+                Jangine::IO::Gltf::Model::BufferView indexBufferView = hasIndices ? gltf.bufferViews[indexAccessor.bufferView] : Jangine::IO::Gltf::Model::BufferView{};
 
-                auto calculateOffset = [](const IO::Gltf::Model::BufferView &bufferView, const IO::Gltf::Model::Accessor &accessor, size_t i) -> size_t
+                auto calculateOffset = [](const Jangine::IO::Gltf::Model::BufferView &bufferView, const Jangine::IO::Gltf::Model::Accessor &accessor, size_t i) -> size_t
                 {
                     return bufferView.byteOffset + accessor.byteOffset + i * accessor.stride;
                 };
 
                 auto readPosition = [&](size_t i) -> Eigen::Vector3f
                 {
-                    ThrowInvalidDataIf(positionAccessor.type != IO::Gltf::Model::Accessor::Type::VEC3, "Position accessor must be of type VEC3");
+                    ThrowInvalidDataIf(positionAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC3, "Position accessor must be of type VEC3");
                     return Eigen::Vector3f{reinterpret_cast<const float *>(gltf.data.data() + calculateOffset(positionBufferView, positionAccessor, i))};
                 };
 
@@ -76,7 +76,7 @@ namespace Jangine::Gfx
                         return Eigen::Vector3f(0, 0, 1);
                     }
 
-                    ThrowInvalidDataIf(normalAccessor.type != IO::Gltf::Model::Accessor::Type::VEC3, "Normal accessor must be of type VEC3");
+                    ThrowInvalidDataIf(normalAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC3, "Normal accessor must be of type VEC3");
                     return Eigen::Vector3f{reinterpret_cast<const float *>(gltf.data.data() + calculateOffset(normalBufferView, normalAccessor, i))};
                 };
 
@@ -87,7 +87,7 @@ namespace Jangine::Gfx
                         return Eigen::Vector2f(0, 0);
                     }
 
-                    ThrowInvalidDataIf(uvAccessor.type != IO::Gltf::Model::Accessor::Type::VEC2, "Texcoord accessor must be of type VEC2");
+                    ThrowInvalidDataIf(uvAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC2, "Texcoord accessor must be of type VEC2");
                     return Eigen::Vector2f{reinterpret_cast<const float *>(gltf.data.data() + calculateOffset(uvBufferView, uvAccessor, i))};
                 };
 
@@ -95,11 +95,11 @@ namespace Jangine::Gfx
                 {
                     auto offset = calculateOffset(indexBufferView, indexAccessor, i);
                     auto data = gltf.data.data() + offset;
-                    if (indexAccessor.componentType == IO::Gltf::Model::Accessor::ComponentType::UNSIGNED_BYTE)
+                    if (indexAccessor.componentType == Jangine::IO::Gltf::Model::Accessor::ComponentType::UNSIGNED_BYTE)
                         return *reinterpret_cast<const uint8_t *>(data);
-                    if (indexAccessor.componentType == IO::Gltf::Model::Accessor::ComponentType::UNSIGNED_SHORT)
+                    if (indexAccessor.componentType == Jangine::IO::Gltf::Model::Accessor::ComponentType::UNSIGNED_SHORT)
                         return *reinterpret_cast<const uint16_t *>(data);
-                    if (indexAccessor.componentType == IO::Gltf::Model::Accessor::ComponentType::UNSIGNED_INT)
+                    if (indexAccessor.componentType == Jangine::IO::Gltf::Model::Accessor::ComponentType::UNSIGNED_INT)
                         return *reinterpret_cast<const uint32_t *>(data);
 
                     throw std::runtime_error("Unsupported index component type");
@@ -218,14 +218,14 @@ namespace Jangine::Gfx
         }
     }
 
-    void Core3D::Export(IO::Gltf::Model &gltf) const
+    void Core3D::Export(Jangine::IO::Gltf::Model &gltf) const
     {
         (void)gltf;
 
-        //std::vector<IO::Gltf::Model::Mesh> gltfMeshes;
-        //std::vector<IO::Gltf::Model::Node> gltfNodes;
-        //std::vector<IO::Gltf::Model::Accessor> gltfAccessors;
-        //std::vector<IO::Gltf::Model::BufferView> gltfBufferViews;
-        //std::vector<IO::Gltf::Model::Material> gltfMaterials;
+        //std::vector<Jangine::IO::Gltf::Model::Mesh> gltfMeshes;
+        //std::vector<Jangine::IO::Gltf::Model::Node> gltfNodes;
+        //std::vector<Jangine::IO::Gltf::Model::Accessor> gltfAccessors;
+        //std::vector<Jangine::IO::Gltf::Model::BufferView> gltfBufferViews;
+        //std::vector<Jangine::IO::Gltf::Model::Material> gltfMaterials;
     }
 }

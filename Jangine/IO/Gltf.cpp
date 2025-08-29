@@ -1,6 +1,6 @@
 #include "Gltf.hpp"
 
-namespace Jangine::Gfx::IO::Gltf
+namespace Jangine::IO::Gltf
 {
     Status LoadFromFile(const std::string &filename, Model &model)
     {

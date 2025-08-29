@@ -80,10 +80,10 @@ namespace Jangine::Gfx
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
 
-        Gfx::IO::Gltf::Model model{};
-        Gfx::IO::Status modelStatus = Gfx::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack.glb", model);
+        Jangine::IO::Gltf::Model model{};
+        Jangine::IO::Status modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack.glb", model);
 
-        if (modelStatus == Gfx::IO::Status::SUCCESS)
+        if (modelStatus == Jangine::IO::Status::SUCCESS)
         {
             Import(model);
             scene.Print(scene.GetWorld());
