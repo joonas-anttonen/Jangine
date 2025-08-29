@@ -1,6 +1,6 @@
 #if defined(JANGINE_FONT_COMPILER)
-#define JANGINE_API
-#include "../../Shared.hpp"
+#include "../Shared.hpp"
+
 int main(int argc, char *argv[])
 {
     if (argc < 2)

@@ -40,7 +40,7 @@ webp = declare_dependency(
 #
 font_compiler = executable(
     'Jangine.Gfx.FontCompiler',
-    'Jangine/Gfx/Text/FontCompiler.cpp',
+    'Jangine/Tools/FontCompiler.cpp',
     include_directories: [include_directories('Jangine/')],
     dependencies: [vulkan, eigen, json, freetype, harfbuzz],
     cpp_args: ['-DJANGINE_FONT_COMPILER'],
@@ -64,7 +64,7 @@ built_in_fonts = custom_target(
 #
 shader_compiler = executable(
     'Jangine.Gfx.ShaderCompiler',
-    'Jangine/Gfx/ShaderProgram.cpp',
+    ['Jangine/Tools/ShaderCompiler.cpp', 'Jangine/Gfx/ShaderProgram.cpp'],
     include_directories: [include_directories('Jangine/')],
     dependencies: [vulkan, eigen, json],
     cpp_args: ['-DJANGINE_SHADER_COMPILER'],
