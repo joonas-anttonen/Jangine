@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $scriptDir = [System.IO.Path]::GetDirectoryName($MyInvocation.MyCommand.Definition)
-$gitRepo = "https://chromium.googlesource.com/webm/libwebp"
+$gitRepo = "https://github.com/leethomason/tinyxml2.git"
 $srcDir = "src"
 $includeDir = "include"
 $libDir = "lib"
@@ -19,19 +19,7 @@ Push-Location $srcDir
 & cmake -S . `
     -B build `
     -G "Ninja" `
-    -DCMAKE_BUILD_TYPE=Release `
-    -DWEBP_BUILD_ANIM_UTILS=OFF `
-    -DWEBP_BUILD_CWEBP=OFF `
-    -DWEBP_BUILD_DWEBP=OFF `
-    -DWEBP_BUILD_GIF2WEBP=OFF `
-    -DWEBP_BUILD_IMG2WEBP=OFF `
-    -DWEBP_BUILD_VWEBP=OFF `
-    -DWEBP_BUILD_WEBPINFO=OFF `
-    -DWEBP_BUILD_LIBWEBPMUX=ON `
-    -DWEBP_BUILD_WEBPMUX=OFF `
-    -DWEBP_BUILD_EXTRAS=OFF `
-    -DWEBP_BUILD_WEBP_JS=OFF `
-    -DWEBP_BUILD_FUZZTEST=OFF | Out-Null
+    -DCMAKE_BUILD_TYPE=Release | Out-Null
 & cmake --build build --config Release
 & cmake --install build --config Release --prefix build/install
 
@@ -56,4 +44,4 @@ if ($license) {
 # Clean up source and build directories
 Remove-Item -Recurse -Force $srcDir
 
-Write-Host "WebP OK" -ForegroundColor Green
+Write-Host "TinyXML-2 OK" -ForegroundColor Green
