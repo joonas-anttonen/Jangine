@@ -85,6 +85,13 @@ namespace Jangine::Gfx
 
         if (modelStatus == Jangine::IO::Status::SUCCESS)
         {
+            Jangine::IO::Gltf::Model cubeModel{};
+            modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack_CUBE.glb", cubeModel);
+            if (modelStatus == Jangine::IO::Status::SUCCESS)
+            {
+                model.Add(cubeModel);
+            }
+
             Import(model);
             scene.Print(scene.GetWorld());
         }

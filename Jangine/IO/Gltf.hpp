@@ -7,6 +7,14 @@ namespace Jangine::IO::Gltf
 {
     struct Model
     {
+        using AccessorIndex = int32_t;
+        using BufferViewIndex = int32_t;
+        using BufferIndex = int32_t;
+        using MeshIndex = int32_t;
+        using NodeIndex = int32_t;
+        using SceneIndex = int32_t;
+        using MaterialIndex = int32_t;
+
         /// @brief Metadata about the glTF asset.
         struct Asset
         {
@@ -24,12 +32,12 @@ namespace Jangine::IO::Gltf
         struct Scene
         {
             std::string name;
-            std::vector<int32_t> nodes;
+            std::vector<NodeIndex> nodes;
 
             friend void from_json(const nlohmann::json &j, Scene &scene)
             {
                 scene.name = j.at("name").get<std::string>();
-                scene.nodes = j.at("nodes").get<std::vector<int32_t>>();
+                scene.nodes = j.at("nodes").get<std::vector<NodeIndex>>();
             }
         };
 
@@ -41,28 +49,28 @@ namespace Jangine::IO::Gltf
             {
                 struct Attributes
                 {
-                    int32_t position;
-                    int32_t normal;
-                    int32_t texcoord;
+                    AccessorIndex position;
+                    AccessorIndex normal;
+                    AccessorIndex uv;
 
                     friend void from_json(const nlohmann::json &j, Attributes &attributes)
                     {
-                        attributes.position = j.value<int32_t>("POSITION", -1);
-                        attributes.normal = j.value<int32_t>("NORMAL", -1);
-                        attributes.texcoord = j.value<int32_t>("TEXCOORD_0", -1);
+                        attributes.position = j.value<AccessorIndex>("POSITION", -1);
+                        attributes.normal = j.value<AccessorIndex>("NORMAL", -1);
+                        attributes.uv = j.value<AccessorIndex>("TEXCOORD_0", -1);
                     }
                 };
 
                 Attributes attributes;
-                int32_t indices;
-                int32_t material;
+                AccessorIndex indices;
+                MaterialIndex material;
                 int32_t mode;
 
                 friend void from_json(const nlohmann::json &j, Primitive &primitive)
                 {
                     primitive.attributes = j.at("attributes").get<Attributes>();
-                    primitive.indices = j.value<int32_t>("indices", -1);
-                    primitive.material = j.value<int32_t>("material", -1);
+                    primitive.indices = j.value<AccessorIndex>("indices", -1);
+                    primitive.material = j.value<MaterialIndex>("material", 0); // NOTE: Even with a glTF with no materials defined, 0 index material is always present
                     primitive.mode = j.value<int32_t>("mode", -1);
                 }
             };
@@ -81,8 +89,8 @@ namespace Jangine::IO::Gltf
         struct Node
         {
             std::string name;
-            std::vector<uint32_t> children;
-            int32_t mesh;
+            std::vector<NodeIndex> children;
+            MeshIndex mesh;
 
             Eigen::Vector3f scale;
             Eigen::Isometry3f transform;
@@ -90,8 +98,8 @@ namespace Jangine::IO::Gltf
             friend void from_json(const nlohmann::json &j, Node &node)
             {
                 node.name = j.value<std::string>("name", "");
-                node.children = j.value<std::vector<uint32_t>>("children", {});
-                node.mesh = j.value<int32_t>("mesh", -1);
+                node.children = j.value<std::vector<NodeIndex>>("children", {});
+                node.mesh = j.value<MeshIndex>("mesh", -1);
 
                 Eigen::Quaternionf q{Eigen::Quaternionf::Identity()};
                 Eigen::Vector3f s{1, 1, 1};
@@ -158,11 +166,11 @@ namespace Jangine::IO::Gltf
                 MAT4
             };
 
-            int32_t bufferView;
-            int32_t byteOffset;
+            BufferViewIndex bufferView;
+            uint32_t byteOffset;
             ComponentType componentType;
             bool_t normalized;
-            int32_t count;
+            uint32_t count;
             Type type;
             std::string name;
 
@@ -172,12 +180,12 @@ namespace Jangine::IO::Gltf
             {
                 // Required fields
                 accessor.componentType = j.at("componentType").get<ComponentType>();
-                accessor.count = j.at("count").get<int32_t>();
+                accessor.count = j.at("count").get<uint32_t>();
                 std::string typeString = j.at("type").get<std::string>();
 
                 // Optional fields
-                accessor.bufferView = j.value<int32_t>("bufferView", -1);
-                accessor.byteOffset = j.value<int32_t>("byteOffset", 0);
+                accessor.bufferView = j.value<BufferViewIndex>("bufferView", -1);
+                accessor.byteOffset = j.value<uint32_t>("byteOffset", 0);
                 accessor.normalized = j.value<bool_t>("normalized", false);
                 accessor.name = j.value<std::string>("name", "");
 
@@ -240,14 +248,14 @@ namespace Jangine::IO::Gltf
         /// @brief A buffer points to binary geometry, animation, or skins.
         struct Buffer
         {
-            int32_t byteLength;
+            uint32_t byteLength;
             std::string uri;
             std::string name;
 
             friend void from_json(const nlohmann::json &j, Buffer &buffer)
             {
                 // Required fields
-                buffer.byteLength = j.at("byteLength").get<int32_t>();
+                buffer.byteLength = j.at("byteLength").get<uint32_t>();
 
                 // Optional fields
                 buffer.uri = j.value<std::string>("uri", "");
@@ -258,23 +266,23 @@ namespace Jangine::IO::Gltf
         /// @brief A view into a buffer generally representing a subset of the buffer.
         struct BufferView
         {
-            int32_t buffer;
-            int32_t byteOffset;
-            int32_t byteLength;
-            int32_t byteStride;
+            BufferIndex buffer;
+            size_t byteOffset;
+            size_t byteLength;
+            size_t byteStride;
             int32_t target;
             std::string name;
 
             friend void from_json(const nlohmann::json &j, BufferView &bufferView)
             {
                 // Required fields
-                bufferView.buffer = j.at("buffer").get<int32_t>();
-                bufferView.byteLength = j.at("byteLength").get<int32_t>();
+                bufferView.buffer = j.at("buffer").get<BufferIndex>();
+                bufferView.byteLength = j.at("byteLength").get<size_t>();
 
                 // Optional fields
-                bufferView.byteOffset = j.value<int32_t>("byteOffset", 0);
-                bufferView.byteStride = j.value<int32_t>("byteStride", 0);
-                bufferView.target = j.value<int32_t>("target", 0);
+                bufferView.byteOffset = j.value<size_t>("byteOffset", 0);
+                bufferView.byteStride = j.value<size_t>("byteStride", 0);
+                bufferView.target = j.value<uint32_t>("target", 0);
                 bufferView.name = j.value<std::string>("name", "");
             }
         };
@@ -309,7 +317,7 @@ namespace Jangine::IO::Gltf
         std::vector<uint8_t> data;
 
         Asset asset;
-        int32_t scene;
+        SceneIndex defaultScene;
         std::vector<Scene> scenes;
         std::vector<Node> nodes;
         std::vector<Mesh> meshes;
@@ -321,14 +329,110 @@ namespace Jangine::IO::Gltf
         friend void from_json(const nlohmann::json &j, Model &model)
         {
             model.asset = j.at("asset").get<Asset>();
-            model.scene = j.at("scene").get<int32_t>();
+            model.defaultScene = j.at("scene").get<int32_t>();
             model.scenes = j.at("scenes").get<std::vector<Scene>>();
             model.nodes = j.at("nodes").get<std::vector<Node>>();
             model.meshes = j.at("meshes").get<std::vector<Mesh>>();
-            model.materials = j.at("materials").get<std::vector<Material>>();
+            model.materials = j.value<std::vector<Material>>("materials", {Material{
+                                                                              .name = "FALLBACK",
+                                                                              .pbrMetallicRoughness = Material::PbrMetallicRoughness{
+                                                                                  .baseColorFactor = {1.0f, 1.0f, 1.0f, 1.0f},
+                                                                                  .metallicFactor = 0.0f,
+                                                                                  .roughnessFactor = 0.5f}}});
             model.accessors = j.at("accessors").get<std::vector<Accessor>>();
             model.buffers = j.at("buffers").get<std::vector<Buffer>>();
             model.bufferViews = j.at("bufferViews").get<std::vector<BufferView>>();
+        }
+
+        /// @brief Appends all supported aspects of another model into this one.
+        void Add(const Model &other)
+        {
+            // Data
+            size_t dataOffset = data.size();
+            data.insert(data.end(), other.data.begin(), other.data.end());
+
+            NodeIndex nodeOffset = static_cast<NodeIndex>(nodes.size());
+            MeshIndex meshOffset = static_cast<MeshIndex>(meshes.size());
+            MaterialIndex materialOffset = static_cast<MaterialIndex>(materials.size());
+            AccessorIndex accessorOffset = static_cast<AccessorIndex>(accessors.size());
+            BufferIndex bufferOffset = static_cast<BufferIndex>(buffers.size());
+            BufferViewIndex bufferViewOffset = static_cast<BufferViewIndex>(bufferViews.size());
+
+            // Buffers
+            buffers.insert(buffers.end(), other.buffers.begin(), other.buffers.end());
+
+            // BufferViews
+            for (const auto &bv : other.bufferViews)
+            {
+                BufferView newBv = bv;
+                newBv.buffer += bufferOffset;
+                newBv.byteOffset += static_cast<uint32_t>(dataOffset);
+                bufferViews.push_back(newBv);
+            }
+
+            // Nodes
+            for (const auto &node : other.nodes)
+            {
+                Node newNode = node;
+                if (newNode.mesh >= 0)
+                {
+                    newNode.mesh += meshOffset;
+                }
+                for (auto &child : newNode.children)
+                {
+                    child += nodeOffset;
+                }
+                nodes.push_back(newNode);
+            }
+
+            // Accessors
+            for (const auto &accessor : other.accessors)
+            {
+                Accessor newAccessor = accessor;
+                if (newAccessor.bufferView >= 0)
+                {
+                    newAccessor.bufferView += bufferViewOffset;
+                }
+                accessors.push_back(newAccessor);
+            }
+
+            // Materials
+            materials.insert(materials.end(), other.materials.begin(), other.materials.end());
+
+            // Meshes
+            for (const auto &mesh : other.meshes)
+            {
+                Mesh newMesh = mesh;
+                for (auto &primitive : newMesh.primitives)
+                {
+                    primitive.indices += accessorOffset;
+                    primitive.material += materialOffset;
+                    if (primitive.attributes.position >= 0)
+                    {
+                        primitive.attributes.position += accessorOffset;
+                    }
+                    if (primitive.attributes.normal >= 0)
+                    {
+                        primitive.attributes.normal += accessorOffset;
+                    }
+                    if (primitive.attributes.uv >= 0)
+                    {
+                        primitive.attributes.uv += accessorOffset;
+                    }
+                }
+                meshes.push_back(newMesh);
+            }
+
+            // Scenes
+            for (const auto &scene : other.scenes)
+            {
+                Scene newScene = scene;
+                for (auto &node : newScene.nodes)
+                {
+                    node += nodeOffset;
+                }
+                scenes.push_back(newScene);
+            }
         }
     };
 

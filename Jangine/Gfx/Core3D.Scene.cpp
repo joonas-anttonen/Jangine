@@ -45,7 +45,7 @@ namespace Jangine::Gfx
             for (const auto &gltfPrimitive : gltfMesh.primitives)
             {
                 bool_t hasNormals = gltfPrimitive.attributes.normal != -1;
-                bool_t hasUVs = gltfPrimitive.attributes.texcoord != -1;
+                bool_t hasUVs = gltfPrimitive.attributes.uv != -1;
                 bool_t hasIndices = gltfPrimitive.indices != -1;
 
                 // TODO: Support no positions?
@@ -53,7 +53,7 @@ namespace Jangine::Gfx
                 Jangine::IO::Gltf::Model::BufferView positionBufferView = gltf.bufferViews[positionAccessor.bufferView];
                 Jangine::IO::Gltf::Model::Accessor normalAccessor = hasNormals ? gltf.accessors[gltfPrimitive.attributes.normal] : Jangine::IO::Gltf::Model::Accessor{};
                 Jangine::IO::Gltf::Model::BufferView normalBufferView = hasNormals ? gltf.bufferViews[normalAccessor.bufferView] : Jangine::IO::Gltf::Model::BufferView{};
-                Jangine::IO::Gltf::Model::Accessor uvAccessor = hasUVs ? gltf.accessors[gltfPrimitive.attributes.texcoord] : Jangine::IO::Gltf::Model::Accessor{};
+                Jangine::IO::Gltf::Model::Accessor uvAccessor = hasUVs ? gltf.accessors[gltfPrimitive.attributes.uv] : Jangine::IO::Gltf::Model::Accessor{};
                 Jangine::IO::Gltf::Model::BufferView uvBufferView = hasUVs ? gltf.bufferViews[uvAccessor.bufferView] : Jangine::IO::Gltf::Model::BufferView{};
                 Jangine::IO::Gltf::Model::Accessor indexAccessor = hasIndices ? gltf.accessors[gltfPrimitive.indices] : Jangine::IO::Gltf::Model::Accessor{};
                 Jangine::IO::Gltf::Model::BufferView indexBufferView = hasIndices ? gltf.bufferViews[indexAccessor.bufferView] : Jangine::IO::Gltf::Model::BufferView{};
@@ -87,7 +87,7 @@ namespace Jangine::Gfx
                         return Eigen::Vector2f(0, 0);
                     }
 
-                    ThrowInvalidDataIf(uvAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC2, "Texcoord accessor must be of type VEC2");
+                    ThrowInvalidDataIf(uvAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC2, "UV accessor must be of type VEC2");
                     return Eigen::Vector2f{reinterpret_cast<const float *>(gltf.data.data() + calculateOffset(uvBufferView, uvAccessor, i))};
                 };
 
