@@ -69,7 +69,7 @@ namespace Jangine::Logging
             {
             case Severity::Debug:
                 color = ConsoleColor::Blue;
-                break;
+                return;
             case Severity::Information:
                 color = ConsoleColor::Default;
                 break;

@@ -27,6 +27,8 @@ namespace Jangine::Gfx
 
     struct MeshMaterial
     {
+        using Id = uint32_t;
+
         Eigen::Vector4f base;
         float_t metalness;
         float_t roughness;
@@ -36,7 +38,9 @@ namespace Jangine::Gfx
     {
         uint32_t indexOffset;
         uint32_t indexCount;
-        int8_t materialIndex;
+        uint32_t vertexOffset;
+        uint32_t vertexCount;
+        MeshMaterial::Id materialIndex;
         bool_t materialHasTransparency;
     };
 
@@ -65,6 +69,10 @@ namespace Jangine::Gfx
         const MemoryBuffer *GetIndexBuffer() const { return indexBuffer.get(); }
         const MemoryBuffer *GetMaterialBuffer() const { return materialBuffer.get(); }
 
+        const std::vector<MeshVertex> &GetVertices() const { return vertices; }
+        const std::vector<uint32_t> &GetIndices() const { return indices; }
+        const std::vector<MeshMaterial> &GetMaterials() const { return materials; }
+
     private:
         Handle<MemoryBuffer> vertexBuffer;
         Handle<MemoryBuffer> indexBuffer;
@@ -85,10 +93,14 @@ namespace Jangine::Gfx
             int32_t value;
             operator size_t() const { return static_cast<size_t>(value); }
             bool_t has_value() const { return value != -1; }
+
+            bool operator==(const Id &other) const { return value == other.value; }
+            bool operator!=(const Id &other) const { return value != other.value; }
         };
 
-        explicit Mesh(SharedHandle<MeshBuffer> buffer, std::vector<MeshPrimitive> &&primitives)
-            : buffer(buffer),
+        explicit Mesh(Id id, SharedHandle<MeshBuffer> buffer, std::vector<MeshPrimitive> &&primitives)
+            : id(id),
+              buffer(buffer),
               primitives(std::move(primitives))
         {
         }
@@ -100,8 +112,10 @@ namespace Jangine::Gfx
 
         const MeshBuffer *GetBuffer() const { return buffer.get(); }
         const std::vector<MeshPrimitive> &GetPrimitives() const { return primitives; }
+        Id GetId() const { return id; }
 
     private:
+        Id id;
         SharedHandle<MeshBuffer> buffer;
         std::vector<MeshPrimitive> primitives;
     };
@@ -118,6 +132,9 @@ namespace Jangine::Gfx
             Id(T t) : value(static_cast<int32_t>(t)) {}
             int32_t value;
             operator size_t() const { return static_cast<size_t>(value); }
+
+            bool operator==(const Id &other) const { return value == other.value; }
+            bool operator!=(const Id &other) const { return value != other.value; }
         };
 
         explicit Node(std::type_index type, Id id)
@@ -140,6 +157,8 @@ namespace Jangine::Gfx
 
         /// @brief Get the world transform of the node
         const Eigen::Isometry3f &GetWorldTransform() const { return worldTransform; }
+        /// @brief Get the relative transform of the node
+        const Eigen::Isometry3f &GetRelativeTransform() const { return relativeTransform; }
 
         const std::vector<Id> &GetDescendants() const { return descendants; }
 
@@ -195,6 +214,19 @@ namespace Jangine::Gfx
         Scene &operator=(Scene &&) = default;
         Scene(Scene &&from) = default;
 
+        void Clear()
+        {
+            for (size_t i = 1; i < nodes.size(); i++)
+            {
+                delete nodes[i];
+            }
+            nodes.resize(1);
+            meshes.clear();
+            nodes[0]->descendants.clear();
+            nodes[0]->relativeTransform = Eigen::Isometry3f::Identity();
+            nodes[0]->worldTransform = Eigen::Isometry3f::Identity();
+        }
+
         template <Derived<Node> T>
         T *CreateNode()
         {
@@ -206,10 +238,10 @@ namespace Jangine::Gfx
             return node;
         }
 
-        Mesh::Id AddMesh(Mesh &&mesh)
+        Mesh::Id CreateMesh(SharedHandle<MeshBuffer> buffer, std::vector<MeshPrimitive> &&primitives)
         {
             Mesh::Id id{static_cast<int32_t>(meshes.size())};
-            meshes.emplace_back(std::move(mesh));
+            meshes.emplace_back(id, std::move(buffer), std::move(primitives));
             return id;
         }
 
@@ -372,6 +404,7 @@ namespace Jangine::Gfx
         void InitializeRendering(const DisplayParameters &wantedDisplayParameters);
         void Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime);
 
+        void Clear();
         void Import(const Jangine::IO::Gltf::Model &gltf);
         void Export(Jangine::IO::Gltf::Model &gltf) const;
 
@@ -409,5 +442,26 @@ namespace Jangine::Gfx
         Scene scene;
 
         const Logging::Logger &logger;
+    };
+}
+
+namespace std
+{
+    template <>
+    struct hash<Jangine::Gfx::Mesh::Id>
+    {
+        std::size_t operator()(const Jangine::Gfx::Mesh::Id &id) const noexcept
+        {
+            return std::hash<int32_t>{}(id.value);
+        }
+    };
+
+    template <>
+    struct hash<Jangine::Gfx::Node::Id>
+    {
+        std::size_t operator()(const Jangine::Gfx::Node::Id &id) const noexcept
+        {
+            return std::hash<int32_t>{}(id.value);
+        }
     };
 }

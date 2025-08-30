@@ -4,58 +4,6 @@
 
 namespace Jangine::IO::Urdf
 {
-    static Gltf::Model::AccessorIndex AddVector3s(Gltf::Model &gltf, const std::vector<Eigen::Vector3f> &data)
-    {
-        size_t originalSize = gltf.data.size();
-        gltf.data.resize(originalSize + data.size() * sizeof(Eigen::Vector3f));
-        std::memcpy(gltf.data.data() + originalSize, data.data(), data.size() * sizeof(Eigen::Vector3f));
-
-        Gltf::Model::BufferView bufferView{
-            .buffer = Gltf::Model::BufferIndex{0},
-            .byteOffset = originalSize,
-            .byteLength = data.size() * sizeof(Eigen::Vector3f)};
-
-        gltf.bufferViews.push_back(std::move(bufferView));
-
-        Gltf::Model::BufferViewIndex bufferViewIndex = static_cast<Gltf::Model::BufferViewIndex>(gltf.bufferViews.size() - 1);
-        Gltf::Model::Accessor accessor{
-            .type = Gltf::Model::Accessor::Type::VEC3,
-            .componentType = Gltf::Model::Accessor::ComponentType::FLOAT,
-            .bufferView = bufferViewIndex,
-            .count = data.size(),
-            .stride = sizeof(Eigen::Vector3f),
-        };
-
-        gltf.accessors.push_back(std::move(accessor));
-        return static_cast<Gltf::Model::AccessorIndex>(gltf.accessors.size() - 1);
-    }
-
-    static Gltf::Model::AccessorIndex AddUInt32s(Gltf::Model &gltf, const std::vector<uint32_t> &data)
-    {
-        size_t originalSize = gltf.data.size();
-        gltf.data.resize(originalSize + data.size() * sizeof(uint32_t));
-        std::memcpy(gltf.data.data() + originalSize, data.data(), data.size() * sizeof(uint32_t));
-
-        Gltf::Model::BufferView bufferView{
-            .buffer = Gltf::Model::BufferIndex{0},
-            .byteOffset = originalSize,
-            .byteLength = data.size() * sizeof(uint32_t)};
-
-        gltf.bufferViews.push_back(std::move(bufferView));
-
-        Gltf::Model::BufferViewIndex bufferViewIndex = static_cast<Gltf::Model::BufferViewIndex>(gltf.bufferViews.size() - 1);
-        Gltf::Model::Accessor accessor{
-            .type = Gltf::Model::Accessor::Type::SCALAR,
-            .componentType = Gltf::Model::Accessor::ComponentType::UNSIGNED_INT,
-            .bufferView = bufferViewIndex,
-            .count = data.size(),
-            .stride = sizeof(uint32_t),
-        };
-
-        gltf.accessors.push_back(std::move(accessor));
-        return static_cast<Gltf::Model::AccessorIndex>(gltf.accessors.size() - 1);
-    }
-
     static Gltf::Model::MeshIndex AddCylinderMesh(Gltf::Model &gltf, float_t radius, float_t length, const Gltf::Model::Material &material)
     {
         const int segments = 32;
@@ -124,17 +72,14 @@ namespace Jangine::IO::Urdf
             indices.push_back(next);
         }
 
-        gltf.materials.push_back(material);
-
         Gltf::Model::Mesh cylinderMesh{
             .name = "cylinder",
-            .primitives = {{.indices = AddUInt32s(gltf, indices),
-                            .material = static_cast<Gltf::Model::MaterialIndex>(gltf.materials.size() - 1),
+            .primitives = {{.indices = gltf.CreateAccessorFromData(indices),
+                            .material = gltf.CreateMaterial(material),
                             .attributes = {
-                                .position = AddVector3s(gltf, vertices),
-                                .normal = AddVector3s(gltf, normals)}}}};
-        gltf.meshes.push_back(std::move(cylinderMesh));
-        return static_cast<Gltf::Model::MeshIndex>(gltf.meshes.size() - 1);
+                                .position = gltf.CreateAccessorFromData(vertices),
+                                .normal = gltf.CreateAccessorFromData(normals)}}}};
+        return gltf.CreateMesh(cylinderMesh);
     }
 
     static Gltf::Model::MeshIndex AddSphereMesh(Gltf::Model &gltf, float_t radius, const Gltf::Model::Material &material)
@@ -146,7 +91,6 @@ namespace Jangine::IO::Urdf
         std::vector<Eigen::Vector3f> normals;
         std::vector<uint32_t> indices;
 
-        // Generate vertices and normals
         for (int latNumber = 0; latNumber <= latitudeBands; ++latNumber)
         {
             float theta = latNumber * Math::PI / latitudeBands;
@@ -183,80 +127,95 @@ namespace Jangine::IO::Urdf
             }
         }
 
-        gltf.materials.push_back(material);
-
         Gltf::Model::Mesh sphereMesh{
             .name = "sphere",
-            .primitives = {{.indices = AddUInt32s(gltf, indices),
-                            .material = static_cast<Gltf::Model::MaterialIndex>(gltf.materials.size() - 1),
+            .primitives = {{.indices = gltf.CreateAccessorFromData(indices),
+                            .material = gltf.CreateMaterial(material),
                             .attributes = {
-                                .position = AddVector3s(gltf, vertices),
-                                .normal = AddVector3s(gltf, normals)}}}};
-        gltf.meshes.push_back(std::move(sphereMesh));
-        return static_cast<Gltf::Model::MeshIndex>(gltf.meshes.size() - 1);
+                                .position = gltf.CreateAccessorFromData(vertices),
+                                .normal = gltf.CreateAccessorFromData(normals)}}}};
+        return gltf.CreateMesh(sphereMesh);
     }
 
     static Gltf::Model::MeshIndex AddBoxMesh(Gltf::Model &gltf, const Eigen::Vector3f &size, const Gltf::Model::Material &material)
     {
-        // Each face has 6 vertices (2 triangles), total 36 vertices for a box
-        std::vector<Eigen::Vector3f> vertices = {
-            // Back face (-Z)
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, size.y() / 2, -size.z() / 2},
+        std::vector<Eigen::Vector3f> vertices;
+        std::vector<Eigen::Vector3f> normals;
+        std::vector<uint32_t> indices;
 
-            // Front face (+Z)
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, -size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, size.z() / 2},
+        float hx = size.x() / 2.0f;
+        float hy = size.y() / 2.0f;
+        float hz = size.z() / 2.0f;
 
-            // Left face (-X)
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, size.z() / 2},
-
-            // Right face (+X)
-            Eigen::Vector3f{size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, -size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, -size.z() / 2},
-
-            // Top face (+Y)
-            Eigen::Vector3f{-size.x() / 2, size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, size.y() / 2, size.z() / 2},
-
-            // Bottom face (-Y)
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, -size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, -size.z() / 2},
-            Eigen::Vector3f{-size.x() / 2, -size.y() / 2, size.z() / 2},
-            Eigen::Vector3f{size.x() / 2, -size.y() / 2, size.z() / 2}};
-
-        gltf.materials.push_back(material);
+        vertices = {
+            {-hx, -hy, -hz},
+            {hx, -hy, -hz},
+            {hx, hy, -hz},
+            {-hx, hy, -hz}, // Back face
+            {-hx, -hy, hz},
+            {hx, -hy, hz},
+            {hx, hy, hz},
+            {-hx, hy, hz}, // Front face
+            {-hx, -hy, -hz},
+            {-hx, hy, -hz},
+            {-hx, hy, hz},
+            {-hx, -hy, hz}, // Left face
+            {hx, -hy, -hz},
+            {hx, hy, -hz},
+            {hx, hy, hz},
+            {hx, -hy, hz}, // Right face
+            {-hx, -hy, -hz},
+            {hx, -hy, -hz},
+            {hx, -hy, hz},
+            {-hx, -hy, hz}, // Bottom face
+            {-hx, hy, -hz},
+            {hx, hy, -hz},
+            {hx, hy, hz},
+            {-hx, hy, hz} // Top face
+        };
+        normals = {
+            {0, 0, -1},
+            {0, 0, -1},
+            {0, 0, -1},
+            {0, 0, -1}, // Back face
+            {0, 0, 1},
+            {0, 0, 1},
+            {0, 0, 1},
+            {0, 0, 1}, // Front face
+            {-1, 0, 0},
+            {-1, 0, 0},
+            {-1, 0, 0},
+            {-1, 0, 0}, // Left face
+            {1, 0, 0},
+            {1, 0, 0},
+            {1, 0, 0},
+            {1, 0, 0}, // Right face
+            {0, -1, 0},
+            {0, -1, 0},
+            {0, -1, 0},
+            {0, -1, 0}, // Bottom face
+            {0, 1, 0},
+            {0, 1, 0},
+            {0, 1, 0},
+            {0, 1, 0} // Top face
+        };
+        indices = {
+            0, 1, 2, 0, 2, 3,       // Back face
+            4, 5, 6, 4, 6, 7,       // Front face
+            8, 9, 10, 8, 10, 11,    // Left face
+            12, 13, 14, 12, 14, 15, // Right face
+            16, 17, 18, 16, 18, 19, // Bottom face
+            20, 21, 22, 20, 22, 23  // Top face
+        };
 
         Gltf::Model::Mesh boxMesh{
             .name = "box",
-            .primitives = {{.material = static_cast<Gltf::Model::MaterialIndex>(gltf.materials.size() - 1),
+            .primitives = {{.indices = gltf.CreateAccessorFromData(indices),
+                            .material = gltf.CreateMaterial(material),
                             .attributes = {
-                                .position = AddVector3s(gltf, vertices)}}}};
-        gltf.meshes.push_back(std::move(boxMesh));
-        return static_cast<Gltf::Model::MeshIndex>(gltf.meshes.size() - 1);
+                                .position = gltf.CreateAccessorFromData(vertices),
+                                .normal = gltf.CreateAccessorFromData(normals)}}}};
+        return gltf.CreateMesh(boxMesh);
     }
 
     static Eigen::Vector3f ParseXYZ(const char *xyzAttr)
@@ -300,7 +259,8 @@ namespace Jangine::IO::Urdf
         const char *name,
         const std::filesystem::path &parentFolder,
         Gltf::Model &gltf,
-        const Gltf::Model::Material &fallbackMaterial)
+        const Gltf::Model::Material &fallbackMaterial,
+        bool_t forceFallbackMaterial)
     {
         for (auto *visualElement = linkElement->FirstChildElement(name); visualElement; visualElement = visualElement->NextSiblingElement(name))
         {
@@ -321,13 +281,13 @@ namespace Jangine::IO::Urdf
                             meshFilename = std::filesystem::absolute(parentFolder / meshFilename).string().c_str();
                         }
 
-                        Gltf::Model meshNode;
-                        Status meshStatus = Gltf::LoadFromFile(meshFilename, meshNode);
+                        Gltf::Model meshModel;
+                        Status meshStatus = Gltf::LoadFromFile(meshFilename, meshModel);
                         if (meshStatus == Status::SUCCESS)
                         {
-                            for (size_t i = 0; i < meshNode.nodes.size(); i++)
+                            for (size_t i = 0; i < meshModel.nodes.size(); i++)
                             {
-                                meshNode.nodes[i].name = std::format("{}::{}", name, meshNode.nodes[i].name);
+                                meshModel.nodes[i].name = std::format("{}::{}", name, meshModel.nodes[i].name);
                             }
 
                             Gltf::Model::Node geometryNode;
@@ -337,17 +297,25 @@ namespace Jangine::IO::Urdf
                             geometryNode.scale = Eigen::Vector3f{1, 1, 1};
                             geometryNode.transform = origin;
 
-                            for (size_t i = 0; i < meshNode.nodes.size(); i++)
+                            for (size_t i = 0; i < meshModel.nodes.size(); i++)
                             {
+                                if (forceFallbackMaterial)
+                                {
+                                    for (size_t m = 0; m < meshModel.materials.size(); m++)
+                                    {
+                                        meshModel.materials[m] = fallbackMaterial;
+                                    }
+                                }
+
                                 // Only add root nodes as children of the geometry node
-                                if (meshNode.nodes[i].parent == -1)
+                                if (meshModel.nodes[i].parent == -1)
                                 {
                                     geometryNode.children.push_back(static_cast<Gltf::Model::NodeIndex>(i));
                                 }
                             }
 
-                            meshNode.nodes.push_back(geometryNode);
-                            gltf.Add(meshNode);
+                            meshModel.nodes.push_back(geometryNode);
+                            gltf.Append(meshModel);
                         }
                         else
                         {
@@ -486,14 +454,26 @@ namespace Jangine::IO::Urdf
                 .pbrMetallicRoughness = {
                     .baseColorFactor = {0.8f, 0.8f, 0.8f, 1.0f}}};
             Gltf::Model visual;
-            LoadLinkGeometryNodes(linkElement, "visual", parentFolder, visual, visualFallbackMaterial);
+            LoadLinkGeometryNodes(
+                linkElement,
+                "visual",
+                parentFolder,
+                visual,
+                visualFallbackMaterial,
+                false);
 
             Gltf::Model::Material collisionFallbackMaterial{
                 .name = "fallback::collision",
                 .pbrMetallicRoughness = {
-                    .baseColorFactor = {0.8f, 0.8f, 0.8f, 0.3f}}};
+                    .baseColorFactor = {0.8f, 0.8f, 0.8f, 0.5f}}};
             Gltf::Model collision;
-            LoadLinkGeometryNodes(linkElement, "collision", parentFolder, collision, collisionFallbackMaterial);
+            LoadLinkGeometryNodes(
+                linkElement,
+                "collision",
+                parentFolder,
+                collision,
+                collisionFallbackMaterial,
+                true);
 
             bool_t hasVisual = visual.nodes.size() > 0;
             bool_t hasCollision = collision.nodes.size() > 0;
@@ -517,7 +497,7 @@ namespace Jangine::IO::Urdf
                     }
                 }
 
-                gltf.Add(visual);
+                gltf.Append(visual);
             }
 
             if (hasCollision)
@@ -531,7 +511,7 @@ namespace Jangine::IO::Urdf
                     }
                 }
 
-                gltf.Add(collision);
+                gltf.Append(collision);
             }
 
             links[linkName] = link;
@@ -586,7 +566,7 @@ namespace Jangine::IO::Urdf
                 << std::endl;
         }
 
-        // Placeholder implementation
+        gltf.CompactMaterials();
         return Jangine::IO::Status::SUCCESS;
     }
 }

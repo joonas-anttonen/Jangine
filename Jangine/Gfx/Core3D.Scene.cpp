@@ -15,6 +15,11 @@ namespace Jangine::Gfx
         PrimordialMesh(PrimordialMesh &&) = default;
     };
 
+    void Core3D::Clear()
+    {
+        scene.Clear();
+    }
+
     void Core3D::Import(const Jangine::IO::Gltf::Model &gltf)
     {
         std::vector<MeshVertex> vertices;
@@ -53,7 +58,6 @@ namespace Jangine::Gfx
                 bool_t hasUVs = gltfPrimitive.attributes.uv != -1;
                 bool_t hasIndices = gltfPrimitive.indices != -1;
 
-                // TODO: Support no positions?
                 Jangine::IO::Gltf::Model::Accessor positionAccessor = gltf.accessors[gltfPrimitive.attributes.position];
                 Jangine::IO::Gltf::Model::BufferView positionBufferView = gltf.bufferViews[positionAccessor.bufferView];
                 Jangine::IO::Gltf::Model::Accessor normalAccessor = hasNormals ? gltf.accessors[gltfPrimitive.attributes.normal] : Jangine::IO::Gltf::Model::Accessor{};
@@ -63,6 +67,11 @@ namespace Jangine::Gfx
                 Jangine::IO::Gltf::Model::Accessor indexAccessor = hasIndices ? gltf.accessors[gltfPrimitive.indices] : Jangine::IO::Gltf::Model::Accessor{};
                 Jangine::IO::Gltf::Model::BufferView indexBufferView = hasIndices ? gltf.bufferViews[indexAccessor.bufferView] : Jangine::IO::Gltf::Model::BufferView{};
 
+                ThrowInvalidDataIf(positionAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC3, "Position accessor must be of type VEC3");
+                ThrowInvalidDataIf(hasNormals && normalAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC3, "Normal accessor must be of type VEC3");
+                ThrowInvalidDataIf(hasUVs && uvAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC2, "UV accessor must be of type VEC2");
+                ThrowInvalidDataIf((hasNormals && positionAccessor.count != normalAccessor.count) || (hasUVs && positionAccessor.count != uvAccessor.count), "Inconsistent accessor counts");
+
                 auto calculateOffset = [](const Jangine::IO::Gltf::Model::BufferView &bufferView, const Jangine::IO::Gltf::Model::Accessor &accessor, size_t i) -> size_t
                 {
                     return bufferView.byteOffset + accessor.offset + i * accessor.stride;
@@ -70,30 +79,17 @@ namespace Jangine::Gfx
 
                 auto readPosition = [&](size_t i) -> Eigen::Vector3f
                 {
-                    ThrowInvalidDataIf(positionAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC3, "Position accessor must be of type VEC3");
-                    return Eigen::Vector3f{reinterpret_cast<const float *>(gltf.data.data() + calculateOffset(positionBufferView, positionAccessor, i))};
+                    return Eigen::Vector3f{reinterpret_cast<const float_t *>(gltf.data.data() + calculateOffset(positionBufferView, positionAccessor, i))};
                 };
 
                 auto readNormal = [&](size_t i) -> Eigen::Vector3f
                 {
-                    if (!hasNormals)
-                    {
-                        return Eigen::Vector3f(0, 0, 1);
-                    }
-
-                    ThrowInvalidDataIf(normalAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC3, "Normal accessor must be of type VEC3");
-                    return Eigen::Vector3f{reinterpret_cast<const float *>(gltf.data.data() + calculateOffset(normalBufferView, normalAccessor, i))};
+                    return Eigen::Vector3f{reinterpret_cast<const float_t *>(gltf.data.data() + calculateOffset(normalBufferView, normalAccessor, i))};
                 };
 
                 auto readUV = [&](size_t i) -> Eigen::Vector2f
                 {
-                    if (!hasUVs)
-                    {
-                        return Eigen::Vector2f(0, 0);
-                    }
-
-                    ThrowInvalidDataIf(uvAccessor.type != Jangine::IO::Gltf::Model::Accessor::Type::VEC2, "UV accessor must be of type VEC2");
-                    return Eigen::Vector2f{reinterpret_cast<const float *>(gltf.data.data() + calculateOffset(uvBufferView, uvAccessor, i))};
+                    return Eigen::Vector2f{reinterpret_cast<const float_t *>(gltf.data.data() + calculateOffset(uvBufferView, uvAccessor, i))};
                 };
 
                 auto readIndex = [&](size_t i) -> size_t
@@ -110,19 +106,15 @@ namespace Jangine::Gfx
                     throw std::runtime_error("Unsupported index component type");
                 };
 
-                if ((hasNormals && positionAccessor.count != normalAccessor.count) || (hasUVs && positionAccessor.count != uvAccessor.count))
-                {
-                    throw std::runtime_error("Inconsistent accessor counts");
-                }
-
                 size_t primitiveVertexOffset = vertices.size();
+                size_t vertexCount = positionAccessor.count;
 
                 for (size_t i = 0; i < positionAccessor.count; i++)
                 {
                     MeshVertex vertex;
                     vertex.position = readPosition(i);
-                    vertex.normal = readNormal(i);
-                    vertex.uv = readUV(i);
+                    vertex.normal = hasNormals ? readNormal(i) : Eigen::Vector3f(0, 0, 1);
+                    vertex.uv = hasUVs ? readUV(i) : Eigen::Vector2f(0, 0);
 
                     vertices.push_back(vertex);
                 }
@@ -142,7 +134,6 @@ namespace Jangine::Gfx
                     for (size_t i = 0; i < indexCount; i++)
                     {
                         size_t index = readIndex(i);
-
                         indices.push_back(static_cast<uint32_t>(index + primitiveVertexOffset));
                     }
                 }
@@ -169,7 +160,9 @@ namespace Jangine::Gfx
                 MeshPrimitive primitive;
                 primitive.indexOffset = static_cast<uint32_t>(primitiveIndexOffset);
                 primitive.indexCount = static_cast<uint32_t>(indexCount);
-                primitive.materialIndex = static_cast<int8_t>(std::clamp(gltfPrimitive.material, 0u, static_cast<uint32_t>(materials.size() - 1)));
+                primitive.vertexOffset = static_cast<uint32_t>(primitiveVertexOffset);
+                primitive.vertexCount = static_cast<uint32_t>(vertexCount);
+                primitive.materialIndex = static_cast<MeshMaterial::Id>(std::clamp(gltfPrimitive.material, 0u, static_cast<uint32_t>(materials.size() - 1)));
                 primitive.materialHasTransparency = materials[primitive.materialIndex].base[3] < 1.0f;
 
                 primordialMesh.primitives.push_back(primitive);
@@ -208,7 +201,7 @@ namespace Jangine::Gfx
 
         for (auto &primordialMesh : primordialMeshes)
         {
-            Mesh::Id meshId = scene.AddMesh(Mesh(meshBuffer, std::move(primordialMesh.primitives)));
+            Mesh::Id meshId = scene.CreateMesh(meshBuffer, std::move(primordialMesh.primitives));
             meshIds.push_back(meshId);
         }
 
@@ -248,16 +241,115 @@ namespace Jangine::Gfx
                 scene.SetAncestor(childSceneNode, gltfNodeToSceneNode[i]);
             }
         }
+
+        scene.Print(scene.GetWorld());
     }
 
     void Core3D::Export(Jangine::IO::Gltf::Model &gltf) const
     {
         (void)gltf;
 
-        // std::vector<Jangine::IO::Gltf::Model::Mesh> gltfMeshes;
-        // std::vector<Jangine::IO::Gltf::Model::Node> gltfNodes;
-        // std::vector<Jangine::IO::Gltf::Model::Accessor> gltfAccessors;
-        // std::vector<Jangine::IO::Gltf::Model::BufferView> gltfBufferViews;
-        // std::vector<Jangine::IO::Gltf::Model::Material> gltfMaterials;
+        std::unordered_map<Mesh::Id, Jangine::IO::Gltf::Model::MeshIndex> meshToGltfMesh;
+        std::unordered_map<Node::Id, Jangine::IO::Gltf::Model::NodeIndex> nodeToGltfNode;
+
+        for (const auto &mesh : scene.GetMeshes())
+        {
+            const MeshBuffer *meshBuffer = mesh.GetBuffer();
+            const auto &vertices = meshBuffer->GetVertices();
+            const auto &indices = meshBuffer->GetIndices();
+            const auto &materials = meshBuffer->GetMaterials();
+
+            std::vector<Jangine::IO::Gltf::Model::Mesh::Primitive> gltfPrimitives;
+            for (const auto &primitive : mesh.GetPrimitives())
+            {
+                Jangine::IO::Gltf::Model::Material material{
+                    .name = std::format("Material_{:03d}", primitive.materialIndex),
+                    .pbrMetallicRoughness = {
+                        .baseColorFactor = {
+                            materials[primitive.materialIndex].base[0],
+                            materials[primitive.materialIndex].base[1],
+                            materials[primitive.materialIndex].base[2],
+                            materials[primitive.materialIndex].base[3]},
+                        .metallicFactor = materials[primitive.materialIndex].metalness,
+                        .roughnessFactor = materials[primitive.materialIndex].roughness}};
+
+                std::vector<Eigen::Vector3f> positions(primitive.vertexCount);
+                std::vector<Eigen::Vector3f> normals(primitive.vertexCount);
+                std::vector<Eigen::Vector2f> uvs(primitive.vertexCount);
+                for (size_t i = 0; i < primitive.vertexCount; ++i)
+                {
+                    const MeshVertex &v = vertices[primitive.vertexOffset + i];
+                    positions[i] = v.position;
+                    normals[i] = v.normal;
+                    uvs[i] = v.uv;
+                }
+
+                std::vector<uint32_t> primitiveIndices(primitive.indexCount);
+                std::transform(
+                    indices.begin() + primitive.indexOffset,
+                    indices.begin() + primitive.indexOffset + primitive.indexCount,
+                    primitiveIndices.begin(),
+                    [&](uint32_t index)
+                    { return index - primitive.vertexOffset; });
+
+                Jangine::IO::Gltf::Model::Mesh::Primitive gltfPrimitive{
+                    .indices = gltf.CreateAccessorFromData(std::span<const uint32_t>(primitiveIndices)),
+                    .material = gltf.CreateMaterial(material),
+                    .attributes = {
+                        .position = gltf.CreateAccessorFromData(std::span<const Eigen::Vector3f>(positions)),
+                        .normal = gltf.CreateAccessorFromData(std::span<const Eigen::Vector3f>(normals)),
+                        .uv = gltf.CreateAccessorFromData(std::span<const Eigen::Vector2f>(uvs))}};
+                gltfPrimitives.push_back(gltfPrimitive);
+            }
+
+            Jangine::IO::Gltf::Model::Mesh gltfMesh{
+                .name = std::format("Mesh_{:03d}", mesh.GetId().value),
+                .primitives = std::move(gltfPrimitives)};
+
+            Jangine::IO::Gltf::Model::MeshIndex gltfMeshIndex = gltf.CreateMesh(gltfMesh);
+            meshToGltfMesh[mesh.GetId()] = gltfMeshIndex;
+        }
+
+        // First pass: create all nodes
+        for (const auto &node : scene.GetNodes())
+        {
+            // Skip world node
+            if (node->GetId() == Node::Id{0})
+                continue;
+
+            Jangine::IO::Gltf::Model::Node gltfNode;
+            gltfNode.name = node->GetName();
+            gltfNode.transform = node->GetRelativeTransform();
+
+            if (node->GetType() == typeid(MeshNode))
+            {
+                MeshNode *meshNode = static_cast<MeshNode *>(node);
+                gltfNode.mesh = meshToGltfMesh.at(meshNode->GetMeshId());
+            }
+
+            Jangine::IO::Gltf::Model::NodeIndex gltfNodeIndex = gltf.CreateNode(gltfNode);
+            nodeToGltfNode[node->GetId()] = gltfNodeIndex;
+        }
+
+        // Second pass: set up parent-child relationships
+        for (const auto &node : scene.GetNodes())
+        {
+            // Skip world node
+            if (node->GetId() == Node::Id{0})
+                continue;
+
+            const auto &descendants = node->GetDescendants();
+            if (!descendants.empty())
+            {
+                Jangine::IO::Gltf::Model::Node &gltfNode = gltf.nodes[nodeToGltfNode.at(node->GetId())];
+                for (const auto &childId : descendants)
+                {
+                    gltfNode.children.push_back(nodeToGltfNode.at(childId));
+                }
+            }
+        }
+
+        gltf.ConnectHierarchy();
+        gltf.CompactMaterials();
     }
 }

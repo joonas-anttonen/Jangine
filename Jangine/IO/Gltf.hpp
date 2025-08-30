@@ -26,6 +26,17 @@ namespace Jangine::IO::Gltf
                 asset.version = j.at("version").get<std::string>();
                 asset.generator = j.value<std::string>("generator", "");
             }
+
+            friend void to_json(nlohmann::json &j, const Asset &asset)
+            {
+                j = nlohmann::json{
+                    {"version", asset.version},
+                };
+                if (!asset.generator.empty())
+                {
+                    j["generator"] = asset.generator;
+                }
+            }
         };
 
         /// @brief The root nodes of a scene.
@@ -38,6 +49,14 @@ namespace Jangine::IO::Gltf
             {
                 scene.name = j.at("name").get<std::string>();
                 scene.nodes = j.at("nodes").get<std::vector<NodeIndex>>();
+            }
+
+            friend void to_json(nlohmann::json &j, const Scene &scene)
+            {
+                j = nlohmann::json{
+                    {"name", scene.name},
+                    {"nodes", scene.nodes},
+                };
             }
         };
 
@@ -59,6 +78,21 @@ namespace Jangine::IO::Gltf
                         attributes.normal = j.value<AccessorIndex>("NORMAL", -1);
                         attributes.uv = j.value<AccessorIndex>("TEXCOORD_0", -1);
                     }
+
+                    friend void to_json(nlohmann::json &j, const Attributes &attributes)
+                    {
+                        j = nlohmann::json{
+                            {"POSITION", attributes.position},
+                        };
+                        if (attributes.normal != -1)
+                        {
+                            j["NORMAL"] = attributes.normal;
+                        }
+                        if (attributes.uv != -1)
+                        {
+                            j["TEXCOORD_0"] = attributes.uv;
+                        }
+                    }
                 };
 
                 AccessorIndex indices = -1;
@@ -73,6 +107,19 @@ namespace Jangine::IO::Gltf
                     primitive.material = j.value<MaterialIndex>("material", 0);
                     primitive.mode = j.value<int32_t>("mode", 4);
                 }
+
+                friend void to_json(nlohmann::json &j, const Primitive &primitive)
+                {
+                    j = nlohmann::json{
+                        {"attributes", primitive.attributes},
+                        {"indices", primitive.indices},
+                        {"material", primitive.material},
+                    };
+                    if (primitive.mode != 4)
+                    {
+                        j["mode"] = primitive.mode;
+                    }
+                }
             };
 
             std::string name;
@@ -82,6 +129,14 @@ namespace Jangine::IO::Gltf
             {
                 mesh.name = j.at("name").get<std::string>();
                 mesh.primitives = j.at("primitives").get<std::vector<Primitive>>();
+            }
+
+            friend void to_json(nlohmann::json &j, const Mesh &mesh)
+            {
+                j = nlohmann::json{
+                    {"name", mesh.name},
+                    {"primitives", mesh.primitives},
+                };
             }
         };
 
@@ -186,6 +241,31 @@ namespace Jangine::IO::Gltf
                 }
                 // ---------------------
             }
+
+            friend void to_json(nlohmann::json &j, const Node &node)
+            {
+                j = nlohmann::json{
+                    {"name", node.name},
+                };
+
+                if (!node.children.empty())
+                {
+                    j["children"] = node.children;
+                }
+
+                if (node.mesh != -1)
+                {
+                    j["mesh"] = node.mesh;
+                }
+
+                // Only write transform
+                if (!node.transform.isApprox(Eigen::Isometry3f::Identity()))
+                {
+                    std::array<float, 16> mat;
+                    Eigen::Map<Eigen::Matrix<float, 4, 4, Eigen::ColMajor>>(mat.data()) = node.transform.matrix();
+                    j["matrix"] = mat;
+                }
+            }
         };
 
         /// @brief A typed view into a buffer view that contains raw binary data.
@@ -280,6 +360,44 @@ namespace Jangine::IO::Gltf
 
                 accessor.stride = numComponents * componentSize;
             }
+
+            friend void to_json(nlohmann::json &j, const Accessor &accessor)
+            {
+                std::string typeString;
+                switch (accessor.type)
+                {
+                case Type::SCALAR:
+                    typeString = "SCALAR";
+                    break;
+                case Type::VEC2:
+                    typeString = "VEC2";
+                    break;
+                case Type::VEC3:
+                    typeString = "VEC3";
+                    break;
+                case Type::VEC4:
+                    typeString = "VEC4";
+                    break;
+                case Type::MAT2:
+                    typeString = "MAT2";
+                    break;
+                case Type::MAT3:
+                    typeString = "MAT3";
+                    break;
+                case Type::MAT4:
+                    typeString = "MAT4";
+                    break;
+                }
+                j["type"] = typeString;
+                j["componentType"] = accessor.componentType;
+                j["count"] = accessor.count;
+                if (accessor.bufferView != -1)
+                    j["bufferView"] = accessor.bufferView;
+                if (accessor.offset != 0)
+                    j["byteOffset"] = accessor.offset;
+                if (accessor.normalized)
+                    j["normalized"] = accessor.normalized;
+            }
         };
 
         /// @brief A buffer points to binary geometry, animation, or skins.
@@ -297,6 +415,21 @@ namespace Jangine::IO::Gltf
                 // Optional fields
                 buffer.uri = j.value<std::string>("uri", "");
                 buffer.name = j.value<std::string>("name", "");
+            }
+
+            friend void to_json(nlohmann::json &j, const Buffer &buffer)
+            {
+                j = nlohmann::json{
+                    {"byteLength", buffer.byteLength},
+                };
+                if (!buffer.uri.empty())
+                {
+                    j["uri"] = buffer.uri;
+                }
+                if (!buffer.name.empty())
+                {
+                    j["name"] = buffer.name;
+                }
             }
         };
 
@@ -320,6 +453,19 @@ namespace Jangine::IO::Gltf
                 bufferView.byteStride = j.value<size_t>("byteStride", 0);
                 bufferView.target = j.value<size_t>("target", 34962);
             }
+
+            friend void to_json(nlohmann::json &j, const BufferView &bufferView)
+            {
+                j = nlohmann::json{
+                    {"buffer", bufferView.buffer},
+                    {"byteLength", bufferView.byteLength}};
+                if (bufferView.byteOffset != 0)
+                    j["byteOffset"] = bufferView.byteOffset;
+                if (bufferView.byteStride != 0)
+                    j["byteStride"] = bufferView.byteStride;
+                if (bufferView.target != 34962)
+                    j["target"] = bufferView.target;
+            }
         };
 
         /// @brief The material appearance of a primitive.
@@ -337,6 +483,15 @@ namespace Jangine::IO::Gltf
                     pbr.metallicFactor = j.value<float_t>("metallicFactor", 0.0f);
                     pbr.roughnessFactor = j.value<float_t>("roughnessFactor", 0.5f);
                 }
+
+                friend void to_json(nlohmann::json &j, const PbrMetallicRoughness &pbr)
+                {
+                    j = nlohmann::json{
+                        {"baseColorFactor", pbr.baseColorFactor},
+                        {"metallicFactor", pbr.metallicFactor},
+                        {"roughnessFactor", pbr.roughnessFactor},
+                    };
+                }
             };
 
             std::string name;
@@ -346,6 +501,17 @@ namespace Jangine::IO::Gltf
             {
                 material.name = j.value<std::string>("name", "");
                 material.pbrMetallicRoughness = j.value<PbrMetallicRoughness>("pbrMetallicRoughness", PbrMetallicRoughness{});
+            }
+
+            friend void to_json(nlohmann::json &j, const Material &material)
+            {
+                j = nlohmann::json{
+                    {"pbrMetallicRoughness", material.pbrMetallicRoughness},
+                };
+                if (!material.name.empty())
+                {
+                    j["name"] = material.name;
+                }
             }
         };
 
@@ -382,8 +548,41 @@ namespace Jangine::IO::Gltf
             model.bufferViews = j.at("bufferViews").get<std::vector<BufferView>>();
         }
 
+        friend void to_json(nlohmann::json &j, const Model &model)
+        {
+            Asset asset{
+                .generator = "Jangine",
+                .version = "2.0"};
+
+            j = nlohmann::json{
+                {"asset", asset},
+                {"nodes", model.nodes},
+                {"meshes", model.meshes},
+                {"materials", model.materials},
+                {"accessors", model.accessors},
+                {"bufferViews", model.bufferViews}};
+
+            std::vector<NodeIndex> rootNodes;
+            for (NodeIndex i = 0; i < static_cast<NodeIndex>(model.nodes.size()); i++)
+            {
+                if (model.nodes[i].parent == -1)
+                {
+                    rootNodes.push_back(i);
+                }
+            }
+            Scene scene{
+                .name = "Scene",
+                .nodes = rootNodes};
+            j["scenes"] = {scene};
+            j["scene"] = 0;
+
+            Buffer buffer{
+                .byteLength = model.data.size()};
+            j["buffers"] = {buffer};
+        }
+
         /// @brief Appends all supported aspects of another model into this one.
-        void Add(const Model &other)
+        void Append(const Model &other)
         {
             // Data
             size_t dataOffset = data.size();
@@ -475,35 +674,142 @@ namespace Jangine::IO::Gltf
                 }
                 scenes.push_back(newScene);
             }
+        }
 
-            // Consolidate materials
+        /// @brief Connects all nodes to their parents based on the children lists.
+        void ConnectHierarchy()
+        {
+            for (Model::NodeIndex i = 0; i < static_cast<Model::NodeIndex>(nodes.size()); i++)
             {
-                std::unordered_map<std::string, MaterialIndex> materialMap;
-                std::vector<Material> uniqueMaterials;
-                for (auto &material : materials)
+                for (Model::NodeIndex childIndex : nodes[i].children)
                 {
-                    if (materialMap.find(material.name) != materialMap.end())
-                        continue;
-
-                    materialMap[material.name] = static_cast<MaterialIndex>(uniqueMaterials.size());
-                    uniqueMaterials.push_back(material);
+                    nodes[childIndex].parent = i;
                 }
+            }
+        }
 
-                for (auto &mesh : meshes)
+        /// @brief Removes duplicate materials and updates all references to them.
+        void CompactMaterials()
+        {
+            std::unordered_map<std::string, MaterialIndex> materialMap;
+            std::vector<Material> uniqueMaterials;
+            for (auto &material : materials)
+            {
+                if (materialMap.find(material.name) != materialMap.end())
+                    continue;
+
+                materialMap[material.name] = static_cast<MaterialIndex>(uniqueMaterials.size());
+                uniqueMaterials.push_back(material);
+            }
+
+            for (auto &mesh : meshes)
+            {
+                for (auto &primitive : mesh.primitives)
                 {
-                    for (auto &primitive : mesh.primitives)
+                    if (primitive.material >= 0)
                     {
-                        if (primitive.material >= 0)
-                        {
-                            primitive.material = materialMap[materials[primitive.material].name];
-                        }
+                        primitive.material = materialMap[materials[primitive.material].name];
                     }
                 }
-
-                materials = std::move(uniqueMaterials);
             }
+
+            materials = std::move(uniqueMaterials);
+        }
+
+        AccessorIndex CreateAccessorFromData(std::span<const Eigen::Vector3f> in_data)
+        {
+            size_t in_byteSize = in_data.size() * sizeof(Eigen::Vector3f);
+            size_t originalSize = data.size();
+            data.resize(originalSize + in_byteSize);
+            std::memcpy(data.data() + originalSize, in_data.data(), in_byteSize);
+
+            Gltf::Model::BufferView bufferView{
+                .buffer = Gltf::Model::BufferIndex{0},
+                .byteOffset = originalSize,
+                .byteLength = in_byteSize};
+            bufferViews.push_back(bufferView);
+            Gltf::Model::BufferViewIndex bufferViewIndex = static_cast<Gltf::Model::BufferViewIndex>(bufferViews.size() - 1);
+
+            Gltf::Model::Accessor accessor{
+                .type = Gltf::Model::Accessor::Type::VEC3,
+                .componentType = Gltf::Model::Accessor::ComponentType::FLOAT,
+                .bufferView = bufferViewIndex,
+                .count = in_data.size(),
+                .stride = sizeof(Eigen::Vector3f),
+            };
+            accessors.push_back(accessor);
+            return static_cast<Gltf::Model::AccessorIndex>(accessors.size() - 1);
+        }
+
+        AccessorIndex CreateAccessorFromData(std::span<const Eigen::Vector2f> in_data)
+        {
+            size_t in_byteSize = in_data.size() * sizeof(Eigen::Vector2f);
+            size_t originalSize = data.size();
+            data.resize(originalSize + in_byteSize);
+            std::memcpy(data.data() + originalSize, in_data.data(), in_byteSize);
+
+            Gltf::Model::BufferView bufferView{
+                .buffer = Gltf::Model::BufferIndex{0},
+                .byteOffset = originalSize,
+                .byteLength = in_byteSize};
+            bufferViews.push_back(bufferView);
+            Gltf::Model::BufferViewIndex bufferViewIndex = static_cast<Gltf::Model::BufferViewIndex>(bufferViews.size() - 1);
+
+            Gltf::Model::Accessor accessor{
+                .type = Gltf::Model::Accessor::Type::VEC2,
+                .componentType = Gltf::Model::Accessor::ComponentType::FLOAT,
+                .bufferView = bufferViewIndex,
+                .count = in_data.size(),
+                .stride = sizeof(Eigen::Vector2f),
+            };
+            accessors.push_back(accessor);
+            return static_cast<Gltf::Model::AccessorIndex>(accessors.size() - 1);
+        }
+
+        AccessorIndex CreateAccessorFromData(std::span<const uint32_t> in_data)
+        {
+            size_t in_byteSize = in_data.size() * sizeof(uint32_t);
+            size_t originalSize = data.size();
+            data.resize(originalSize + in_byteSize);
+            std::memcpy(data.data() + originalSize, in_data.data(), in_byteSize);
+
+            Gltf::Model::BufferView bufferView{
+                .buffer = Gltf::Model::BufferIndex{0},
+                .byteOffset = originalSize,
+                .byteLength = in_byteSize};
+            bufferViews.push_back(bufferView);
+            Gltf::Model::BufferViewIndex bufferViewIndex = static_cast<Gltf::Model::BufferViewIndex>(bufferViews.size() - 1);
+
+            Gltf::Model::Accessor accessor{
+                .type = Gltf::Model::Accessor::Type::SCALAR,
+                .componentType = Gltf::Model::Accessor::ComponentType::UNSIGNED_INT,
+                .bufferView = bufferViewIndex,
+                .count = in_data.size(),
+                .stride = sizeof(uint32_t),
+            };
+            accessors.push_back(accessor);
+            return static_cast<Gltf::Model::AccessorIndex>(accessors.size() - 1);
+        }
+
+        MaterialIndex CreateMaterial(const Material &in_data)
+        {
+            materials.push_back(in_data);
+            return static_cast<Gltf::Model::MaterialIndex>(materials.size() - 1);
+        }
+
+        MeshIndex CreateMesh(const Mesh &in_data)
+        {
+            meshes.push_back(in_data);
+            return static_cast<Gltf::Model::MeshIndex>(meshes.size() - 1);
+        }
+
+        NodeIndex CreateNode(const Node &in_data)
+        {
+            nodes.push_back(in_data);
+            return static_cast<Gltf::Model::NodeIndex>(nodes.size() - 1);
         }
     };
 
     Jangine::IO::Status LoadFromFile(const std::string &filename, Model &model);
+    Jangine::IO::Status SaveToFile(const std::string &filename, const Model &model);
 }

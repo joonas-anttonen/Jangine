@@ -80,24 +80,44 @@ namespace Jangine::Gfx
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
 
-        // Jangine::IO::Gltf::Model model{};
-        // Jangine::IO::Status modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack.glb", model);
-        // if (modelStatus == Jangine::IO::Status::SUCCESS)
-        //{
-        //     Jangine::IO::Gltf::Model cubeModel{};
-        //     modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack_CUBE.glb", cubeModel);
-        //     if (modelStatus == Jangine::IO::Status::SUCCESS)
-        //     {
-        //         model.Add(cubeModel);
-        //     }
-        //
-        //    Import(model);
-        //    scene.Print(scene.GetWorld());
-        //}
+        /*Jangine::IO::Gltf::Model model{};
+        Jangine::IO::Status modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack.glb", model);
+        //Jangine::IO::Status modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/CUBE.glb", model);
+        if (modelStatus == Jangine::IO::Status::SUCCESS)
+        {
+            Jangine::IO::Gltf::Model cubeModel{};
+            modelStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack_CUBE.glb", cubeModel);
+            if (modelStatus == Jangine::IO::Status::SUCCESS)
+            {
+                model.Append(cubeModel);
+            }
+
+            Import(model);
+
+            Jangine::IO::Gltf::Model exportModel{};
+            Export(exportModel);
+            Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/Skytrack_exported.glb", exportModel);
+            if (exportStatus != Jangine::IO::Status::SUCCESS)
+            {
+                logger.Error("Failed to export GLTF model.", __func__);
+            }
+
+            Clear();
+
+            Jangine::IO::Gltf::Model readbackModel{};
+            Jangine::IO::Status readbackStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/Skytrack_exported.glb", readbackModel);
+            if (readbackStatus != Jangine::IO::Status::SUCCESS)
+            {
+                logger.Error("Failed to read back exported GLTF model.", __func__);
+            }
+
+            Import(readbackModel);
+        }*/
 
         Jangine::IO::Urdf::Model urdf = Jangine::IO::Urdf::Model{};
         Jangine::IO::Gltf::Model urdfGltf = Jangine::IO::Gltf::Model{};
         Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/skytrack/model.urdf", urdf, urdfGltf);
+        //Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/process_center_vrwp_c/model.urdf", urdf, urdfGltf);
         if (urdfStatus == Jangine::IO::Status::SUCCESS)
         {
             Import(urdfGltf);
@@ -109,6 +129,14 @@ namespace Jangine::Gfx
 
             scene.SetRelativeTransform(scene.GetWorld(), worldTransform);
             scene.Print(scene.GetWorld());
+
+            Jangine::IO::Gltf::Model exportModel{};
+            Export(exportModel);
+            Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
+            if (exportStatus != Jangine::IO::Status::SUCCESS)
+            {
+                logger.Error("Failed to export GLTF model.", __func__);
+            }
         }
     }
 
