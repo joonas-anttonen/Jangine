@@ -144,20 +144,12 @@ namespace Jangine::IO::Gltf
         struct Node
         {
             std::string name;
-            NodeIndex parent;
+            NodeIndex parent = -1;
             std::vector<NodeIndex> children;
-            MeshIndex mesh;
+            MeshIndex mesh = -1;
 
-            Eigen::Vector3f scale;
-            Eigen::Isometry3f transform;
-
-            Node()
-                : parent(-1),
-                  mesh(-1),
-                  scale(Eigen::Vector3f::Ones()),
-                  transform(Eigen::Isometry3f::Identity())
-            {
-            }
+            Eigen::Vector3f scale = Eigen::Vector3f::Ones();
+            Eigen::Isometry3f transform = Eigen::Isometry3f::Identity();
 
             friend void from_json(const nlohmann::json &j, Node &node)
             {
@@ -663,7 +655,7 @@ namespace Jangine::IO::Gltf
             materialMap.reserve(materials.size());
             std::vector<Material> uniqueMaterials;
             uniqueMaterials.reserve(materials.size());
-            
+
             for (auto &material : materials)
             {
                 if (materialMap.find(material.name) != materialMap.end())

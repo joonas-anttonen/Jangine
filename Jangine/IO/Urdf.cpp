@@ -254,163 +254,198 @@ namespace Jangine::IO::Urdf
         return tf;
     }
 
-    static void LoadLinkGeometryNodes(
+    static void LoadLinkGeometry(
         tinyxml2::XMLElement *linkElement,
-        const char *name,
+        const char *elementName,
         const std::filesystem::path &parentFolder,
         Gltf::Model &gltf,
         const Gltf::Model::Material &fallbackMaterial,
-        bool_t forceFallbackMaterial)
+        bool_t forceFallbackMaterial,
+        std::function<void(const std::string &)> in_logCallback = nullptr)
     {
-        for (auto *visualElement = linkElement->FirstChildElement(name); visualElement; visualElement = visualElement->NextSiblingElement(name))
+        for (auto *element = linkElement->FirstChildElement(elementName); element; element = element->NextSiblingElement(elementName))
         {
-            Eigen::Isometry3f origin = ParseOrigin(visualElement->FirstChildElement("origin"));
+            Eigen::Isometry3f origin = ParseOrigin(element->FirstChildElement("origin"));
 
-            auto geometryElement = visualElement->FirstChildElement("geometry");
-            if (geometryElement)
+            auto geometryElement = element->FirstChildElement("geometry");
+            if (!geometryElement)
             {
-                auto meshElement = geometryElement->FirstChildElement("mesh");
-                if (meshElement)
+                if (in_logCallback)
                 {
-                    const char *meshFilename = meshElement->Attribute("filename");
-                    if (meshFilename)
-                    {
-                        bool_t isAbsolute = std::filesystem::path(meshFilename).is_absolute();
-                        if (!isAbsolute)
-                        {
-                            meshFilename = std::filesystem::absolute(parentFolder / meshFilename).string().c_str();
-                        }
+                    in_logCallback(std::format("{}::{}: Missing geometry element", linkElement->Attribute("name"), elementName));
+                }
+                continue;
+            }
 
-                        Gltf::Model meshModel;
-                        Status meshStatus = Gltf::LoadFromFile(meshFilename, meshModel);
-                        if (meshStatus == Status::SUCCESS)
+            auto meshElement = geometryElement->FirstChildElement("mesh");
+            if (meshElement)
+            {
+                const char *meshFilename = meshElement->Attribute("filename");
+                if (!meshFilename)
+                {
+                    if (in_logCallback)
+                    {
+                        in_logCallback(std::format("{}::{}: Missing mesh filename", linkElement->Attribute("name"), elementName));
+                    }
+                    continue;
+                }
+
+                bool_t isAbsolute = std::filesystem::path(meshFilename).is_absolute();
+                if (!isAbsolute)
+                {
+                    meshFilename = std::filesystem::absolute(parentFolder / meshFilename).string().c_str();
+                }
+
+                Gltf::Model meshModel;
+                Status meshStatus = Gltf::LoadFromFile(meshFilename, meshModel);
+                if (meshStatus == Status::SUCCESS)
+                {
+                    for (size_t i = 0; i < meshModel.nodes.size(); i++)
+                    {
+                        // FIXME: Prefix node names for easier identification (for now)
+                        meshModel.nodes[i].name = std::format("{}::{}", elementName, meshModel.nodes[i].name);
+
+                        if (forceFallbackMaterial)
                         {
-                            for (size_t i = 0; i < meshModel.nodes.size(); i++)
+                            for (size_t m = 0; m < meshModel.materials.size(); m++)
                             {
-                                meshModel.nodes[i].name = std::format("{}::{}", name, meshModel.nodes[i].name);
+                                meshModel.materials[m] = fallbackMaterial;
                             }
-
-                            //Gltf::Model::Node geometryNode;
-                            //geometryNode.parent = -1;
-                            //geometryNode.mesh = -1;
-                            //geometryNode.name = name;
-                            //geometryNode.scale = Eigen::Vector3f{1, 1, 1};
-                            //geometryNode.transform = origin;
-
-                            for (size_t i = 0; i < meshModel.nodes.size(); i++)
-                            {
-                                if (forceFallbackMaterial)
-                                {
-                                    for (size_t m = 0; m < meshModel.materials.size(); m++)
-                                    {
-                                        meshModel.materials[m] = fallbackMaterial;
-                                    }
-                                }
-
-                                meshModel.nodes[i].transform = origin * meshModel.nodes[i].transform;
-
-                                //// Only add root nodes as children of the geometry node
-                                //if (meshModel.nodes[i].parent == -1)
-                                //{
-                                //    geometryNode.children.push_back(static_cast<Gltf::Model::NodeIndex>(i));
-                                //}
-                            }
-
-                            //meshModel.nodes.push_back(geometryNode);
-                            gltf.Append(meshModel);
                         }
-                        else
+
+                        // We don't want to create a parent node just for origin -> apply origin to root nodes.
+                        if (meshModel.nodes[i].parent == -1)
                         {
-                            std::cout << "    Failed to load mesh: " << meshFilename << std::endl;
+                            meshModel.nodes[i].transform = origin * meshModel.nodes[i].transform;
                         }
                     }
 
-                    continue;
+                    gltf.Append(meshModel);
                 }
-
-                auto boxElement = geometryElement->FirstChildElement("box");
-                if (boxElement)
+                else
                 {
-                    const char *sizeAttr = boxElement->Attribute("size");
-                    if (sizeAttr)
+                    if (in_logCallback)
                     {
-                        Eigen::Vector3f size = ParseXYZ(sizeAttr);
-
-                        Gltf::Model::MeshIndex boxMeshIndex = AddBoxMesh(gltf, size, fallbackMaterial);
-                        Gltf::Model::Node geometryNode;
-                        geometryNode.parent = -1;
-                        geometryNode.mesh = boxMeshIndex;
-                        geometryNode.name = std::format("{}::box", name);
-                        geometryNode.scale = Eigen::Vector3f{1, 1, 1};
-                        geometryNode.transform = origin;
-                        gltf.nodes.push_back(std::move(geometryNode));
+                        in_logCallback(std::format("{}::{}: Failed to load mesh [{}] [{}]", linkElement->Attribute("name"), elementName, meshFilename, meshStatus));
                     }
-
-                    continue;
                 }
 
-                auto cylinderElement = geometryElement->FirstChildElement("cylinder");
-                if (cylinderElement)
+                continue;
+            }
+
+            auto boxElement = geometryElement->FirstChildElement("box");
+            if (boxElement)
+            {
+                Eigen::Vector3f size = Eigen::Vector3f::Ones();
+
+                const char *sizeAttr = boxElement->Attribute("size");
+                if (sizeAttr)
                 {
-                    const char *radiusAttr = cylinderElement->Attribute("radius");
-                    const char *lengthAttr = cylinderElement->Attribute("length");
-                    if (radiusAttr && lengthAttr)
+                    size = ParseXYZ(sizeAttr);
+                }
+                else
+                {
+                    if (in_logCallback)
                     {
-                        float_t radius = static_cast<float_t>(std::atof(radiusAttr));
-                        float_t length = static_cast<float_t>(std::atof(lengthAttr));
-
-                        Gltf::Model::MeshIndex cylinderMeshIndex = AddCylinderMesh(gltf, radius, length, fallbackMaterial);
-                        Gltf::Model::Node geometryNode;
-                        geometryNode.parent = -1;
-                        geometryNode.mesh = cylinderMeshIndex;
-                        geometryNode.name = std::format("{}::cylinder", name);
-                        geometryNode.scale = Eigen::Vector3f{1, 1, 1};
-                        geometryNode.transform = origin;
-                        gltf.nodes.push_back(std::move(geometryNode));
+                        in_logCallback(std::format("{}::{}::box: Missing size", linkElement->Attribute("name"), elementName));
                     }
-
-                    continue;
                 }
 
-                auto sphereElement = geometryElement->FirstChildElement("sphere");
-                if (sphereElement)
+                Gltf::Model::Node geometryNode{
+                    .name = std::format("{}::box", elementName),
+                    .parent = -1,
+                    .mesh = AddBoxMesh(gltf, size, fallbackMaterial),
+                    .scale = Eigen::Vector3f{1, 1, 1},
+                    .transform = origin};
+                gltf.CreateNode(geometryNode);
+
+                continue;
+            }
+
+            auto cylinderElement = geometryElement->FirstChildElement("cylinder");
+            if (cylinderElement)
+            {
+                float_t radius = 0.5f;
+                float_t length = 1.0f;
+
+                const char *radiusAttr = cylinderElement->Attribute("radius");
+                const char *lengthAttr = cylinderElement->Attribute("length");
+                if (radiusAttr && lengthAttr)
                 {
-                    const char *radiusAttr = sphereElement->Attribute("radius");
-                    if (radiusAttr)
+                    radius = static_cast<float_t>(std::atof(radiusAttr));
+                    length = static_cast<float_t>(std::atof(lengthAttr));
+                }
+                else
+                {
+                    if (in_logCallback)
                     {
-                        float_t radius = static_cast<float_t>(std::atof(radiusAttr));
-                        Gltf::Model::MeshIndex sphereMeshIndex = AddSphereMesh(gltf, radius, fallbackMaterial);
-                        Gltf::Model::Node geometryNode;
-                        geometryNode.parent = -1;
-                        geometryNode.mesh = sphereMeshIndex;
-                        geometryNode.name = std::format("{}::sphere", name);
-                        geometryNode.scale = Eigen::Vector3f{1, 1, 1};
-                        geometryNode.transform = origin;
-                        gltf.nodes.push_back(std::move(geometryNode));
+                        in_logCallback(std::format("{}::{}::cylinder: Missing radius or length", linkElement->Attribute("name"), elementName));
                     }
-
-                    continue;
                 }
 
-                // Fallback to a default box
+                Gltf::Model::Node geometryNode{
+                    .name = std::format("{}::cylinder", elementName),
+                    .parent = -1,
+                    .mesh = AddCylinderMesh(gltf, radius, length, fallbackMaterial),
+                    .scale = Eigen::Vector3f{1, 1, 1},
+                    .transform = origin};
+                gltf.CreateNode(geometryNode);
+
+                continue;
+            }
+
+            auto sphereElement = geometryElement->FirstChildElement("sphere");
+            if (sphereElement)
+            {
+                float_t radius = 0.5f;
+
+                const char *radiusAttr = sphereElement->Attribute("radius");
+                if (radiusAttr)
                 {
-                    std::cout << std::format("Unrecognized geometry type [{}]", geometryElement->FirstChildElement()->Name()) << std::endl;
-
-                    Eigen::Vector3f size = Eigen::Vector3f{0.1f, 0.1f, 0.1f};
-                    Gltf::Model::MeshIndex boxMeshIndex = AddBoxMesh(gltf, size, fallbackMaterial);
-                    Gltf::Model::Node geometryNode;
-                    geometryNode.parent = -1;
-                    geometryNode.mesh = boxMeshIndex;
-                    geometryNode.name = std::format("{}::fallback", name);
-                    geometryNode.scale = Eigen::Vector3f{1, 1, 1};
-                    geometryNode.transform = origin;
-                    gltf.nodes.push_back(std::move(geometryNode));
+                    radius = static_cast<float_t>(std::atof(radiusAttr));
                 }
+                else
+                {
+                    if (in_logCallback)
+                    {
+                        in_logCallback(std::format("{}::{}::sphere: Missing radius", linkElement->Attribute("name"), elementName));
+                    }
+                }
+
+                Gltf::Model::Node geometryNode{
+                    .name = std::format("{}::sphere", elementName),
+                    .parent = -1,
+                    .mesh = AddSphereMesh(gltf, radius, fallbackMaterial),
+                    .scale = Eigen::Vector3f{1, 1, 1},
+                    .transform = origin};
+                gltf.CreateNode(geometryNode);
+
+                continue;
+            }
+
+            // Fallback to a default box
+            {
+                if (in_logCallback)
+                {
+                    in_logCallback(std::format("{}::{}: Unrecognized geometry type [{}]", linkElement->Attribute("name"), elementName, geometryElement->FirstChildElement()->Name()));
+                }
+
+                Gltf::Model::Node geometryNode{
+                    .name = std::format("{}::fallback", elementName),
+                    .parent = -1,
+                    .mesh = AddBoxMesh(gltf, Eigen::Vector3f{0.1f, 0.1f, 0.1f}, fallbackMaterial),
+                    .scale = Eigen::Vector3f{1, 1, 1},
+                    .transform = origin};
+                gltf.CreateNode(geometryNode);
             }
         }
     }
 
-    Jangine::IO::Status LoadFromFile(const std::string &path, Model &model, Gltf::Model &gltf)
+    Jangine::IO::Status LoadFromFile(
+        const std::string &path,
+        Model &model,
+        Gltf::Model &gltf,
+        std::function<void(const std::string &)> in_logCallback)
     {
         (void)model;
 
@@ -425,68 +460,76 @@ namespace Jangine::IO::Urdf
         tinyxml2::XMLDocument doc;
         if (doc.LoadFile(absolutePath.string().c_str()) != tinyxml2::XML_SUCCESS)
         {
+            if (in_logCallback)
+            {
+                in_logCallback(std::format("Invalid URDF: {}", doc.ErrorIDToName(doc.ErrorID())));
+            }
             return Jangine::IO::Status::FAILURE;
         }
 
-        // Robot
-        tinyxml2::XMLElement *robotElement = doc.FirstChildElement("robot");
+        auto robotElement = doc.FirstChildElement("robot");
         if (!robotElement)
         {
+            if (in_logCallback)
+            {
+                in_logCallback("Invalid URDF: missing robot element");
+            }
             return Jangine::IO::Status::FAILURE;
         }
 
-        // Links
         std::unordered_map<std::string, Model::Link> links;
-
-        for (tinyxml2::XMLElement *linkElement = robotElement->FirstChildElement("link"); linkElement; linkElement = linkElement->NextSiblingElement("link"))
+        for (auto linkElement = robotElement->FirstChildElement("link"); linkElement; linkElement = linkElement->NextSiblingElement("link"))
         {
             const char *linkName = linkElement->Attribute("name");
             if (!linkName)
             {
-                std::cerr << "Invalid link: missing name" << std::endl;
+                if (in_logCallback)
+                {
+                    in_logCallback("Invalid link: missing name");
+                }
                 continue;
             }
-
-            Model::Link link{
-                .nodeIndex = -1,
-            };
 
             Gltf::Model::Material visualFallbackMaterial{
                 .name = "fallback::visual",
                 .pbrMetallicRoughness = {
                     .baseColorFactor = {0.8f, 0.8f, 0.8f, 1.0f}}};
             Gltf::Model visual;
-            LoadLinkGeometryNodes(
+            LoadLinkGeometry(
                 linkElement,
                 "visual",
                 parentFolder,
                 visual,
                 visualFallbackMaterial,
-                false);
+                false,
+                in_logCallback);
 
             Gltf::Model::Material collisionFallbackMaterial{
                 .name = "fallback::collision",
                 .pbrMetallicRoughness = {
                     .baseColorFactor = {0.8f, 0.8f, 0.8f, 0.5f}}};
             Gltf::Model collision;
-            LoadLinkGeometryNodes(
+            LoadLinkGeometry(
                 linkElement,
                 "collision",
                 parentFolder,
                 collision,
                 collisionFallbackMaterial,
-                true);
+                true,
+                in_logCallback);
 
             bool_t hasVisual = visual.nodes.size() > 0;
             bool_t hasCollision = collision.nodes.size() > 0;
 
-            Gltf::Model::Node linkNode;
-            linkNode.mesh = -1;
-            linkNode.name = std::format("link::{}", linkName);
-            linkNode.scale = Eigen::Vector3f{1, 1, 1};
-            linkNode.transform = Eigen::Isometry3f::Identity();
-            link.nodeIndex = static_cast<Gltf::Model::NodeIndex>(gltf.nodes.size());
-            gltf.nodes.push_back(linkNode);
+            Gltf::Model::Node linkNode{
+                .name = std::format("link::{}", linkName),
+                .mesh = -1,
+                .scale = Eigen::Vector3f{1, 1, 1},
+                .transform = Eigen::Isometry3f::Identity(),
+            };
+
+            Model::Link link{
+                .nodeIndex = gltf.CreateNode(linkNode)};
 
             if (hasVisual)
             {
@@ -519,13 +562,15 @@ namespace Jangine::IO::Urdf
             links[linkName] = link;
         }
 
-        // Joints
-        for (tinyxml2::XMLElement *jointElement = robotElement->FirstChildElement("joint"); jointElement; jointElement = jointElement->NextSiblingElement("joint"))
+        for (auto jointElement = robotElement->FirstChildElement("joint"); jointElement; jointElement = jointElement->NextSiblingElement("joint"))
         {
             const char *jointName = jointElement->Attribute("name");
             if (!jointName)
             {
-                std::cerr << "Invalid joint: missing name" << std::endl;
+                if (in_logCallback)
+                {
+                    in_logCallback("Skipped invalid joint: missing name");
+                }
                 continue;
             }
 
@@ -537,25 +582,39 @@ namespace Jangine::IO::Urdf
             const char *childLinkName = childElement ? childElement->Attribute("link") : nullptr;
             if (!parentLinkName || !childLinkName)
             {
-                std::cerr << "Invalid joint: missing parent or child link" << std::endl;
+                if (in_logCallback)
+                {
+                    in_logCallback(std::format("{}: missing parent or child link", jointName));
+                }
                 continue;
             }
 
             joint.parent = &links[parentLinkName];
             joint.child = &links[childLinkName];
 
-            Gltf::Model::Node jointNode;
-            jointNode.parent = joint.parent->nodeIndex;
-            jointNode.mesh = -1;
-            jointNode.name = std::format("joint::{}", jointName);
-            jointNode.scale = Eigen::Vector3f{1, 1, 1};
-            jointNode.transform = ParseOrigin(jointElement->FirstChildElement("origin"));
-            jointNode.children.push_back(joint.child->nodeIndex);
+            Gltf::Model::NodeIndex parentLinkIndex = joint.parent->nodeIndex;
+            Gltf::Model::NodeIndex childLinkIndex = joint.child->nodeIndex;
+            if (parentLinkIndex == -1 || childLinkIndex == -1)
+            {
+                if (in_logCallback)
+                {
+                    in_logCallback(std::format("{}: missing parent or child node", jointName));
+                }
+                continue;
+            }
 
-            Gltf::Model::NodeIndex jointNodeIndex = static_cast<Gltf::Model::NodeIndex>(gltf.nodes.size());
-            gltf.nodes[joint.child->nodeIndex].parent = jointNodeIndex;
-            gltf.nodes[joint.parent->nodeIndex].children.push_back(static_cast<Gltf::Model::NodeIndex>(gltf.nodes.size()));
-            gltf.nodes.push_back(jointNode);
+            Gltf::Model::Node jointNode{
+                .name = std::format("joint::{}", jointName),
+                .parent = parentLinkIndex,
+                .children = {childLinkIndex},
+                .mesh = -1,
+                .scale = Eigen::Vector3f::Ones(),
+                .transform = ParseOrigin(jointElement->FirstChildElement("origin")),
+            };
+
+            Gltf::Model::NodeIndex jointNodeIndex = gltf.CreateNode(jointNode);
+            gltf.nodes[childLinkIndex].parent = jointNodeIndex;
+            gltf.nodes[parentLinkIndex].children.push_back(jointNodeIndex);
         }
 
         gltf.CompactMaterials();

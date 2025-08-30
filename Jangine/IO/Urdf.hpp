@@ -20,5 +20,5 @@ namespace Jangine::IO::Urdf
         };
     };
 
-    Jangine::IO::Status LoadFromFile(const std::string &filename, Model &model, Gltf::Model &gltf);
+    Jangine::IO::Status LoadFromFile(const std::string &filename, Model &model, Gltf::Model &gltf, std::function<void(const std::string &)> in_logCallback = nullptr);
 }

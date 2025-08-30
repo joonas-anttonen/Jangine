@@ -116,8 +116,10 @@ namespace Jangine::Gfx
 
         Jangine::IO::Urdf::Model urdf = Jangine::IO::Urdf::Model{};
         Jangine::IO::Gltf::Model urdfGltf = Jangine::IO::Gltf::Model{};
-        Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/skytrack/model.urdf", urdf, urdfGltf);
-        //Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/process_center_vrwp_c/model.urdf", urdf, urdfGltf);
+        Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/skytrack/model.urdf", urdf, urdfGltf, [](const std::string &msg)
+                                                                         { Jangine::Core::GetLogger("Gfx::Core3D").Warning(msg, "Urdf::LoadFromFile"); });
+        // Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/process_center_vrwp_c/model.urdf", urdf, urdfGltf, [](const std::string &msg)
+        //                                                                  { Jangine::Core::GetLogger("Gfx::Core3D").Warning(msg, "Urdf::LoadFromFile"); });
         if (urdfStatus == Jangine::IO::Status::SUCCESS)
         {
             Import(urdfGltf);
@@ -129,13 +131,13 @@ namespace Jangine::Gfx
 
             scene.SetRelativeTransform(scene.GetWorld(), worldTransform);
 
-            Jangine::IO::Gltf::Model exportModel{};
-            Export(exportModel);
-            Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
-            if (exportStatus != Jangine::IO::Status::SUCCESS)
-            {
-                logger.Error("Failed to export GLTF model.", __func__);
-            }
+            // Jangine::IO::Gltf::Model exportModel{};
+            // Export(exportModel);
+            // Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
+            // if (exportStatus != Jangine::IO::Status::SUCCESS)
+            // {
+            //     logger.Error("Failed to export GLTF model.", __func__);
+            // }
         }
     }
 
