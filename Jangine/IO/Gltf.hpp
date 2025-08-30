@@ -143,32 +143,6 @@ namespace Jangine::IO::Gltf
         /// @brief A node in the node hierarchy.
         struct Node
         {
-            // --------------------- Extensions
-            struct Extensions
-            {
-                struct KinematicsNode
-                {
-                    struct Joint
-                    {
-                    };
-
-                    struct Link
-                    {
-                    };
-
-                    struct Collision
-                    {
-                    };
-
-                    int32_t type;
-                    Joint joint;
-                    Link link;
-                };
-            };
-
-            Extensions::KinematicsNode kinematics;
-            // ---------------------
-
             std::string name;
             NodeIndex parent;
             std::vector<NodeIndex> children;
@@ -229,17 +203,6 @@ namespace Jangine::IO::Gltf
 
                 node.transform = tf;
                 node.scale = s;
-
-                // --------------------- Extensions
-                if (j.contains("extensions"))
-                {
-                    auto ext = j.at("extensions");
-                    if (ext.contains("JANGINE_kinematics"))
-                    {
-                        node.kinematics.type = ext.at("JANGINE_kinematics").value("type", 0);
-                    }
-                }
-                // ---------------------
             }
 
             friend void to_json(nlohmann::json &j, const Node &node)
@@ -527,9 +490,6 @@ namespace Jangine::IO::Gltf
         std::vector<Buffer> buffers;
         std::vector<BufferView> bufferViews;
 
-        Model()
-            : defaultScene(-1) {}
-
         friend void from_json(const nlohmann::json &j, Model &model)
         {
             model.asset = j.at("asset").get<Asset>();
@@ -562,17 +522,17 @@ namespace Jangine::IO::Gltf
                 {"accessors", model.accessors},
                 {"bufferViews", model.bufferViews}};
 
-            std::vector<NodeIndex> rootNodes;
+            Scene scene{
+                .name = "Scene"};
+
             for (NodeIndex i = 0; i < static_cast<NodeIndex>(model.nodes.size()); i++)
             {
                 if (model.nodes[i].parent == -1)
                 {
-                    rootNodes.push_back(i);
+                    scene.nodes.push_back(i);
                 }
             }
-            Scene scene{
-                .name = "Scene",
-                .nodes = rootNodes};
+
             j["scenes"] = {scene};
             j["scene"] = 0;
 
@@ -586,6 +546,7 @@ namespace Jangine::IO::Gltf
         {
             // Data
             size_t dataOffset = data.size();
+            data.reserve(dataOffset + other.data.size());
             data.insert(data.end(), other.data.begin(), other.data.end());
 
             NodeIndex nodeOffset = static_cast<NodeIndex>(nodes.size());
@@ -596,9 +557,11 @@ namespace Jangine::IO::Gltf
             BufferViewIndex bufferViewOffset = static_cast<BufferViewIndex>(bufferViews.size());
 
             // Buffers
+            buffers.reserve(bufferOffset + other.buffers.size());
             buffers.insert(buffers.end(), other.buffers.begin(), other.buffers.end());
 
             // BufferViews
+            bufferViews.reserve(bufferViewOffset + other.bufferViews.size());
             for (const auto &bv : other.bufferViews)
             {
                 BufferView newBv = bv;
@@ -608,6 +571,7 @@ namespace Jangine::IO::Gltf
             }
 
             // Nodes
+            nodes.reserve(nodeOffset + other.nodes.size());
             for (const auto &node : other.nodes)
             {
                 Node newNode = node;
@@ -623,6 +587,7 @@ namespace Jangine::IO::Gltf
             }
 
             // Accessors
+            accessors.reserve(accessorOffset + other.accessors.size());
             for (const auto &accessor : other.accessors)
             {
                 Accessor newAccessor = accessor;
@@ -634,9 +599,11 @@ namespace Jangine::IO::Gltf
             }
 
             // Materials
+            materials.reserve(materialOffset + other.materials.size());
             materials.insert(materials.end(), other.materials.begin(), other.materials.end());
 
             // Meshes
+            meshes.reserve(meshOffset + other.meshes.size());
             for (const auto &mesh : other.meshes)
             {
                 Mesh newMesh = mesh;
@@ -665,6 +632,7 @@ namespace Jangine::IO::Gltf
             }
 
             // Scenes
+            scenes.reserve(scenes.size() + other.scenes.size());
             for (const auto &scene : other.scenes)
             {
                 Scene newScene = scene;
@@ -692,13 +660,16 @@ namespace Jangine::IO::Gltf
         void CompactMaterials()
         {
             std::unordered_map<std::string, MaterialIndex> materialMap;
+            materialMap.reserve(materials.size());
             std::vector<Material> uniqueMaterials;
+            uniqueMaterials.reserve(materials.size());
+            
             for (auto &material : materials)
             {
                 if (materialMap.find(material.name) != materialMap.end())
                     continue;
 
-                materialMap[material.name] = static_cast<MaterialIndex>(uniqueMaterials.size());
+                materialMap[material.name] = static_cast<MaterialIndex>(materialMap.size());
                 uniqueMaterials.push_back(material);
             }
 

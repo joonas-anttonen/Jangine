@@ -25,6 +25,7 @@ namespace Jangine::Gfx
         std::vector<MeshVertex> vertices;
         std::vector<uint32_t> indices;
         std::vector<MeshMaterial> materials;
+        materials.reserve(gltf.materials.size());
 
         for (const auto &gltfMaterial : gltf.materials)
         {
@@ -51,6 +52,7 @@ namespace Jangine::Gfx
         {
             PrimordialMesh primordialMesh;
             primordialMesh.name = gltfMesh.name;
+            primordialMesh.primitives.reserve(gltfMesh.primitives.size());
 
             for (const auto &gltfPrimitive : gltfMesh.primitives)
             {
@@ -251,6 +253,7 @@ namespace Jangine::Gfx
 
         std::unordered_map<Mesh::Id, Jangine::IO::Gltf::Model::MeshIndex> meshToGltfMesh;
         std::unordered_map<Node::Id, Jangine::IO::Gltf::Model::NodeIndex> nodeToGltfNode;
+        std::vector<Jangine::IO::Gltf::Model::Mesh::Primitive> gltfPrimitives;
 
         for (const auto &mesh : scene.GetMeshes())
         {
@@ -259,7 +262,8 @@ namespace Jangine::Gfx
             const auto &indices = meshBuffer->GetIndices();
             const auto &materials = meshBuffer->GetMaterials();
 
-            std::vector<Jangine::IO::Gltf::Model::Mesh::Primitive> gltfPrimitives;
+            gltfPrimitives.clear();
+            gltfPrimitives.reserve(mesh.GetPrimitives().size());
             for (const auto &primitive : mesh.GetPrimitives())
             {
                 Jangine::IO::Gltf::Model::Material material{
@@ -342,6 +346,7 @@ namespace Jangine::Gfx
             if (!descendants.empty())
             {
                 Jangine::IO::Gltf::Model::Node &gltfNode = gltf.nodes[nodeToGltfNode.at(node->GetId())];
+                gltfNode.children.reserve(descendants.size());
                 for (const auto &childId : descendants)
                 {
                     gltfNode.children.push_back(nodeToGltfNode.at(childId));
