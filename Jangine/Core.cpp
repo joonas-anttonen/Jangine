@@ -51,8 +51,8 @@ namespace Jangine
                 .windowTitle = parameters.appName,
                 .X = {},
                 .Y = {},
-                .Width = {},
-                .Height = {}};
+                .Width = {1920},
+                .Height = {1080}};
             gui.Create(guiParameters);
 
             gfx.CreatePresenter(gui.GetSurface(gfx.GetSurfaceCreationHandle()));

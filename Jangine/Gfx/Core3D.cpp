@@ -128,7 +128,6 @@ namespace Jangine::Gfx
             worldTransform.translation() = Eigen::Vector3f(0, 0, 0);
 
             scene.SetRelativeTransform(scene.GetWorld(), worldTransform);
-            scene.Print(scene.GetWorld());
 
             Jangine::IO::Gltf::Model exportModel{};
             Export(exportModel);

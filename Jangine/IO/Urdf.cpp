@@ -290,12 +290,12 @@ namespace Jangine::IO::Urdf
                                 meshModel.nodes[i].name = std::format("{}::{}", name, meshModel.nodes[i].name);
                             }
 
-                            Gltf::Model::Node geometryNode;
-                            geometryNode.parent = -1;
-                            geometryNode.mesh = -1;
-                            geometryNode.name = name;
-                            geometryNode.scale = Eigen::Vector3f{1, 1, 1};
-                            geometryNode.transform = origin;
+                            //Gltf::Model::Node geometryNode;
+                            //geometryNode.parent = -1;
+                            //geometryNode.mesh = -1;
+                            //geometryNode.name = name;
+                            //geometryNode.scale = Eigen::Vector3f{1, 1, 1};
+                            //geometryNode.transform = origin;
 
                             for (size_t i = 0; i < meshModel.nodes.size(); i++)
                             {
@@ -307,14 +307,16 @@ namespace Jangine::IO::Urdf
                                     }
                                 }
 
-                                // Only add root nodes as children of the geometry node
-                                if (meshModel.nodes[i].parent == -1)
-                                {
-                                    geometryNode.children.push_back(static_cast<Gltf::Model::NodeIndex>(i));
-                                }
+                                meshModel.nodes[i].transform = origin * meshModel.nodes[i].transform;
+
+                                //// Only add root nodes as children of the geometry node
+                                //if (meshModel.nodes[i].parent == -1)
+                                //{
+                                //    geometryNode.children.push_back(static_cast<Gltf::Model::NodeIndex>(i));
+                                //}
                             }
 
-                            meshModel.nodes.push_back(geometryNode);
+                            //meshModel.nodes.push_back(geometryNode);
                             gltf.Append(meshModel);
                         }
                         else
@@ -524,7 +526,7 @@ namespace Jangine::IO::Urdf
             if (!jointName)
             {
                 std::cerr << "Invalid joint: missing name" << std::endl;
-                continue; // Invalid joint, skip
+                continue;
             }
 
             Model::Joint joint;
@@ -536,7 +538,7 @@ namespace Jangine::IO::Urdf
             if (!parentLinkName || !childLinkName)
             {
                 std::cerr << "Invalid joint: missing parent or child link" << std::endl;
-                continue; // Invalid joint, skip
+                continue;
             }
 
             joint.parent = &links[parentLinkName];
@@ -554,16 +556,6 @@ namespace Jangine::IO::Urdf
             gltf.nodes[joint.child->nodeIndex].parent = jointNodeIndex;
             gltf.nodes[joint.parent->nodeIndex].children.push_back(static_cast<Gltf::Model::NodeIndex>(gltf.nodes.size()));
             gltf.nodes.push_back(jointNode);
-
-            std::cout
-                << std::format(
-                       "Joint: {} (Parent: {} [{}], Child: {} [{}])",
-                       jointName,
-                       parentLinkName,
-                       joint.parent ? joint.parent->nodeIndex : -1,
-                       childLinkName,
-                       joint.child ? joint.child->nodeIndex : -1)
-                << std::endl;
         }
 
         gltf.CompactMaterials();
