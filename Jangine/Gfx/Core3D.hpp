@@ -421,7 +421,7 @@ namespace Jangine::Gfx
         Handle<MemoryBuffer> perSceneBuffer;
         Handle<MemoryBuffer> perMeshBuffer;
         Handle<Pipeline> meshPipeline;
-        Handle<Pipeline> meshOITCompositionPipeline;
+        Handle<Pipeline> oitCompositionPipeline;
 
         Handle<MemoryBuffer> oitDataBuffer;
         Handle<MemoryBuffer> oitNodeBuffer;

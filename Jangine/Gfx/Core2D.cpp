@@ -36,6 +36,13 @@ namespace Jangine::Gfx
           indexBuffer(nullptr, std::ref(*gfx)),
           nearestPixelSampler(nullptr, std::ref(*gfx)),
           linearPixelSampler(nullptr, std::ref(*gfx)),
+          blurHorizontalPipeline(nullptr, std::ref(*gfx)),
+          blurVerticalPipeline(nullptr, std::ref(*gfx)),
+          blurSampler(nullptr, std::ref(*gfx)),
+          blurIntermediateBuffer(nullptr, std::ref(*gfx)),
+          blurBuffer(),
+          blurNoiseBuffer(nullptr, std::ref(*gfx)),
+          blurNoiseSampler(nullptr, std::ref(*gfx)),
           placeholderBuffer(nullptr, std::ref(*gfx))
     {
         logger.Func(__func__);
@@ -79,9 +86,6 @@ namespace Jangine::Gfx
             .mipmapMode = SamplerMipmapMode::NEAREST,
             .addressModeU = SamplerAddressMode::CLAMP_TO_BORDER,
             .addressModeV = SamplerAddressMode::CLAMP_TO_BORDER,
-            .addressModeW = SamplerAddressMode::CLAMP_TO_BORDER,
-            .anisotropyEnable = false,
-            .maxAnisotropy = 1.0f,
             .borderColor = BorderColor::FLOAT_OPAQUE_WHITE};
         nearestPixelSampler = gfx->CreatePixelSampler(nearestParameters);
 
@@ -91,11 +95,38 @@ namespace Jangine::Gfx
             .mipmapMode = SamplerMipmapMode::LINEAR,
             .addressModeU = SamplerAddressMode::CLAMP_TO_EDGE,
             .addressModeV = SamplerAddressMode::CLAMP_TO_EDGE,
-            .addressModeW = SamplerAddressMode::CLAMP_TO_EDGE,
-            .anisotropyEnable = false,
-            .maxAnisotropy = 1.0f,
             .borderColor = BorderColor::FLOAT_OPAQUE_BLACK};
         linearPixelSampler = gfx->CreatePixelSampler(linearParameters);
+
+        // --------------------- BLUR
+        PixelSamplerParameters blurSamplerParameters = {
+            .minFilter = SamplerFilter::LINEAR,
+            .magFilter = SamplerFilter::LINEAR,
+            .mipmapMode = SamplerMipmapMode::LINEAR,
+            .addressModeU = SamplerAddressMode::REPEAT,
+            .addressModeV = SamplerAddressMode::REPEAT,
+            .borderColor = BorderColor::FLOAT_OPAQUE_BLACK};
+        blurNoiseSampler = gfx->CreatePixelSampler(blurSamplerParameters);
+
+        // Use a fixed seed for repeatability, or std::random_device for more randomness
+        std::mt19937 rng(42); // Fixed seed
+        std::uniform_int_distribution<int> dist(0, 255);
+
+        int noiseSize = 128;
+        int noiseDataSize = noiseSize * noiseSize * 4;
+        std::vector<std::byte> noiseData(noiseDataSize);
+        for (int i = 0; i < noiseDataSize; ++i)
+        {
+            noiseData[i] = static_cast<std::byte>(dist(rng));
+        }
+
+        blurNoiseBuffer = gfx->CreatePixelBuffer(
+            std::span<const std::byte>(noiseData),
+            noiseSize,
+            noiseSize,
+            Format::RGBA8,
+            PixelBufferUsage::Sampled);
+        // --------------------- BLUR
     }
 
     void Core2D::InitializeRendering(const DisplayParameters &wantedDisplayParameters)
@@ -114,6 +145,23 @@ namespace Jangine::Gfx
                 displayParameters.surfaceFormat,
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc);
+
+            // --------------------- BLUR
+            blurIntermediateBuffer = gfx->CreatePixelBuffer(
+                displayParameters.surfaceWidth,
+                displayParameters.surfaceHeight,
+                displayParameters.surfaceFormat,
+                PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
+                    PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
+                Aspect::Color);
+            blurBuffer = gfx->CreatePixelBuffer(
+                displayParameters.surfaceWidth,
+                displayParameters.surfaceHeight,
+                displayParameters.surfaceFormat,
+                PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
+                    PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
+                Aspect::Color);
+            // ---------------------
         }
 
         PipelineParameters::AttachmentBlend straightAlphaBlend = {
@@ -206,12 +254,80 @@ namespace Jangine::Gfx
 
             compositePipeline = gfx->CreatePipeline(compositionParams);
         }
+
+        if (!blurHorizontalPipeline)
+        {
+            PipelineParameters blurPipelineParams;
+            blurPipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-blur"),
+                                                                           "Shader program 'built-in-blur' not found in cache.");
+            blurPipelineParams.pushConstantRanges = {
+                {.stageFlags = ShaderStage::FRAGMENT,
+                 .offset = 0,
+                 .size = sizeof(BlurPushConstants)}};
+            blurPipelineParams.descriptorLayout = {
+                {.binding = 0,
+                 .descriptorType = DescriptorType::SAMPLED_IMAGE,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 1,
+                 .descriptorType = DescriptorType::SAMPLER,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 2,
+                 .descriptorType = DescriptorType::SAMPLED_IMAGE,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT},
+                {.binding = 3,
+                 .descriptorType = DescriptorType::SAMPLER,
+                 .descriptorCount = 1,
+                 .stages = ShaderStage::FRAGMENT}};
+            blurPipelineParams.topology = PrimitiveTopology::TRIANGLE_LIST;
+            blurPipelineParams.cullMode = CullMode::NONE;
+            blurPipelineParams.frontFace = FrontFace::COUNTER_CLOCKWISE;
+            blurPipelineParams.depthTestEnabled = false;
+            blurPipelineParams.depthWriteEnabled = false;
+            blurPipelineParams.depthCompareOp = CompareOp::ALWAYS;
+            blurPipelineParams.vertexInputBindings = {};
+            blurPipelineParams.vertexInputAttributes = {};
+            blurPipelineParams.attachments = {
+                {.format = Format::BGRA8,
+                 .blend = straightAlphaBlend}};
+
+            struct BlurSpecialization
+            {
+                uint32_t direction;
+            };
+
+            blurPipelineParams.specialization = {
+                {.stage = ShaderStage::FRAGMENT,
+                 .entries = {{.id = 0, .offset = 0, .size = sizeof(uint32_t)}},
+                 .data = PipelineParameters::Specialization::ReadData(BlurSpecialization{1})}};
+            blurHorizontalPipeline = gfx->CreatePipeline(blurPipelineParams);
+
+            blurPipelineParams.specialization = {
+                {.stage = ShaderStage::FRAGMENT,
+                 .entries = {{.id = 0, .offset = 0, .size = sizeof(uint32_t)}},
+                 .data = PipelineParameters::Specialization::ReadData(BlurSpecialization{0})}};
+            blurVerticalPipeline = gfx->CreatePipeline(blurPipelineParams);
+
+            PixelSamplerParameters samplerParams{
+                .minFilter = SamplerFilter::NEAREST,
+                .magFilter = SamplerFilter::NEAREST,
+                .mipmapMode = SamplerMipmapMode::NEAREST,
+                .addressModeU = SamplerAddressMode::CLAMP_TO_EDGE,
+                .addressModeV = SamplerAddressMode::CLAMP_TO_EDGE,
+                .addressModeW = SamplerAddressMode::CLAMP_TO_EDGE,
+                .borderColor = BorderColor::FLOAT_OPAQUE_WHITE,
+            };
+
+            blurSampler = gfx->CreatePixelSampler(samplerParams);
+        }
     }
 
     void Core2D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
     {
         // Avoid unused parameter warning
-        (void)absoluteTime; 
+        (void)absoluteTime;
         (void)deltaTime;
 
         bool_t commandBufferChanged = false;
@@ -310,6 +426,10 @@ namespace Jangine::Gfx
             VkImageView commandTexture = placeholderBuffer->vulkanImageView;
             VkSampler commandSampler = nearestPixelSampler->vulkanHandle;
 
+            PushConstants pushConstants{
+                .scale = Eigen::Vector2f(2.0f / targetExtent.width, 2.0f / targetExtent.height),
+                .smoothing = 0};
+
             if (command.texture)
             {
                 commandTexture = command.texture->vulkanImageView;
@@ -319,11 +439,8 @@ namespace Jangine::Gfx
             {
                 commandTexture = command.font->GetPixelBuffer()->vulkanImageView;
                 commandSampler = linearPixelSampler->vulkanHandle;
+                pushConstants.smoothing = 1;
             }
-
-            PushConstants pushConstants{
-                .scale = Eigen::Vector2f(2.0f / targetExtent.width, 2.0f / targetExtent.height),
-                .smoothing = 1};
 
             VkDescriptorImageInfo imageInfo{
                 .sampler = VK_NULL_HANDLE,
@@ -400,6 +517,230 @@ namespace Jangine::Gfx
                                 backBuffer.get(),
                                 ImageLayout::TRANSFER_DST_OPTIMAL,
                                 ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+
+        // --------------------- BLUR
+        Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
+
+        gfx->PixelBufferBarrier(commandBuffer,
+                                presentationBuffer,
+                                ImageLayout::TRANSFER_DST_OPTIMAL,
+                                ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+        {
+            gfx->PixelBufferBarrier(commandBuffer,
+                                    blurIntermediateBuffer.get(),
+                                    ImageLayout::UNDEFINED,
+                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+
+            BlurPushConstants blurPushConstants{
+                .scale = 2.0f,
+                .strength = 1.5f};
+
+            VkRenderingAttachmentInfo colorAttachment = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .pNext = nullptr,
+                .imageView = blurIntermediateBuffer->vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                .resolveMode = VK_RESOLVE_MODE_NONE,
+                .resolveImageView = VK_NULL_HANDLE,
+                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE};
+            VkRenderingAttachmentInfo colorAttachments[] = {colorAttachment};
+
+            VkExtent2D extent = {.width = presentationBuffer.width, .height = presentationBuffer.height};
+            VkRenderingInfo renderingInfo{
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .renderArea = {{0, 0}, {extent.width, extent.height}},
+                .layerCount = 1,
+                .viewMask = 0,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = colorAttachments,
+                .pDepthAttachment = nullptr,
+                .pStencilAttachment = nullptr};
+
+            VkViewport viewport{
+                .x = 0.0f,
+                .y = 0.0f,
+                .width = static_cast<float_t>(extent.width),
+                .height = static_cast<float_t>(extent.height),
+                .minDepth = 0.0f,
+                .maxDepth = 1.0f};
+            VkRect2D scissor{{0, 0}, {extent.width, extent.height}};
+
+            vkCmdBeginRendering(commandBuffer.vulkanHandle, &renderingInfo);
+            vkCmdBindPipeline(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, blurVerticalPipeline->vulkanHandle);
+            vkCmdSetViewport(commandBuffer.vulkanHandle, 0, 1, &viewport);
+            vkCmdSetScissor(commandBuffer.vulkanHandle, 0, 1, &scissor);
+
+            VkDescriptorImageInfo sourcePixelBuffer{
+                .sampler = nullptr,
+                .imageView = presentationBuffer.vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+            VkDescriptorImageInfo sourceSampler{
+                .sampler = blurSampler->vulkanHandle,
+                .imageView = nullptr,
+                .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+            VkDescriptorImageInfo noisePixelBuffer{
+                .sampler = nullptr,
+                .imageView = blurNoiseBuffer->vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+            VkDescriptorImageInfo noiseSampler{
+                .sampler = blurNoiseSampler->vulkanHandle,
+                .imageView = nullptr,
+                .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+            VkWriteDescriptorSet descriptorWrites[4] = {
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 0,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                 .pImageInfo = &sourcePixelBuffer,
+                 .pBufferInfo = nullptr,
+                 .pTexelBufferView = nullptr},
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 1,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+                 .pImageInfo = &sourceSampler,
+                 .pBufferInfo = nullptr,
+                 .pTexelBufferView = nullptr},
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 2,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                 .pImageInfo = &noisePixelBuffer,
+                 .pBufferInfo = nullptr,
+                 .pTexelBufferView = nullptr},
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 3,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+                 .pImageInfo = &noiseSampler,
+                 .pBufferInfo = nullptr,
+                 .pTexelBufferView = nullptr}};
+            gfx->PushDescriptorSets(
+                commandBuffer,
+                blurVerticalPipeline.get(),
+                4,
+                descriptorWrites);
+
+            vkCmdPushConstants(commandBuffer.vulkanHandle,
+                               blurVerticalPipeline->vulkanLayout,
+                               VK_SHADER_STAGE_FRAGMENT_BIT,
+                               0,
+                               sizeof(BlurPushConstants),
+                               &blurPushConstants);
+            vkCmdDraw(commandBuffer.vulkanHandle, 3, 1, 0, 0);
+
+            vkCmdEndRendering(commandBuffer.vulkanHandle);
+
+            gfx->PixelBufferBarrier(commandBuffer,
+                                    blurIntermediateBuffer.get(),
+                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                                    ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+            gfx->PixelBufferBarrier(commandBuffer,
+                                    blurBuffer.get(),
+                                    ImageLayout::UNDEFINED,
+                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+
+            colorAttachment = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .pNext = nullptr,
+                .imageView = blurBuffer->vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                .resolveMode = VK_RESOLVE_MODE_NONE,
+                .resolveImageView = VK_NULL_HANDLE,
+                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE};
+            colorAttachments[0] = colorAttachment;
+
+            renderingInfo = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .renderArea = {{0, 0}, {extent.width, extent.height}},
+                .layerCount = 1,
+                .viewMask = 0,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = colorAttachments,
+                .pDepthAttachment = nullptr,
+                .pStencilAttachment = nullptr};
+
+            vkCmdBeginRendering(commandBuffer.vulkanHandle, &renderingInfo);
+            vkCmdBindPipeline(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, blurHorizontalPipeline->vulkanHandle);
+            vkCmdSetViewport(commandBuffer.vulkanHandle, 0, 1, &viewport);
+            vkCmdSetScissor(commandBuffer.vulkanHandle, 0, 1, &scissor);
+
+            sourcePixelBuffer = {
+                .sampler = nullptr,
+                .imageView = blurIntermediateBuffer->vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+            sourceSampler = {
+                .sampler = blurSampler->vulkanHandle,
+                .imageView = nullptr,
+                .imageLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+            descriptorWrites[0] =
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 0,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                 .pImageInfo = &sourcePixelBuffer,
+                 .pBufferInfo = nullptr,
+                 .pTexelBufferView = nullptr};
+            descriptorWrites[1] = {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = nullptr,
+                .dstSet = VK_NULL_HANDLE,
+                .dstBinding = 1,
+                .dstArrayElement = 0,
+                .descriptorCount = 1,
+                .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLER,
+                .pImageInfo = &sourceSampler,
+                .pBufferInfo = nullptr,
+                .pTexelBufferView = nullptr};
+            gfx->PushDescriptorSets(
+                commandBuffer,
+                blurHorizontalPipeline.get(),
+                4,
+                descriptorWrites);
+            vkCmdPushConstants(commandBuffer.vulkanHandle,
+                               blurHorizontalPipeline->vulkanLayout,
+                               VK_SHADER_STAGE_FRAGMENT_BIT,
+                               0,
+                               sizeof(BlurPushConstants),
+                               &blurPushConstants);
+            vkCmdDraw(commandBuffer.vulkanHandle, 3, 1, 0, 0);
+
+            vkCmdEndRendering(commandBuffer.vulkanHandle);
+
+            gfx->PixelBufferBarrier(commandBuffer,
+                                    blurBuffer.get(),
+                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                                    ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+        }
+
+        gfx->PixelBufferBarrier(commandBuffer,
+                                presentationBuffer,
+                                ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                                ImageLayout::TRANSFER_DST_OPTIMAL);
+        // --------------------- BLUR
     }
 
     void Core2D::FinishFrame(const Presenter &presenter)

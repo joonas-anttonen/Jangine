@@ -890,8 +890,43 @@ namespace Jangine::Gfx
         // 9. Shader Stages
         std::vector<VkPipelineShaderStageCreateInfo> shaderStageCreateInfos;
         std::vector<VkShaderModule> shaderModules;
-        for (const auto &stage : parameters.shaderProgram->stages)
+        std::vector<VkSpecializationMapEntry> specializationMapEntries;
+        std::vector<VkSpecializationInfo> specializationInfos;
+
+        for (size_t i = 0; i < parameters.shaderProgram->stages.size(); ++i)
         {
+            const auto &stage = parameters.shaderProgram->stages[i];
+
+            VkSpecializationInfo *pSpecializationInfo = nullptr;
+
+            for (size_t j = 0; j < parameters.specialization.size(); ++j)
+            {
+                const auto &spec = parameters.specialization[j];
+                if ((spec.stage & stage.stage) == stage.stage)
+                {
+                    uint32_t specializationMapEntriesStart = static_cast<uint32_t>(specializationMapEntries.size());
+
+                    for (size_t k = 0; k < spec.entries.size(); ++k)
+                    {
+                        const auto &entry = spec.entries[k];
+                        specializationMapEntries.push_back(VkSpecializationMapEntry{
+                            .constantID = entry.id,
+                            .offset = entry.offset,
+                            .size = entry.size});
+                    }
+
+                    VkSpecializationInfo specializationInfo{
+                        .mapEntryCount = static_cast<uint32_t>(spec.entries.size()),
+                        .pMapEntries = specializationMapEntries.data() + specializationMapEntriesStart,
+                        .dataSize = spec.data.size(),
+                        .pData = spec.data.data()};
+                    specializationInfos.push_back(specializationInfo);
+                    pSpecializationInfo = &specializationInfos.back();
+
+                    break; // Found the matching specialization for this stage
+                }
+            }
+
             VkShaderModuleCreateInfo shaderModuleCreateInfo{};
             shaderModuleCreateInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
             shaderModuleCreateInfo.codeSize = stage.bytecode.size();
@@ -908,7 +943,7 @@ namespace Jangine::Gfx
                 .stage = static_cast<VkShaderStageFlagBits>(stage.stage),
                 .module = shaderModule,
                 .pName = stage.entryPoint.c_str(),
-                .pSpecializationInfo = nullptr};
+                .pSpecializationInfo = pSpecializationInfo};
 
             shaderStageCreateInfos.push_back(stageCreateInfo);
         }

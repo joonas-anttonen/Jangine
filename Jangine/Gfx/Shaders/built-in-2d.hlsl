@@ -42,9 +42,8 @@ float4 fragment(fragment_input input) : SV_TARGET
     float distanceFromOutline = textureColor.a - 0.5;
     float distanceChangePerFragment = 0.5 * fwidth(distanceFromOutline);
     float alpha = command.Smoothing 
-				  ? (textureColor.a >= 0.5 ? 1 : smoothstep(-distanceChangePerFragment, +distanceChangePerFragment, distanceFromOutline))
-				  : distanceFromOutline >= 0.0 ? 1.0 : 0.0;
+				? (textureColor.a >= 0.5 ? 1 : smoothstep(-distanceChangePerFragment, +distanceChangePerFragment, distanceFromOutline))
+				: textureColor.a;
 
-    float3 rgb = geometryColor.rgb * textureColor.rgb;
-    return float4(rgb, alpha);
+	return float4(geometryColor.rgb * textureColor.rgb, alpha * geometryColor.a);
 }

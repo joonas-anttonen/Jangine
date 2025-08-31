@@ -125,7 +125,7 @@ namespace Jangine::Gfx
             }
         }
 
-        void DrawImage(SharedHandle<PixelBuffer> image, Eigen::Vector2f targetPosition, Eigen::Vector2f targetExtent, ImageFit imageFit)
+        void DrawImage(SharedHandle<PixelBuffer> image, Eigen::Vector2f targetPosition, Eigen::Vector2f targetExtent, ImageFit imageFit, Color color = Color::White)
         {
             ThrowInvalidOperationIfNot(batchInProgress);
 
@@ -141,7 +141,18 @@ namespace Jangine::Gfx
 
             switch (imageFit)
             {
+                // None will draw the corresponding area of the image
             case ImageFit::None:
+                finalImagePosition = targetPosition;
+                finalImageExtent = targetExtent;
+
+                // Shift UVs so that only the target area is drawn
+                uv0.x() = targetPosition.x() / imageExtent.x();
+                uv0.y() = targetPosition.y() / imageExtent.y();
+                uv1.x() = (targetPosition.x() + targetExtent.x()) / imageExtent.x();
+                uv1.y() = (targetPosition.y() + targetExtent.y()) / imageExtent.y();
+                break;
+            case ImageFit::Stretch:
                 finalImagePosition = targetPosition;
                 finalImageExtent = imageExtent;
                 break;
@@ -171,7 +182,7 @@ namespace Jangine::Gfx
                 break;
             }
 
-            PushQuadUV(finalImagePosition, finalImagePosition + finalImageExtent, uv0, uv1, Color::White);
+            PushQuadUV(finalImagePosition, finalImagePosition + finalImageExtent, uv0, uv1, color);
         }
 
         void DrawRectangle(Rectangle rectangle, Color color, float_t thickness = 1.0f)

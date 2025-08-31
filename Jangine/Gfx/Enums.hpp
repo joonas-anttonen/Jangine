@@ -45,7 +45,8 @@ namespace Jangine::Gfx
 
     enum class ImageFit
     {
-        None,
+        None = 0,
+        Stretch,
         Center,
         Fill,
         FillAspect,
@@ -123,6 +124,11 @@ namespace Jangine::Gfx
         TASK_BIT_EXT = 0x00000040,
         MESH_BIT_EXT = 0x00000080,
     };
+
+    inline ShaderStage operator&(ShaderStage a, ShaderStage b)
+    {
+        return static_cast<ShaderStage>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+    }
 
     inline ShaderStage operator|(ShaderStage a, ShaderStage b)
     {

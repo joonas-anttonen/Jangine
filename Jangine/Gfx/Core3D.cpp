@@ -36,7 +36,7 @@ namespace Jangine::Gfx
           motionBuffer(nullptr, std::ref(*gfx)),
           displayBuffer(nullptr, std::ref(*gfx)),
           meshPipeline(nullptr, std::ref(*gfx)),
-          meshOITCompositionPipeline(nullptr, std::ref(*gfx)),
+          oitCompositionPipeline(nullptr, std::ref(*gfx)),
           oitDataBuffer(nullptr, std::ref(*gfx)),
           oitNodeBuffer(nullptr, std::ref(*gfx)),
           oitNodeHeadBuffer(nullptr, std::ref(*gfx)),
@@ -384,7 +384,7 @@ namespace Jangine::Gfx
                 {.format = Format::RGBA32,
                  .blend = straightAlphaBlend}};
 
-            meshOITCompositionPipeline = gfx->CreatePipeline(meshPipelineParams);
+            oitCompositionPipeline = gfx->CreatePipeline(meshPipelineParams);
         }
 
         camera.SetOrthographic(displayParameters.GetAspectRatio(), camera.GetOrthographicFoV(), -100.0f, 100.0f);
@@ -475,7 +475,7 @@ namespace Jangine::Gfx
                 .color = {displayParameters.clearColor.r,
                           displayParameters.clearColor.g,
                           displayParameters.clearColor.b,
-                          displayParameters.clearColor.a}}};
+                          1.0f}}};
 
         VkRenderingAttachmentInfo colorAttachments[] = {colorAttachment};
         VkRenderingAttachmentInfo depthAttachment{
@@ -643,107 +643,108 @@ namespace Jangine::Gfx
         vkCmdEndRendering(commandBuffer.vulkanHandle);
 
         gfx->PixelBufferBarrier(commandBuffer,
-                                displayBuffer.get(),
-                                ImageLayout::UNDEFINED,
-                                ImageLayout::TRANSFER_DST_OPTIMAL);
-        gfx->PixelBufferBarrier(commandBuffer,
                                 depthBuffer.get(),
                                 ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
                                 ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
         // --------------------- OIT
 
-        colorAttachment = {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
-            .pNext = nullptr,
-            .imageView = renderBuffer->vulkanImageView,
-            .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            .resolveMode = VK_RESOLVE_MODE_NONE,
-            .resolveImageView = VK_NULL_HANDLE,
-            .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-            .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
-            .storeOp = VK_ATTACHMENT_STORE_OP_STORE};
-        colorAttachments[0] = colorAttachment;
+        {
+            colorAttachment = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .pNext = nullptr,
+                .imageView = renderBuffer->vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                .resolveMode = VK_RESOLVE_MODE_NONE,
+                .resolveImageView = VK_NULL_HANDLE,
+                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE};
+            colorAttachments[0] = colorAttachment;
 
-        renderingInfo = {
-            .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
-            .pNext = nullptr,
-            .flags = 0,
-            .renderArea = {{0, 0}, {renderExtent.width, renderExtent.height}},
-            .layerCount = 1,
-            .viewMask = 0,
-            .colorAttachmentCount = 1,
-            .pColorAttachments = colorAttachments,
-            .pDepthAttachment = nullptr,
-            .pStencilAttachment = nullptr};
+            renderingInfo = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .renderArea = {{0, 0}, {renderExtent.width, renderExtent.height}},
+                .layerCount = 1,
+                .viewMask = 0,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = colorAttachments,
+                .pDepthAttachment = nullptr,
+                .pStencilAttachment = nullptr};
 
-        vkCmdBeginRendering(commandBuffer.vulkanHandle, &renderingInfo);
-        vkCmdBindPipeline(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, meshOITCompositionPipeline->vulkanHandle);
-        vkCmdSetViewport(commandBuffer.vulkanHandle, 0, 1, &viewport);
-        vkCmdSetScissor(commandBuffer.vulkanHandle, 0, 1, &scissor);
-        vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, false);
+            vkCmdBeginRendering(commandBuffer.vulkanHandle, &renderingInfo);
+            vkCmdBindPipeline(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, oitCompositionPipeline->vulkanHandle);
+            vkCmdSetViewport(commandBuffer.vulkanHandle, 0, 1, &viewport);
+            vkCmdSetScissor(commandBuffer.vulkanHandle, 0, 1, &scissor);
+            vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, false);
 
-        VkDescriptorBufferInfo perOITNodeBufferInfo{
-            .buffer = oitNodeBuffer->vulkanBuffer,
-            .offset = 0,
-            .range = VK_WHOLE_SIZE};
-        VkDescriptorImageInfo perOITHeadBuffer{
-            .sampler = VK_NULL_HANDLE,
-            .imageView = oitNodeHeadBuffer->vulkanImageView,
-            .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
-        VkDescriptorImageInfo perDepthBuffer{
-            .sampler = VK_NULL_HANDLE,
-            .imageView = depthBuffer->vulkanImageView,
-            .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+            VkDescriptorBufferInfo perOITNodeBufferInfo{
+                .buffer = oitNodeBuffer->vulkanBuffer,
+                .offset = 0,
+                .range = VK_WHOLE_SIZE};
+            VkDescriptorImageInfo perOITHeadBuffer{
+                .sampler = VK_NULL_HANDLE,
+                .imageView = oitNodeHeadBuffer->vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_GENERAL};
+            VkDescriptorImageInfo perDepthBuffer{
+                .sampler = VK_NULL_HANDLE,
+                .imageView = depthBuffer->vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
 
-        VkWriteDescriptorSet descriptorWrites[3] = {
-            {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-             .pNext = nullptr,
-             .dstSet = VK_NULL_HANDLE,
-             .dstBinding = 0,
-             .dstArrayElement = 0,
-             .descriptorCount = 1,
-             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-             .pImageInfo = nullptr,
-             .pBufferInfo = &perOITNodeBufferInfo,
-             .pTexelBufferView = nullptr},
-            {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-             .pNext = nullptr,
-             .dstSet = VK_NULL_HANDLE,
-             .dstBinding = 1,
-             .dstArrayElement = 0,
-             .descriptorCount = 1,
-             .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-             .pImageInfo = &perOITHeadBuffer,
-             .pBufferInfo = nullptr,
-             .pTexelBufferView = nullptr},
-            {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-             .pNext = nullptr,
-             .dstSet = VK_NULL_HANDLE,
-             .dstBinding = 2,
-             .dstArrayElement = 0,
-             .descriptorCount = 1,
-             .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
-             .pImageInfo = &perDepthBuffer,
-             .pBufferInfo = nullptr,
-             .pTexelBufferView = nullptr}};
-        gfx->PushDescriptorSets(
-            commandBuffer,
-            meshOITCompositionPipeline.get(),
-            3,
-            descriptorWrites);
+            VkWriteDescriptorSet descriptorWrites[3] = {
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 0,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                 .pImageInfo = nullptr,
+                 .pBufferInfo = &perOITNodeBufferInfo,
+                 .pTexelBufferView = nullptr},
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 1,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                 .pImageInfo = &perOITHeadBuffer,
+                 .pBufferInfo = nullptr,
+                 .pTexelBufferView = nullptr},
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 2,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                 .pImageInfo = &perDepthBuffer,
+                 .pBufferInfo = nullptr,
+                 .pTexelBufferView = nullptr}};
+            gfx->PushDescriptorSets(
+                commandBuffer,
+                oitCompositionPipeline.get(),
+                3,
+                descriptorWrites);
 
-        vkCmdDraw(commandBuffer.vulkanHandle, 3, 1, 0, 0);
+            vkCmdDraw(commandBuffer.vulkanHandle, 3, 1, 0, 0);
 
-        vkCmdEndRendering(commandBuffer.vulkanHandle);
-
-        gfx->PixelBufferBarrier(commandBuffer,
-                                renderBuffer.get(),
-                                ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                                ImageLayout::TRANSFER_SRC_OPTIMAL);
+            vkCmdEndRendering(commandBuffer.vulkanHandle);
+        }
 
         // render -> display
         {
+            gfx->PixelBufferBarrier(commandBuffer,
+                                    displayBuffer.get(),
+                                    ImageLayout::UNDEFINED,
+                                    ImageLayout::TRANSFER_DST_OPTIMAL);
+            gfx->PixelBufferBarrier(commandBuffer,
+                                    renderBuffer.get(),
+                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                                    ImageLayout::TRANSFER_SRC_OPTIMAL);
             gfx->BlitPixelBuffer(commandBuffer,
                                  renderBuffer.get(),
                                  displayBuffer.get(),

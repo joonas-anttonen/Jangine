@@ -92,8 +92,8 @@ namespace Jangine::Gfx
         SamplerAddressMode addressModeU;
         SamplerAddressMode addressModeV;
         SamplerAddressMode addressModeW;
-        uint32_t anisotropyEnable;
-        float maxAnisotropy;
+        uint32_t anisotropyEnable = 0;
+        float maxAnisotropy = 1.0f;
         BorderColor borderColor;
     };
 
@@ -157,7 +157,30 @@ namespace Jangine::Gfx
             void_t *immutableSamplers;
         };
 
+        struct Specialization
+        {
+            struct Constant
+            {
+                uint32_t id;
+                uint32_t offset;
+                uint32_t size;
+            };
+
+            ShaderStage stage;
+            std::vector<Constant> entries;
+            std::vector<uint8_t> data;
+
+            template <typename T>
+            static std::vector<uint8_t> ReadData(const T &value)
+            {
+                return std::vector<uint8_t>(reinterpret_cast<const uint8_t *>(&value),
+                                             reinterpret_cast<const uint8_t *>(&value) + sizeof(T));
+            }
+        };
+
         const ShaderProgram *shaderProgram;
+
+        std::vector<Specialization> specialization;
 
         PrimitiveTopology topology;
         FrontFace frontFace;

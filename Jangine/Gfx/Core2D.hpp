@@ -25,6 +25,12 @@ namespace Jangine::Gfx
             uint32_t padding; // Padding to ensure 16-byte alignment
         };
 
+        struct BlurPushConstants
+        {
+            float scale;
+            float strength;
+        };
+
         Core2D(Gfx::Core *gfx);
         ~Core2D();
         Core2D &operator=(const Core2D &) = delete;
@@ -69,6 +75,16 @@ namespace Jangine::Gfx
             return defaultShaper.get();
         }
 
+        bool_t IsReady() const
+        {
+            return backBuffer != nullptr;
+        }
+
+        SharedHandle<PixelBuffer> GetAcrylicBuffer() const
+        {
+            return blurBuffer;
+        }
+
     private:
         void InitializeCommandBufferPool()
         {
@@ -111,6 +127,14 @@ namespace Jangine::Gfx
         Handle<PixelBuffer> backBuffer;
         Handle<Pipeline> renderPipeline;
         Handle<Pipeline> compositePipeline;
+
+        Handle<Pipeline> blurHorizontalPipeline;
+        Handle<Pipeline> blurVerticalPipeline;
+        Handle<PixelSampler> blurSampler;
+        Handle<PixelBuffer> blurIntermediateBuffer;
+        SharedHandle<PixelBuffer> blurBuffer;
+        Handle<PixelBuffer> blurNoiseBuffer;
+        Handle<PixelSampler> blurNoiseSampler;
 
         Text::FontCollection fontCollection;
         const Text::Font *defaultFont = nullptr;

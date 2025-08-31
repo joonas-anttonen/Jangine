@@ -423,7 +423,7 @@ namespace Jangine::Gui
     void Core::HandleMouseEnter(GLFWwindow *window, int entered)
     {
         (void)entered; // Avoid unused parameter warning
-        
+
         Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
         if (core)
         {
@@ -503,7 +503,7 @@ namespace Jangine::Gui
         bool_t acquiredCommandBuffer = gfx2D->TryAcquireCommandBuffer(&commandBuffer);
         if (!acquiredCommandBuffer)
         {
-            //logger.Warning("Failed to acquire command buffer", __func__);
+            // logger.Warning("Failed to acquire command buffer", __func__);
             return;
         }
 
@@ -562,7 +562,17 @@ namespace Jangine::Gui
             // Update with absolute time and delta time
             statusText = std::format("Absolute Time: {:.2f}s, Delta Time: {:.2f}s", absoluteTime, deltaTime);
             gfx2D->GetDefaultShaper()->CalculateTextLayout(statusText, 1.f, Eigen::Vector2f(wwf, whf), true, statusLayout);
-            commandBuffer->DrawText(statusLayout, Eigen::Vector2f(ControlsOffFromFrameSide + 2.f, sizeOfFrame.y() + 2.f), Color::White);
+            commandBuffer->DrawText(statusLayout, Eigen::Vector2f(ControlsOffFromFrameSide + 2.f, sizeOfFrame.y() + 2.f), Color{1.f, 1.f, 1.f, 1.f});
+
+            if (gfx2D->IsReady())
+            {
+                commandBuffer->DrawImage(
+                    gfx2D->GetAcrylicBuffer(),
+                    Eigen::Vector2f(wwf - sizeOfFrame.z() - 800, sizeOfFrame.y()),
+                    Eigen::Vector2f(wwf, whf - sizeOfFrame.w()),
+                    Gfx::ImageFit::None,
+                    Color{1.f, 1.f, 1.f, 1.0f});
+            }
 
             commandBuffer->EndBatch();
         }
