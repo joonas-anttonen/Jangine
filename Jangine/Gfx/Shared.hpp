@@ -174,7 +174,7 @@ namespace Jangine::Gfx
             static std::vector<uint8_t> ReadData(const T &value)
             {
                 return std::vector<uint8_t>(reinterpret_cast<const uint8_t *>(&value),
-                                             reinterpret_cast<const uint8_t *>(&value) + sizeof(T));
+                                            reinterpret_cast<const uint8_t *>(&value) + sizeof(T));
             }
         };
 

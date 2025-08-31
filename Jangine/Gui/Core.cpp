@@ -53,6 +53,18 @@ namespace Jangine::Gui
         glfwTerminate();
     }
 
+    void Core::SynchronizeWithGfx(Eigen::Vector2i currentWindow)
+    {
+        Jangine::Core::GetInstance().PostToGfxThread(
+            [this, currentWindow]()
+            {
+                Gfx::DisplayParameters newDisplayParameters = gfx->GetDisplayParameters();
+                newDisplayParameters.surfaceWidth = currentWindow.x();
+                newDisplayParameters.surfaceHeight = currentWindow.y();
+                gfx->InitializeRendering(newDisplayParameters);
+            });
+    }
+
     void Core::HandleWindowResize(GLFWwindow *window, int width, int height)
     {
         if (width == 0 || height == 0)
@@ -63,12 +75,8 @@ namespace Jangine::Gui
         Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
         if (core)
         {
-            Jangine::Core::GetInstance().PostToGfxThread([core, width, height]()
-                                                         {
-                    Gfx::DisplayParameters newDisplayParameters = core->gfx->GetDisplayParameters();
-                    newDisplayParameters.surfaceWidth = static_cast<uint32_t>(width);
-                    newDisplayParameters.surfaceHeight = static_cast<uint32_t>(height);
-                    core->gfx->InitializeRendering(newDisplayParameters); });
+            core->windowSize = Eigen::Vector2f(static_cast<float_t>(width), static_cast<float_t>(height));
+            core->SynchronizeWithGfx(Eigen::Vector2i(width, height));
         }
     }
 
@@ -444,6 +452,17 @@ namespace Jangine::Gui
         Jangine::Core::GetInstance().PostUserInput(event);
     }
 
+    void Core::SynchronizeWithGlfw()
+    {
+        if (glfwWindow)
+        {
+            int32_t x, y, width, height;
+            glfwGetWindowPos(glfwWindow, &x, &y);
+            glfwGetWindowSize(glfwWindow, &width, &height);
+            windowSize = {static_cast<float_t>(width), static_cast<float_t>(height)};
+        }
+    }
+
     void Core::Create(const Parameters &parameters)
     {
         (void)parameters; // Avoid unused parameter warning
@@ -485,6 +504,35 @@ namespace Jangine::Gui
         }
 
         this->glfwWindow = window;
+
+        SynchronizeWithGlfw();
+
+        // --------------------- TESTING
+        auto grid = scene.CreateNode<GridNode>();
+        grid->SetName("Grid");
+        grid->SetColumnsAndRows(
+            {
+                {Unit::FRACTION, 1.0f},
+                {Unit::PIXELS, 256.0f},
+            },
+            {
+                {Unit::FRACTION, 1.0f},
+            });
+
+        viewport = scene.CreateNode<GuiNode>();
+        viewport->SetName("3D Viewport");
+        viewport->gridCoordinates = {0, 0, 1, 1};
+        //scene.SetAncestor(viewport, grid);
+
+        auto acrylic = scene.CreateNode<AcrylicPanel>();
+        acrylic->SetName("AcrylicPanel");
+        acrylic->gridCoordinates = {1, 0, 1, 1};
+        scene.SetAncestor(acrylic, grid);
+
+        scene.Print(scene.GetRoot());
+        scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
+        gfx->UnsafeSetViewport(viewport->bounds);
+        // --------------------- TESTING
     }
 
     void Core::Render(double_t absoluteTime, float_t deltaTime)
@@ -492,10 +540,10 @@ namespace Jangine::Gui
         (void)absoluteTime; // Avoid unused parameter warning
         (void)deltaTime;    // Avoid unused parameter warning
 
-        int32_t ww, wh;
-        glfwGetWindowSize(glfwWindow, &ww, &wh);
-        float_t wwf = static_cast<float_t>(ww);
-        float_t whf = static_cast<float_t>(wh);
+        SynchronizeWithGlfw();
+
+        scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
+        gfx->UnsafeSetViewport(viewport->bounds);
 
         Gfx::Core2D *gfx2D = gfx->GetCore2D();
         Gfx::CommandBuffer2D *commandBuffer = nullptr;
@@ -508,71 +556,34 @@ namespace Jangine::Gui
         }
 
         {
-            static constexpr float_t ControlsOffFromFrameSide = 7.f;
-            static constexpr float_t ControlButtonWidth = 40.f;
-            static constexpr float_t ControlsButtonSeparation = 2.f;
             static const Eigen::Vector4f sizeOfFrame = Eigen::Vector4f(2.0f, 32.0f, 2.0f, 2.0f);
             static const Color colorOfFrame = Color::FromUInt(0x282c34);
 
-            static constexpr bool_t mouseOnClose = false;
-            static constexpr bool_t mouseOnMaximize = false;
-            static constexpr bool_t mouseOnMinimize = false;
-            static constexpr bool_t mouseOnFrameControls = false;
-
-            auto controlsCloseRect = Gfx::Rectangle(wwf - ControlButtonWidth - ControlsOffFromFrameSide, 0.0f, wwf - ControlsOffFromFrameSide, sizeOfFrame.y());
-            auto controlsCloseIconRect = Gfx::Rectangle(0, 0, 8, 8).CenterOn(controlsCloseRect.center());
-            auto controlsMaximizeRect = Gfx::Rectangle(controlsCloseRect.left - ControlsButtonSeparation - ControlButtonWidth, 0.0f, controlsCloseRect.left - ControlsButtonSeparation, sizeOfFrame.y());
-            auto controlsMaximizeIconRect = Gfx::Rectangle(0, 0, 8, 8).CenterOn(controlsMaximizeRect.center());
-            auto controlsMinimizeRect = Gfx::Rectangle(controlsMaximizeRect.left - ControlsButtonSeparation - ControlButtonWidth, 0.0f, controlsMaximizeRect.left - ControlsButtonSeparation, sizeOfFrame.y());
-            auto controlsMinimizeIconRect = Gfx::Rectangle(0, 0, 8, 8).CenterOn(controlsMinimizeRect.center());
-
             commandBuffer->BeginBatch();
 
-            // Draw window frame
-            commandBuffer->FillRectangle(
-                Gfx::Rectangle(0, 0, wwf, sizeOfFrame.y()),
-                colorOfFrame);
-            commandBuffer->FillRectangle(
-                Gfx::Rectangle(wwf - sizeOfFrame.z(), sizeOfFrame.y(), wwf, whf - sizeOfFrame.w()),
-                colorOfFrame);
-            commandBuffer->FillRectangle(
-                Gfx::Rectangle(0, whf - sizeOfFrame.w(), wwf, whf),
-                colorOfFrame);
-            commandBuffer->FillRectangle(
-                Gfx::Rectangle(0, sizeOfFrame.y(), sizeOfFrame.x(), whf),
-                colorOfFrame);
-
-            commandBuffer->FillRectangle(
-                controlsCloseRect,
-                mouseOnClose ? Color::NordAuroraRed : colorOfFrame);
-            commandBuffer->FillRectangle(
-                controlsMaximizeRect,
-                mouseOnMaximize ? Color::White.WithAlpha(0.5f) : colorOfFrame);
-            commandBuffer->FillRectangle(
-                controlsMinimizeRect,
-                mouseOnMinimize ? Color::White.WithAlpha(0.5f) : colorOfFrame);
-
-            commandBuffer->FillRectangle(controlsCloseIconRect, Color::White);
-            commandBuffer->FillRectangle(controlsMaximizeIconRect, Color::White);
-            commandBuffer->FillRectangle(controlsMinimizeIconRect, Color::White);
-
             static std::string statusText;
-            static Gfx::Text::Layout statusLayout;
+            static Gfx::Text::Layout statusTextLayout;
 
             // Update with absolute time and delta time
             statusText = std::format("Absolute Time: {:.2f}s, Delta Time: {:.2f}s", absoluteTime, deltaTime);
-            gfx2D->GetDefaultShaper()->CalculateTextLayout(statusText, 1.f, Eigen::Vector2f(wwf, whf), true, statusLayout);
-            commandBuffer->DrawText(statusLayout, Eigen::Vector2f(ControlsOffFromFrameSide + 2.f, sizeOfFrame.y() + 2.f), Color{1.f, 1.f, 1.f, 1.f});
+            gfx2D->GetDefaultShaper()->CalculateTextLayout(statusText, 1.f, windowSize, true, statusTextLayout);
+
+            Eigen::Vector2f statusTextMargin = Eigen::Vector2f(2.f, 2.f);
+            Eigen::Vector2f statusTextPosition = Eigen::Vector2f(sizeOfFrame.x() + statusTextMargin.x(), sizeOfFrame.y() + statusTextMargin.y());
 
             if (gfx2D->IsReady())
             {
                 commandBuffer->DrawImage(
                     gfx2D->GetAcrylicBuffer(),
-                    Eigen::Vector2f(wwf - sizeOfFrame.z() - 800, sizeOfFrame.y()),
-                    Eigen::Vector2f(wwf, whf - sizeOfFrame.w()),
+                    Eigen::Vector2f(sizeOfFrame.x(), sizeOfFrame.y()),
+                    Eigen::Vector2f(statusTextLayout.size.x() + statusTextMargin.x() * 2, statusTextLayout.size.y() + statusTextMargin.y() * 2),
                     Gfx::ImageFit::None,
-                    Color{1.f, 1.f, 1.f, 1.0f});
+                    Color::White);
             }
+
+            commandBuffer->DrawText(statusTextLayout, statusTextPosition, Color{1.f, 1.f, 1.f, 1.f});
+
+            scene.Render(gfx2D, commandBuffer);
 
             commandBuffer->EndBatch();
         }

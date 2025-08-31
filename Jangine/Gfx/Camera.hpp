@@ -31,6 +31,7 @@ namespace Jangine::Gfx
 
         [[nodiscard]] float_t GetPerspectiveFoV() const { return fovY; }
         [[nodiscard]] float_t GetOrthographicFoV() const { return orthoWidth; }
+        [[nodiscard]] float_t GetAspectRatio() const { return aspect; }
 
         [[nodiscard]] const Eigen::Matrix4f &GetViewMatrix() const { return viewMatrix; }
         [[nodiscard]] const Eigen::Matrix4f &GetInverseViewMatrix() const { return inverseViewMatrix; }

@@ -189,6 +189,15 @@ namespace Jangine::Gfx
             renderingThreadId = threadId;
         }
 
+        Rectangle UnsafeGetCurrentViewport() const
+        {
+            return currentViewport;
+        }
+        void UnsafeSetViewport(Rectangle viewport)
+        {
+            currentViewport = viewport;
+        }
+
         void BindBuffers(CommandBuffer commandBuffer, const MemoryBuffer *vertexBuffer, const MemoryBuffer *indexBuffer);
 
         void FullBarrier(CommandBuffer commandBuffer);
@@ -259,6 +268,7 @@ namespace Jangine::Gfx
             .displayWidth = 2560,
             .displayHeight = 1440,
         };
+        Rectangle currentViewport = {0, 0, 2560, 1440};
 
         UserInput userInput;
 

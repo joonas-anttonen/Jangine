@@ -192,6 +192,13 @@ namespace Jangine::Gfx
 
         void DrawRectangle(Eigen::Vector2f a, Eigen::Vector2f c, Color color, float_t thickness = 1.0f)
         {
+            auto &currentCommand = GetCurrentCommand();
+            if (currentCommand.texture || currentCommand.font)
+            {
+                auto &command = BeginCommand();
+                (void)command;
+            }
+            
             float_t half_thickness = thickness * 0.5f;
 
             // Top edge
@@ -221,12 +228,26 @@ namespace Jangine::Gfx
 
         void FillRectangle(Rectangle rectangle, Color color)
         {
+            auto &currentCommand = GetCurrentCommand();
+            if (currentCommand.texture || currentCommand.font)
+            {
+                auto &command = BeginCommand();
+                (void)command;
+            }
+
             PushQuadUV(rectangle.position(), rectangle.position() + rectangle.extent(),
                        Eigen::Vector2f(0, 0), Eigen::Vector2f(1, 1), color);
         }
 
         void FillRectangle(Eigen::Vector2f a, Eigen::Vector2f c, Color color)
         {
+            auto &currentCommand = GetCurrentCommand();
+            if (currentCommand.texture || currentCommand.font)
+            {
+                auto &command = BeginCommand();
+                (void)command;
+            }
+
             PushQuadUV(a, c, Eigen::Vector2f(0, 0), Eigen::Vector2f(1, 1), color);
         }
 

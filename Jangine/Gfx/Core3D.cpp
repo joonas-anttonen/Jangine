@@ -404,6 +404,12 @@ namespace Jangine::Gfx
         float_t viewportWidth = static_cast<float_t>(renderExtent.width);
         float_t viewportHeight = static_cast<float_t>(renderExtent.height);
 
+        Rectangle suggestedViewport = gfx->UnsafeGetCurrentViewport();
+        viewportX = Math::Map(suggestedViewport.left, 0.0f, static_cast<float_t>(displayParameters.surfaceWidth), 0.0f, static_cast<float_t>(renderBuffer->width));
+        viewportY = Math::Map(suggestedViewport.top, 0.0f, static_cast<float_t>(displayParameters.surfaceHeight), 0.0f, static_cast<float_t>(renderBuffer->height));
+        viewportWidth = Math::Map(suggestedViewport.width(), 0.0f, static_cast<float_t>(displayParameters.surfaceWidth), 0.0f, static_cast<float_t>(renderBuffer->width));
+        viewportHeight = Math::Map(suggestedViewport.height(), 0.0f, static_cast<float_t>(displayParameters.surfaceHeight), 0.0f, static_cast<float_t>(renderBuffer->height));
+
         VkViewport viewport{
             .x = viewportX,
             .y = viewportY + viewportHeight,

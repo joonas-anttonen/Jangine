@@ -54,6 +54,9 @@
 typedef bool bool_t;
 typedef void void_t;
 
+template <class T, class U>
+concept DerivedFrom = std::is_base_of<U, T>::value;
+
 namespace Jangine::Gfx
 {
     class Core;
@@ -135,6 +138,13 @@ namespace Jangine
         static constexpr T AlignUp(size_t value, size_t alignment)
         {
             return static_cast<T>((value + alignment - 1) & ~(alignment - 1));
+        }
+
+        /// @brief Linearly maps value [fromMin, fromMax] to [toMin, toMax]
+        template <typename T>
+        static constexpr T Map(T value, T fromMin, T fromMax, T toMin, T toMax)
+        {
+            return toMin + (toMax - toMin) * ((value - fromMin) / (fromMax - fromMin));
         }
     }
 

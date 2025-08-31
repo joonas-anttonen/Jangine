@@ -194,9 +194,6 @@ namespace Jangine::Gfx
         Mesh::Id mesh;
     };
 
-    template <class T, class U>
-    concept Derived = std::is_base_of<U, T>::value;
-
     /// @brief Scene graph structure
     class Scene
     {
@@ -227,7 +224,7 @@ namespace Jangine::Gfx
             nodes[0]->worldTransform = Eigen::Isometry3f::Identity();
         }
 
-        template <Derived<Node> T>
+        template <DerivedFrom<Node> T>
         T *CreateNode()
         {
             Node::Id id = static_cast<Node::Id>(nodes.size());

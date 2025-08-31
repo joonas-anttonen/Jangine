@@ -37,7 +37,6 @@ namespace Jangine
     class JANGINE_API Core
     {
     public:
-
         Core();
         ~Core() = default;
         Core &operator=(const Core &) = delete;
