@@ -617,6 +617,7 @@ namespace Jangine::IO::Urdf
             gltf.nodes[parentLinkIndex].children.push_back(jointNodeIndex);
         }
 
+        gltf.ConnectHierarchy();
         gltf.CompactMaterials();
         return Jangine::IO::Status::SUCCESS;
     }
