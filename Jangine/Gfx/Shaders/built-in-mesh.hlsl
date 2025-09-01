@@ -72,6 +72,7 @@ fragment_input vertex(vertex_input input)
 
     float4 worldPosition = mul(perMesh.Transform, float4(input.Position, 1.0));
     output.Position = mul(perScene.ViewProjection, worldPosition);
+    output.Position_World = worldPosition.xyz;
     output.UV = input.UV;
     output.Normal = normalize(mul(perMesh.Transform, float4(input.Normal, 0.0)).xyz);
     output.MaterialIndex = perMesh.MaterialIndex;
@@ -88,7 +89,7 @@ float4 fragment(fragment_input input) : SV_TARGET
         material.BaseColor = perMesh.Color;
     }
 
-    float3 ambient = float3(0.15, 0.15, 0.15);
+    float3 ambient = float3(0.22, 0.22, 0.2);
 
     // Simple lighting where light comes from the view direction
     float3 L = normalize(perScene.ViewPosition - input.Position_World);
