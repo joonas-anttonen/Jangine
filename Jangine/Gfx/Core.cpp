@@ -1127,6 +1127,8 @@ namespace Jangine::Gfx
 
         VkPhysicalDeviceLimits limits = physicalDeviceProperties.limits;
         capabilities.uniformBufferOffsetAlignment = limits.minUniformBufferOffsetAlignment;
+        capabilities.maxUniformBufferRange = limits.maxUniformBufferRange;
+        capabilities.maxStorageBufferRange = limits.maxStorageBufferRange;
 
         ThrowNotSupportedIf(physicalDeviceFeatures2.features.samplerAnisotropy == 0, "samplerAnisotropy");
         ThrowNotSupportedIf(physicalDeviceFeatures2.features.geometryShader == 0, "geometryShader");

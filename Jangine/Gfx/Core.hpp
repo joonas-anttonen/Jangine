@@ -44,6 +44,8 @@ namespace Jangine::Gfx
             bool_t debugging;
             bool_t timestamps;
             size_t uniformBufferOffsetAlignment;
+            size_t maxUniformBufferRange;
+            size_t maxStorageBufferRange;
         };
 
     public:

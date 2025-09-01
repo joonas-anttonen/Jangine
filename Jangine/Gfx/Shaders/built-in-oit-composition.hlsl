@@ -7,13 +7,22 @@ struct fragment_input
 
 struct OITNode
 {
-    float4 color;
+    uint color;
     float depth;
     uint next;
 };
 [[vk::binding(0, 0)]] RWStructuredBuffer<OITNode> oitNodes;
 [[vk::binding(1, 0)]] Texture2D<uint> headIndexImage;
 [[vk::binding(2, 0)]] Texture2D depthImage;
+
+float4 UnpackColor(uint packed)
+{
+    float r = (float)(packed & 0xFF) / 255.0f;
+    float g = (float)((packed >> 8) & 0xFF) / 255.0f;
+    float b = (float)((packed >> 16) & 0xFF) / 255.0f;
+    float a = (float)((packed >> 24) & 0xFF) / 255.0f;
+    return float4(r, g, b, a);
+}
 
 [shader("vertex")]
 fragment_input vertex(uint VertexIndex: SV_VertexID)
@@ -68,7 +77,7 @@ float4 fragment(fragment_input input) : SV_TARGET
     float4 color = float4(0.0, 0.0, 0.0, 0.0f);
     for (uint f = 0; f < count; ++f)
     {
-        float4 src = fragments[f].color;
+        float4 src = UnpackColor(fragments[f].color);
         color.rgb = lerp(color.rgb, src.rgb, src.a);
         color.a = color.a + src.a * (1.0f - color.a);
     }

@@ -37,13 +37,22 @@ struct OITData
 };
 struct OITNode
 {
-    float4 color;
+    uint color;
     float depth;
     uint next;
 };
 [[vk::binding(3, 0)]] RWStructuredBuffer<OITData> oitData;
 [[vk::binding(4, 0)]] RWStructuredBuffer<OITNode> oitNodes;
 [[vk::binding(5, 0)]] RWTexture2D<uint> oitNodeHeadImage;
+
+uint PackColor(float4 color)
+{
+    uint r = (uint)(saturate(color.r) * 255.0f + 0.5f);
+    uint g = (uint)(saturate(color.g) * 255.0f + 0.5f);
+    uint b = (uint)(saturate(color.b) * 255.0f + 0.5f);
+    uint a = (uint)(saturate(color.a) * 255.0f + 0.5f);
+    return (a << 24) | (b << 16) | (g << 8) | r;
+}
 
 // ---------------------
 
@@ -113,7 +122,7 @@ float4 fragment(fragment_input input) : SV_TARGET
             InterlockedExchange(oitNodeHeadImage[uint2(input.Position.xy)], nodeIdx, prevHeadIdx);
 
             // Store node data
-            oitNodes[nodeIdx].color = float4(combined, material.BaseColor.a);
+            oitNodes[nodeIdx].color = PackColor(float4(combined, material.BaseColor.a));
             oitNodes[nodeIdx].depth = input.Position.z;
             oitNodes[nodeIdx].next = prevHeadIdx;
         }

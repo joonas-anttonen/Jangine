@@ -193,17 +193,26 @@ namespace Jangine::Gfx
                 Aspect::Color);
 
             // --------------------- OIT
+            size_t oitNodeCount = displayParameters.renderWidth * displayParameters.renderHeight * MAX_OIT_NODES_PER_PIXEL;
+            size_t oitStorageSize = sizeof(OITNode) * oitNodeCount;
+            size_t maxStorageSize = gfx->GetCapabilities().maxStorageBufferRange;
+            if (oitStorageSize > maxStorageSize)
+            {
+                oitNodeCount = maxStorageSize / sizeof(OITNode);
+                logger.Warning(std::format("Requested OIT storage size {} exceeds device maximum storage buffer range {}. Reducing OIT node count to {}.", oitStorageSize, maxStorageSize, oitNodeCount), __func__);
+            }
+
             oitDataBuffer = gfx->CreateMemoryBuffer(
                 sizeof(OITData),
                 MemoryBufferUsage::Storage | MemoryBufferUsage::TransferDst,
                 MemoryAccess::None);
             OITData oitData = {
                 .count = 0,
-                .maxNodeCount = displayParameters.renderWidth * displayParameters.renderHeight * MAX_OIT_NODES_PER_PIXEL};
+                .maxNodeCount = static_cast<uint32_t>(oitNodeCount)};
             gfx->StageToMemoryBuffer(oitDataBuffer.get(), Span(oitData));
 
             oitNodeBuffer = gfx->CreateMemoryBuffer(
-                sizeof(OITNode) * oitData.maxNodeCount,
+                sizeof(OITNode) * oitNodeCount,
                 MemoryBufferUsage::Storage,
                 MemoryAccess::None);
 
@@ -536,6 +545,9 @@ namespace Jangine::Gfx
 
             for (const auto &primitive : mesh->GetPrimitives())
             {
+                //if (primitive.materialHasTransparency)
+                //    continue;
+
                 vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, !primitive.materialHasTransparency);
 
                 perMeshData.MaterialIndex = primitive.materialIndex;
@@ -654,7 +666,7 @@ namespace Jangine::Gfx
                                 ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
         // --------------------- OIT
-
+#if 1
         {
             colorAttachment = {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -740,6 +752,7 @@ namespace Jangine::Gfx
 
             vkCmdEndRendering(commandBuffer.vulkanHandle);
         }
+#endif
 
         // render -> display
         {

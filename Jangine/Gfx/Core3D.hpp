@@ -388,7 +388,7 @@ namespace Jangine::Gfx
 
         struct OITNode
         {
-            Eigen::Vector4f color;
+            uint32_t color;
             float_t depth;
             uint32_t next;
         };
