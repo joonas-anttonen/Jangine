@@ -207,14 +207,11 @@ namespace Jangine::Gfx
             meshIds.push_back(meshId);
         }
 
-        std::unordered_map<size_t, Node::Id> gltfNodeToSceneNode;
-
-        // First pass: create all nodes
-        for (size_t i = 0; i < gltf.nodes.size(); ++i)
+        std::function<void(size_t, Node::Id)> importNode = [&](size_t gltfNodeIndex, Node::Id parentId)
         {
+            const auto &gltfNode = gltf.nodes[gltfNodeIndex];
             Node *node;
 
-            const auto &gltfNode = gltf.nodes[i];
             if (gltfNode.mesh >= 0)
             {
                 Mesh::Id meshId = meshIds[gltfNode.mesh];
@@ -229,22 +226,30 @@ namespace Jangine::Gfx
 
             scene.SetRelativeTransform(node, gltfNode.transform);
             scene.SetName(node, gltfNode.name);
-            gltfNodeToSceneNode[i] = node->GetId();
-        }
-
-        // Second pass: set up parent-child relationships
-        for (size_t i = 0; i < gltf.nodes.size(); ++i)
-        {
-            const auto &gltfNode = gltf.nodes[i];
+            scene.SetAncestor(node, parentId);
 
             for (auto childGltfNodeId : gltfNode.children)
             {
-                Node *childSceneNode = scene.GetNode(gltfNodeToSceneNode[childGltfNodeId]);
-                scene.SetAncestor(childSceneNode, gltfNodeToSceneNode[i]);
+                importNode(childGltfNodeId, node->GetId());
+            }
+        };
+
+        for (size_t i = 0; i < gltf.nodes.size(); ++i)
+        {
+            if (gltf.nodes[i].parent == -1)
+            {
+                importNode(i, scene.GetWorld()->GetId());
             }
         }
 
-        scene.Print(scene.GetWorld());
+        scene.Print([&](std::string output)
+                    { logger.Warning(output); });
+
+        ReadOnlyScene copy;
+        scene.FillReadOnlyCopy(copy);
+
+        copy.Print([&](std::string output)
+                   { logger.Error(output); });
     }
 
     void Core3D::Export(Jangine::IO::Gltf::Model &gltf) const
@@ -342,15 +347,12 @@ namespace Jangine::Gfx
             if (node->GetId() == Node::Id{0})
                 continue;
 
-            const auto &descendants = node->GetDescendants();
-            if (!descendants.empty())
+            Node::Id descendant = node->GetDescendant();
+            while (descendant)
             {
                 Jangine::IO::Gltf::Model::Node &gltfNode = gltf.nodes[nodeToGltfNode.at(node->GetId())];
-                gltfNode.children.reserve(descendants.size());
-                for (const auto &childId : descendants)
-                {
-                    gltfNode.children.push_back(nodeToGltfNode.at(childId));
-                }
+                gltfNode.children.push_back(nodeToGltfNode.at(descendant));
+                descendant = scene.GetNode(descendant)->GetSibling();
             }
         }
 

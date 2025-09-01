@@ -131,13 +131,13 @@ namespace Jangine::Gfx
 
             scene.SetRelativeTransform(scene.GetWorld(), worldTransform);
 
-            // Jangine::IO::Gltf::Model exportModel{};
-            // Export(exportModel);
-            // Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
-            // if (exportStatus != Jangine::IO::Status::SUCCESS)
-            // {
-            //     logger.Error("Failed to export GLTF model.", __func__);
-            // }
+            //Jangine::IO::Gltf::Model exportModel{};
+            //Export(exportModel);
+            //Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
+            //if (exportStatus != Jangine::IO::Status::SUCCESS)
+            //{
+            //    logger.Error("Failed to export GLTF model.", __func__);
+            //}
         }
     }
 
@@ -160,14 +160,6 @@ namespace Jangine::Gfx
 
         if (initializeRender)
         {
-            logger.Debug(
-                std::format(
-                    "Initializing render buffers: antialiasingModeChanged: {}, renderSizeChanged: {}, surfaceFormatChanged: {}",
-                    antialiasingModeChanged,
-                    renderSizeChanged,
-                    surfaceFormatChanged),
-                __func__);
-
             renderBuffer = gfx->CreatePixelBuffer(
                 wantedDisplayParameters.renderWidth,
                 wantedDisplayParameters.renderHeight,
@@ -227,13 +219,6 @@ namespace Jangine::Gfx
 
         if (initializeDisplay)
         {
-            logger.Debug(
-                std::format(
-                    "Initializing display buffer: displaySizeChanged: {}, surfaceFormatChanged: {}",
-                    displaySizeChanged,
-                    surfaceFormatChanged),
-                __func__);
-
             displayBuffer = gfx->CreatePixelBuffer(
                 wantedDisplayParameters.displayWidth,
                 wantedDisplayParameters.displayHeight,
@@ -545,8 +530,8 @@ namespace Jangine::Gfx
 
             for (const auto &primitive : mesh->GetPrimitives())
             {
-                //if (primitive.materialHasTransparency)
-                //    continue;
+                // if (primitive.materialHasTransparency)
+                //     continue;
 
                 vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, !primitive.materialHasTransparency);
 

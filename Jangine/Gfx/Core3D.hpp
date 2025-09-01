@@ -83,20 +83,24 @@ namespace Jangine::Gfx
         const std::vector<MeshMaterial> materials;
     };
 
+    template <typename TNode>
+    struct Id
+    {
+        Id() : value(-1) {}
+        template <typename T>
+        Id(T t) : value(static_cast<int32_t>(t)) {}
+        int32_t value;
+        operator size_t() const { return static_cast<size_t>(value); }
+        operator bool_t() const { return value >= 0; }
+
+        bool operator==(const Id<TNode> &other) const { return value == other.value; }
+        bool operator!=(const Id<TNode> &other) const { return value != other.value; }
+    };
+
     /// @brief Mesh consisting of multiple primitives and a shared vertex/index buffer
     struct Mesh
     {
-        struct Id
-        {
-            Id() : value(-1) {}
-            explicit Id(int32_t value) : value(value) {}
-            int32_t value;
-            operator size_t() const { return static_cast<size_t>(value); }
-            bool_t has_value() const { return value != -1; }
-
-            bool operator==(const Id &other) const { return value == other.value; }
-            bool operator!=(const Id &other) const { return value != other.value; }
-        };
+        using Id = Jangine::Gfx::Id<Mesh>;
 
         explicit Mesh(Id id, SharedHandle<MeshBuffer> buffer, std::vector<MeshPrimitive> &&primitives)
             : id(id),
@@ -123,19 +127,9 @@ namespace Jangine::Gfx
     /// @brief Node in the scene graph
     struct Node
     {
+        using Id = Jangine::Gfx::Id<Node>;
+
         friend class Scene;
-
-        struct Id
-        {
-            Id() : value(-1) {}
-            template <typename T>
-            Id(T t) : value(static_cast<int32_t>(t)) {}
-            int32_t value;
-            operator size_t() const { return static_cast<size_t>(value); }
-
-            bool operator==(const Id &other) const { return value == other.value; }
-            bool operator!=(const Id &other) const { return value != other.value; }
-        };
 
         explicit Node(std::type_index type, Id id)
             : type(type),
@@ -160,7 +154,8 @@ namespace Jangine::Gfx
         /// @brief Get the relative transform of the node
         const Eigen::Isometry3f &GetRelativeTransform() const { return relativeTransform; }
 
-        const std::vector<Id> &GetDescendants() const { return descendants; }
+        Node::Id GetDescendant() const { return descendant; }
+        Node::Id GetSibling() const { return sibling; }
 
         Id GetId() const { return self; }
         std::type_index GetType() const { return type; }
@@ -169,9 +164,12 @@ namespace Jangine::Gfx
 
     private:
         std::type_index type;
+
         Id self;
         Id ancestor;
-        std::vector<Id> descendants;
+        Id sibling;
+        Id descendant;
+
         std::string name;
 
         Eigen::Isometry3f relativeTransform;
@@ -180,7 +178,7 @@ namespace Jangine::Gfx
 
     struct MeshNode : Node
     {
-        explicit MeshNode(std::type_index type, Id id)
+        explicit MeshNode(std::type_index type, Node::Id id)
             : Node(type, id),
               mesh(Mesh::Id{-1}) {}
         MeshNode &operator=(const MeshNode &) = delete;
@@ -192,6 +190,40 @@ namespace Jangine::Gfx
         void SetMeshId(Mesh::Id in_id) { mesh = in_id; }
 
         Mesh::Id mesh;
+    };
+
+    /// @brief Read-only copy of the scene graph
+    struct ReadOnlyScene
+    {
+        struct ReadOnlyNode
+        {
+            std::type_index type;
+
+            Node::Id self;
+            Node::Id descendant;
+            Node::Id sibling;
+
+            Eigen::Isometry3f relativeTransform;
+            Eigen::Isometry3f worldTransform;
+        };
+
+        std::vector<ReadOnlyNode> nodes;
+
+        void Print(std::function<void(std::string)> printFunc, const ReadOnlyNode *node = nullptr, int depth = 0) const
+        {
+            if (node == nullptr)
+                node = &nodes[0];
+            printFunc(std::format("{} {:03d} {}", std::string(depth * 2, ' '), node->self.value, ""));
+
+            if (node->descendant)
+            {
+                Print(printFunc, &nodes[node->descendant], depth + 1);
+            }
+            if (node->sibling)
+            {
+                Print(printFunc, &nodes[node->sibling], depth);
+            }
+        }
     };
 
     /// @brief Scene graph structure
@@ -219,7 +251,8 @@ namespace Jangine::Gfx
             }
             nodes.resize(1);
             meshes.clear();
-            nodes[0]->descendants.clear();
+            nodes[0]->descendant = Node::Id{-1};
+            nodes[0]->sibling = Node::Id{-1};
             nodes[0]->relativeTransform = Eigen::Isometry3f::Identity();
             nodes[0]->worldTransform = Eigen::Isometry3f::Identity();
         }
@@ -230,8 +263,7 @@ namespace Jangine::Gfx
             Node::Id id = static_cast<Node::Id>(nodes.size());
             T *node = new T(typeid(T), id);
             nodes.push_back(node);
-            node->ancestor = Node::Id{0}; // world
-            GetWorld()->descendants.push_back(node->self);
+            SetAncestor(node, Node::Id{0});
             return node;
         }
 
@@ -242,22 +274,57 @@ namespace Jangine::Gfx
             return id;
         }
 
-        void SetAncestor(Node *node, Node::Id ancestorId)
+        void SetAncestor(Node *node, Node::Id newAncestor)
         {
-            if (node->ancestor.value >= 0)
+            // Remove node from its current ancestor's child list
+            if (node->ancestor)
             {
-                auto &ancestor = nodes[node->ancestor.value];
-                ancestor->descendants.erase(std::remove(ancestor->descendants.begin(),
-                                                        ancestor->descendants.end(),
-                                                        node->self),
-                                            ancestor->descendants.end());
+                auto *oldAncestor = nodes[node->ancestor];
+                Node::Id prev = -1;
+                Node::Id curr = oldAncestor->descendant;
+                while (curr)
+                {
+                    if (curr == node->self)
+                    {
+                        if (!prev)
+                        {
+                            // Node is the first child
+                            oldAncestor->descendant = node->sibling;
+                        }
+                        else
+                        {
+                            nodes[prev]->sibling = node->sibling;
+                        }
+                        break;
+                    }
+                    prev = curr;
+                    curr = nodes[curr]->sibling;
+                }
             }
 
-            node->ancestor = ancestorId;
-            if (node->ancestor.value >= 0)
+            // Set new ancestor
+            node->ancestor = newAncestor;
+            node->sibling = -1;
+
+            // Append to new ancestor
+            if (node->ancestor)
             {
-                auto &ancestor = nodes[node->ancestor.value];
-                ancestor->descendants.push_back(node->self);
+                auto *pnewAncestor = nodes[node->ancestor];
+                // Insert node at the end of the new ancestor's child list
+                if (!pnewAncestor->descendant)
+                {
+                    pnewAncestor->descendant = node->self;
+                }
+                else
+                {
+                    Node::Id curr = pnewAncestor->descendant;
+                    while (nodes[curr]->sibling)
+                    {
+                        curr = nodes[curr]->sibling;
+                    }
+                    nodes[curr]->sibling = node->self;
+                }
+                node->sibling = -1;
             }
         }
 
@@ -269,10 +336,20 @@ namespace Jangine::Gfx
 
         /// @brief Get the root node of the scene
         Node *GetWorld() { return nodes[0]; }
+        /// @brief Get the root node of the scene
+        const Node *GetWorld() const { return nodes[0]; }
 
         /// @brief Get a node by its Node::Id
         /// @throws InvalidOperationException if the Node::Id is out of range
         Node *GetNode(Node::Id id)
+        {
+            ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(nodes.size()),
+                                    std::format("Node::Id({}) is out of range.", id.value));
+            return nodes[id];
+        }
+        /// @brief Get a node by its Node::Id
+        /// @throws InvalidOperationException if the Node::Id is out of range
+        const Node *GetNode(Node::Id id) const
         {
             ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(nodes.size()),
                                     std::format("Node::Id({}) is out of range.", id.value));
@@ -301,18 +378,48 @@ namespace Jangine::Gfx
         {
             node->ApplyTransform(parentTransform);
 
-            for (auto id : node->GetDescendants())
+            if (node->descendant)
             {
-                ApplyTransform(nodes[id.value], node->GetWorldTransform());
+                ApplyTransform(nodes[node->descendant.value], node->GetWorldTransform());
+            }
+            if (node->sibling)
+            {
+                ApplyTransform(nodes[node->sibling.value], parentTransform);
             }
         }
 
-        void Print(const Node *node, int depth = 0) const
+        void Print(std::function<void(std::string)> printFunc, const Node *node = nullptr, int depth = 0) const
         {
-            std::cout << std::format("{} {:03d} {}", std::string(depth * 2, ' '), node->GetId().value, node->GetName()) << std::endl;
-            for (auto childId : node->GetDescendants())
+            if (node == nullptr)
+                node = nodes[0];
+            printFunc(std::format("{} {:03d} {}", std::string(depth * 2, ' '), node->GetId().value, node->GetName()));
+
+            if (node->descendant)
             {
-                Print(nodes[childId.value], depth + 1);
+                Print(printFunc, nodes[node->descendant.value], depth + 1);
+            }
+            if (node->sibling)
+            {
+                Print(printFunc, nodes[node->sibling.value], depth);
+            }
+        }
+
+        void FillReadOnlyCopy(ReadOnlyScene &readOnlyScene) const
+        {
+            readOnlyScene.nodes.clear();
+            readOnlyScene.nodes.reserve(nodes.size());
+
+            for (const auto &node : nodes)
+            {
+                ReadOnlyScene::ReadOnlyNode readOnlyNode{
+                    .type = node->GetType(),
+                    .self = node->GetId(),
+                    .descendant = node->descendant,
+                    .sibling = node->sibling,
+                    .relativeTransform = node->GetRelativeTransform(),
+                    .worldTransform = node->GetWorldTransform()};
+
+                readOnlyScene.nodes.push_back(std::move(readOnlyNode));
             }
         }
 
@@ -444,19 +551,10 @@ namespace Jangine::Gfx
 
 namespace std
 {
-    template <>
-    struct hash<Jangine::Gfx::Mesh::Id>
+    template <typename T>
+    struct hash<Jangine::Gfx::Id<T>>
     {
-        std::size_t operator()(const Jangine::Gfx::Mesh::Id &id) const noexcept
-        {
-            return std::hash<int32_t>{}(id.value);
-        }
-    };
-
-    template <>
-    struct hash<Jangine::Gfx::Node::Id>
-    {
-        std::size_t operator()(const Jangine::Gfx::Node::Id &id) const noexcept
+        std::size_t operator()(const Jangine::Gfx::Id<T> &id) const noexcept
         {
             return std::hash<int32_t>{}(id.value);
         }
