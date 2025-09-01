@@ -116,9 +116,9 @@ namespace Jangine::Gfx
 
         Jangine::IO::Urdf::Model urdf = Jangine::IO::Urdf::Model{};
         Jangine::IO::Gltf::Model urdfGltf = Jangine::IO::Gltf::Model{};
-        Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/skytrack/model.urdf", urdf, urdfGltf, [](const std::string &msg)
+        Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/urdf_curated/skytrack/model.urdf", urdf, urdfGltf, [](const std::string &msg)
                                                                          { Jangine::Core::GetLogger("Gfx::Core3D").Warning(msg, "Urdf::LoadFromFile"); });
-        // Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/wcr_concept/urdf/process_center_vrwp_c/model.urdf", urdf, urdfGltf, [](const std::string &msg)
+        // Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/urdf_curated/process_center_vrwp_c/model.urdf", urdf, urdfGltf, [](const std::string &msg)
         //                                                                  { Jangine::Core::GetLogger("Gfx::Core3D").Warning(msg, "Urdf::LoadFromFile"); });
         if (urdfStatus == Jangine::IO::Status::SUCCESS)
         {
