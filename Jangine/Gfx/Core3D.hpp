@@ -83,13 +83,17 @@ namespace Jangine::Gfx
         const std::vector<MeshMaterial> materials;
     };
 
-    template <typename TNode>
+    template<typename TNode>
     struct Id
     {
-        Id() : value(-1) {}
-        template <typename T>
-        Id(T t) : value(static_cast<int32_t>(t)) {}
-        int32_t value;
+        using value_type = int32_t;
+
+        value_type value;
+
+        explicit Id() : value(-1) {}
+        explicit Id(value_type v) : value(v) {}
+        explicit Id(size_t v) : value(static_cast<value_type>(v)) {}
+
         operator size_t() const { return static_cast<size_t>(value); }
         operator bool_t() const { return value >= 0; }
 
@@ -126,8 +130,9 @@ namespace Jangine::Gfx
 
     /// @brief Node in the scene graph
     struct Node
-    {
+    {        
         using Id = Jangine::Gfx::Id<Node>;
+        using Ptr = Node *;
 
         friend class Scene;
 
@@ -159,8 +164,6 @@ namespace Jangine::Gfx
 
         Id GetId() const { return self; }
         std::type_index GetType() const { return type; }
-        std::string_view GetName() const { return name; }
-        void SetName(std::string_view in_name) { name = in_name; }
 
     private:
         std::type_index type;
@@ -169,8 +172,6 @@ namespace Jangine::Gfx
         Id ancestor;
         Id sibling;
         Id descendant;
-
-        std::string name;
 
         Eigen::Isometry3f relativeTransform;
         Eigen::Isometry3f worldTransform;
@@ -229,12 +230,16 @@ namespace Jangine::Gfx
     /// @brief Scene graph structure
     class Scene
     {
+        struct NodeData
+        {
+            std::string name;
+        };
+
     public:
         Scene()
         {
-            Node *world = new Node(typeid(Node), Node::Id{0});
-            world->SetName("World");
-            nodes.push_back(world);
+            nodes.push_back(new Node(typeid(Node), Node::Id{0}));
+            SetName(Node::Id{0}, "World");
         }
 
         ~Scene() = default;
@@ -260,7 +265,7 @@ namespace Jangine::Gfx
         template <DerivedFrom<Node> T>
         T *CreateNode()
         {
-            Node::Id id = static_cast<Node::Id>(nodes.size());
+            Node::Id id = Node::Id{nodes.size()};
             T *node = new T(typeid(T), id);
             nodes.push_back(node);
             SetAncestor(node, Node::Id{0});
@@ -280,7 +285,7 @@ namespace Jangine::Gfx
             if (node->ancestor)
             {
                 auto *oldAncestor = nodes[node->ancestor];
-                Node::Id prev = -1;
+                Node::Id prev = Node::Id{-1};
                 Node::Id curr = oldAncestor->descendant;
                 while (curr)
                 {
@@ -304,7 +309,7 @@ namespace Jangine::Gfx
 
             // Set new ancestor
             node->ancestor = newAncestor;
-            node->sibling = -1;
+            node->sibling = Node::Id{-1};
 
             // Append to new ancestor
             if (node->ancestor)
@@ -324,15 +329,28 @@ namespace Jangine::Gfx
                     }
                     nodes[curr]->sibling = node->self;
                 }
-                node->sibling = -1;
+                node->sibling = Node::Id{-1};
             }
         }
 
         /// @brief Set the relative transform of the node
         void SetRelativeTransform(Node *node, const Eigen::Isometry3f &transform) { node->relativeTransform = transform; }
 
+        /// @brief Get the name of the node, or std::nullopt if it has no name
+        /// @note This is thread-safe
+        std::optional<std::string> GetName(Node::Id id)
+        {
+            std::scoped_lock lock(nodeDataStorageLock);
+            return nodeDataStorage.contains(id.value) ? std::optional(nodeDataStorage.at(id.value).name) : std::nullopt;
+        }
+
         /// @brief Set the name of the node
-        void SetName(Node *node, std::string_view in_name) { node->SetName(in_name); }
+        /// @note This is thread-safe
+        void SetName(Node::Id id, std::string in_name)
+        {
+            std::scoped_lock lock(nodeDataStorageLock);
+            nodeDataStorage[id.value].name = in_name;
+        }
 
         /// @brief Get the root node of the scene
         Node *GetWorld() { return nodes[0]; }
@@ -365,7 +383,7 @@ namespace Jangine::Gfx
             return &meshes[id.value];
         }
 
-        const std::vector<Node *> &GetNodes() const { return nodes; }
+        const std::vector<Node::Ptr> &GetNodes() const { return nodes; }
         const std::vector<Mesh> &GetMeshes() const { return meshes; }
 
         void Update()
@@ -388,11 +406,12 @@ namespace Jangine::Gfx
             }
         }
 
-        void Print(std::function<void(std::string)> printFunc, const Node *node = nullptr, int depth = 0) const
+        void Print(std::function<void(std::string)> printFunc, Node::Ptr node = nullptr, int depth = 0)
         {
             if (node == nullptr)
                 node = nodes[0];
-            printFunc(std::format("{} {:03d} {}", std::string(depth * 2, ' '), node->GetId().value, node->GetName()));
+
+            printFunc(std::format("{} {:03d} {}", std::string(depth * 2, ' '), node->GetId().value, GetName(node->GetId()).value_or("")));
 
             if (node->descendant)
             {
@@ -424,7 +443,10 @@ namespace Jangine::Gfx
         }
 
     private:
-        std::vector<Node *> nodes;
+        SpinLock nodeDataStorageLock;
+        std::unordered_map<Node::Id::value_type, NodeData> nodeDataStorage;
+
+        std::vector<Node::Ptr> nodes;
         std::vector<Mesh> meshes;
     };
 
@@ -510,7 +532,7 @@ namespace Jangine::Gfx
 
         void Clear();
         void Import(const Jangine::IO::Gltf::Model &gltf);
-        void Export(Jangine::IO::Gltf::Model &gltf) const;
+        void Export(Jangine::IO::Gltf::Model &gltf);
 
     private:
         Core *gfx;
@@ -546,17 +568,5 @@ namespace Jangine::Gfx
         Scene scene;
 
         const Logging::Logger &logger;
-    };
-}
-
-namespace std
-{
-    template <typename T>
-    struct hash<Jangine::Gfx::Id<T>>
-    {
-        std::size_t operator()(const Jangine::Gfx::Id<T> &id) const noexcept
-        {
-            return std::hash<int32_t>{}(id.value);
-        }
     };
 }

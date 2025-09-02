@@ -210,7 +210,7 @@ namespace Jangine::Gfx
         std::function<void(size_t, Node::Id)> importNode = [&](size_t gltfNodeIndex, Node::Id parentId)
         {
             const auto &gltfNode = gltf.nodes[gltfNodeIndex];
-            Node *node;
+            Node::Ptr node;
 
             if (gltfNode.mesh >= 0)
             {
@@ -225,7 +225,7 @@ namespace Jangine::Gfx
             }
 
             scene.SetRelativeTransform(node, gltfNode.transform);
-            scene.SetName(node, gltfNode.name);
+            scene.SetName(node->GetId(), gltfNode.name);
             scene.SetAncestor(node, parentId);
 
             for (auto childGltfNodeId : gltfNode.children)
@@ -252,12 +252,12 @@ namespace Jangine::Gfx
                    { logger.Error(output); });
     }
 
-    void Core3D::Export(Jangine::IO::Gltf::Model &gltf) const
+    void Core3D::Export(Jangine::IO::Gltf::Model &gltf)
     {
         (void)gltf;
 
-        std::unordered_map<Mesh::Id, Jangine::IO::Gltf::Model::MeshIndex> meshToGltfMesh;
-        std::unordered_map<Node::Id, Jangine::IO::Gltf::Model::NodeIndex> nodeToGltfNode;
+        std::unordered_map<Mesh::Id::value_type, Jangine::IO::Gltf::Model::MeshIndex> meshToGltfMesh;
+        std::unordered_map<Node::Id::value_type, Jangine::IO::Gltf::Model::NodeIndex> nodeToGltfNode;
         std::vector<Jangine::IO::Gltf::Model::Mesh::Primitive> gltfPrimitives;
 
         for (const auto &mesh : scene.GetMeshes())
@@ -327,7 +327,7 @@ namespace Jangine::Gfx
                 continue;
 
             Jangine::IO::Gltf::Model::Node gltfNode;
-            gltfNode.name = node->GetName();
+            gltfNode.name = scene.GetName(node->GetId()).value_or(std::format("Node_{:03d}", node->GetId().value));
             gltfNode.transform = node->GetRelativeTransform();
 
             if (node->GetType() == typeid(MeshNode))
