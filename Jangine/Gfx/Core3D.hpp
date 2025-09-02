@@ -18,41 +18,33 @@ namespace Jangine::Logging
 
 namespace Jangine::Gfx
 {
-    struct MeshVertex
-    {
-        Eigen::Vector3f position;
-        Eigen::Vector3f normal;
-        Eigen::Vector2f uv;
-    };
-
-    struct MeshMaterial
-    {
-        using Id = uint32_t;
-
-        Eigen::Vector4f base;
-        float_t metalness;
-        float_t roughness;
-    };
-
-    struct MeshPrimitive
-    {
-        uint32_t indexOffset;
-        uint32_t indexCount;
-        uint32_t vertexOffset;
-        uint32_t vertexCount;
-        MeshMaterial::Id materialIndex;
-        bool_t materialHasTransparency;
-    };
-
     /// @brief Vertex, index, and material buffer for one or more meshes
     struct MeshBuffer
     {
+        struct Vertex
+        {
+            Eigen::Vector3f position;
+            Eigen::Vector3f normal;
+            Eigen::Vector2f uv;
+        };
+
+        using Index = uint32_t;
+
+        struct Material
+        {
+            using Id = uint32_t;
+
+            Eigen::Vector4f base;
+            float_t metalness;
+            float_t roughness;
+        };
+
         MeshBuffer(Handle<MemoryBuffer> &&vertexBuffer,
                    Handle<MemoryBuffer> &&indexBuffer,
                    Handle<MemoryBuffer> &&materialBuffer,
-                   std::vector<MeshVertex> &&vertices,
-                   std::vector<uint32_t> &&indices,
-                   std::vector<MeshMaterial> &&materials)
+                   std::vector<Vertex> &&vertices,
+                   std::vector<Index> &&indices,
+                   std::vector<Material> &&materials)
             : vertexBuffer(std::move(vertexBuffer)),
               indexBuffer(std::move(indexBuffer)),
               materialBuffer(std::move(materialBuffer)),
@@ -69,18 +61,18 @@ namespace Jangine::Gfx
         const MemoryBuffer *GetIndexBuffer() const { return indexBuffer.get(); }
         const MemoryBuffer *GetMaterialBuffer() const { return materialBuffer.get(); }
 
-        const std::vector<MeshVertex> &GetVertices() const { return vertices; }
-        const std::vector<uint32_t> &GetIndices() const { return indices; }
-        const std::vector<MeshMaterial> &GetMaterials() const { return materials; }
+        const std::vector<Vertex> &GetVertices() const { return vertices; }
+        const std::vector<Index> &GetIndices() const { return indices; }
+        const std::vector<Material> &GetMaterials() const { return materials; }
 
     private:
         Handle<MemoryBuffer> vertexBuffer;
         Handle<MemoryBuffer> indexBuffer;
         Handle<MemoryBuffer> materialBuffer;
 
-        const std::vector<MeshVertex> vertices;
-        const std::vector<uint32_t> indices;
-        const std::vector<MeshMaterial> materials;
+        const std::vector<Vertex> vertices;
+        const std::vector<Index> indices;
+        const std::vector<Material> materials;
     };
 
     template <typename TNode>
@@ -104,10 +96,20 @@ namespace Jangine::Gfx
     /// @brief Mesh consisting of multiple primitives and a shared vertex/index buffer
     struct Mesh
     {
+        struct Primitive
+        {
+            uint32_t indexOffset;
+            uint32_t indexCount;
+            uint32_t vertexOffset;
+            uint32_t vertexCount;
+            MeshBuffer::Material::Id materialIndex;
+            bool_t materialHasTransparency;
+        };
+
         using Id = Jangine::Gfx::Id<Mesh>;
 
         explicit Mesh() : Mesh(Id{-1}, nullptr, {}) {}
-        explicit Mesh(Id id, SharedHandle<MeshBuffer> buffer, std::vector<MeshPrimitive> &&primitives)
+        explicit Mesh(Id id, SharedHandle<MeshBuffer> buffer, std::vector<Primitive> &&primitives)
             : id(id),
               buffer(buffer),
               primitives(std::move(primitives))
@@ -120,13 +122,13 @@ namespace Jangine::Gfx
         Mesh(Mesh &&from) = default;
 
         const MeshBuffer *GetBuffer() const { return buffer.get(); }
-        const std::vector<MeshPrimitive> &GetPrimitives() const { return primitives; }
+        const std::vector<Primitive> &GetPrimitives() const { return primitives; }
         Id GetId() const { return id; }
 
     private:
         Id id;
         SharedHandle<MeshBuffer> buffer;
-        std::vector<MeshPrimitive> primitives;
+        std::vector<Primitive> primitives;
     };
 
     /// @brief Node in the scene graph
@@ -275,7 +277,7 @@ namespace Jangine::Gfx
             return nodes.back();
         }
 
-        Mesh::Id CreateMesh(SharedHandle<MeshBuffer> buffer, std::vector<MeshPrimitive> &&primitives)
+        Mesh::Id CreateMesh(SharedHandle<MeshBuffer> buffer, std::vector<Mesh::Primitive> &&primitives)
         {
             Mesh::Id id{static_cast<int32_t>(meshes.size())};
             meshes.emplace_back(id, std::move(buffer), std::move(primitives));

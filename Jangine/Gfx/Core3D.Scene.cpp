@@ -7,7 +7,7 @@ namespace Jangine::Gfx
         PrimordialMesh() = default;
 
         std::string name;
-        std::vector<MeshPrimitive> primitives;
+        std::vector<Mesh::Primitive> primitives;
 
         PrimordialMesh &operator=(const PrimordialMesh &) = delete;
         PrimordialMesh(const PrimordialMesh &) = delete;
@@ -22,14 +22,14 @@ namespace Jangine::Gfx
 
     void Core3D::Import(const Jangine::IO::Gltf::Model &gltf)
     {
-        std::vector<MeshVertex> vertices;
+        std::vector<MeshBuffer::Vertex> vertices;
         std::vector<uint32_t> indices;
-        std::vector<MeshMaterial> materials;
+        std::vector<MeshBuffer::Material> materials;
         materials.reserve(gltf.materials.size());
 
         for (const auto &gltfMaterial : gltf.materials)
         {
-            MeshMaterial material;
+            MeshBuffer::Material material;
             material.base = Eigen::Vector4f(
                 gltfMaterial.pbrMetallicRoughness.baseColorFactor[0],
                 gltfMaterial.pbrMetallicRoughness.baseColorFactor[1],
@@ -42,7 +42,7 @@ namespace Jangine::Gfx
 
         if (materials.empty())
         {
-            materials.push_back(MeshMaterial{Eigen::Vector4f(1, 1, 1, 1), 0.0f, 0.5f});
+            materials.push_back(MeshBuffer::Material{Eigen::Vector4f(1, 1, 1, 1), 0.0f, 0.5f});
         }
 
         std::vector<PrimordialMesh> primordialMeshes;
@@ -113,7 +113,7 @@ namespace Jangine::Gfx
 
                 for (size_t i = 0; i < positionAccessor.count; i++)
                 {
-                    MeshVertex vertex;
+                    MeshBuffer::Vertex vertex;
                     vertex.position = readPosition(i);
                     vertex.normal = hasNormals ? readNormal(i) : Eigen::Vector3f(0, 0, 1);
                     vertex.uv = hasUVs ? readUV(i) : Eigen::Vector2f(0, 0);
@@ -159,12 +159,12 @@ namespace Jangine::Gfx
                     }
                 }
 
-                MeshPrimitive primitive;
+                Mesh::Primitive primitive;
                 primitive.indexOffset = static_cast<uint32_t>(primitiveIndexOffset);
                 primitive.indexCount = static_cast<uint32_t>(indexCount);
                 primitive.vertexOffset = static_cast<uint32_t>(primitiveVertexOffset);
                 primitive.vertexCount = static_cast<uint32_t>(vertexCount);
-                primitive.materialIndex = static_cast<MeshMaterial::Id>(std::clamp(gltfPrimitive.material, 0u, static_cast<uint32_t>(materials.size() - 1)));
+                primitive.materialIndex = static_cast<MeshBuffer::Material::Id>(std::clamp(gltfPrimitive.material, 0u, static_cast<uint32_t>(materials.size() - 1)));
                 primitive.materialHasTransparency = materials[primitive.materialIndex].base[3] < 1.0f;
 
                 primordialMesh.primitives.push_back(primitive);
@@ -174,19 +174,19 @@ namespace Jangine::Gfx
         }
 
         auto _vertexBuffer = gfx->CreateMemoryBuffer(
-            vertices.size() * sizeof(MeshVertex),
+            vertices.size() * sizeof(MeshBuffer::Vertex),
             MemoryBufferUsage::Vertex | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
         gfx->StageToMemoryBuffer(_vertexBuffer.get(), Span(vertices));
 
         auto _indexBuffer = gfx->CreateMemoryBuffer(
-            indices.size() * sizeof(uint32_t),
+            indices.size() * sizeof(MeshBuffer::Index),
             MemoryBufferUsage::Index | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
         gfx->StageToMemoryBuffer(_indexBuffer.get(), Span(indices));
 
         auto _materialBuffer = gfx->CreateMemoryBuffer(
-            materials.size() * sizeof(MeshMaterial),
+            materials.size() * sizeof(MeshBuffer::Material),
             MemoryBufferUsage::Storage | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
         gfx->StageToMemoryBuffer(_materialBuffer.get(), Span(materials));
@@ -281,7 +281,7 @@ namespace Jangine::Gfx
                 std::vector<Eigen::Vector2f> uvs(primitive.vertexCount);
                 for (size_t i = 0; i < primitive.vertexCount; ++i)
                 {
-                    const MeshVertex &v = vertices[primitive.vertexOffset + i];
+                    const MeshBuffer::Vertex &v = vertices[primitive.vertexOffset + i];
                     positions[i] = v.position;
                     normals[i] = v.normal;
                     uvs[i] = v.uv;
