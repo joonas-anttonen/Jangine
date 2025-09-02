@@ -322,6 +322,8 @@ namespace Jangine::Gfx
 
             blurSampler = gfx->CreatePixelSampler(samplerParams);
         }
+
+        isReady = true;
     }
 
     void Core2D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)

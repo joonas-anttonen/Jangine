@@ -77,7 +77,7 @@ namespace Jangine::Gfx
 
         bool_t IsReady() const
         {
-            return backBuffer != nullptr;
+            return isReady;
         }
 
         SharedHandle<PixelBuffer> GetAcrylicBuffer() const
@@ -146,6 +146,8 @@ namespace Jangine::Gfx
         SpinLock commandBufferQueueLock;
         std::queue<CommandBuffer2D *> commandBufferQueue;
         CommandBuffer2D *currentCommandBuffer = nullptr;
+
+        bool_t isReady{false};
 
         const Logging::Logger &logger;
     };
