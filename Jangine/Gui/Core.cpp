@@ -522,7 +522,7 @@ namespace Jangine::Gui
         viewport = scene.CreateNode<GuiNode>();
         viewport->SetName("3D Viewport");
         viewport->gridCoordinates = {0, 0, 1, 1};
-        //scene.SetAncestor(viewport, grid);
+        // scene.SetAncestor(viewport, grid);
 
         auto acrylic = scene.CreateNode<AcrylicPanel>();
         acrylic->SetName("AcrylicPanel");
@@ -535,6 +535,10 @@ namespace Jangine::Gui
         // --------------------- TESTING
     }
 
+    Gfx::Scene::View sceneView;
+
+    std::string hierarchy;
+
     void Core::Render(double_t absoluteTime, float_t deltaTime)
     {
         (void)absoluteTime; // Avoid unused parameter warning
@@ -545,10 +549,23 @@ namespace Jangine::Gui
         scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
         gfx->UnsafeSetViewport(viewport->bounds);
 
-        Gfx::Core2D *gfx2D = gfx->GetCore2D();
+        Gfx::Core3D &core3D = gfx->GetCore3D();
+
+        core3D.GetScene().GetView(sceneView);
+        if (hierarchy.empty())
+        {
+            sceneView.Traverse([&](const Gfx::Scene::View::Node &node, int depth)
+                               { hierarchy += std::format("{} {:03d} {}\n", std::string(depth * 2, ' '), node.self.value, core3D.GetScene().GetName(node.self).value_or("NO_NAME")); });
+        }
+
+        auto rot = Eigen::AngleAxisf(static_cast<float_t>(0), Eigen::Vector3f::UnitY());
+        auto rotTf = rot * Eigen::Isometry3f{Eigen::Translation3f(0.0f, 0.0f, 0.0f)};
+        core3D.GetScene().PostTransformCommand(Gfx::Node::Id{1}, rotTf);
+
+        Gfx::Core2D &gfx2D = gfx->GetCore2D();
         Gfx::CommandBuffer2D *commandBuffer = nullptr;
 
-        bool_t acquiredCommandBuffer = gfx2D->TryAcquireCommandBuffer(&commandBuffer);
+        bool_t acquiredCommandBuffer = gfx2D.TryAcquireCommandBuffer(&commandBuffer);
         if (!acquiredCommandBuffer)
         {
             // logger.Warning("Failed to acquire command buffer", __func__);
@@ -565,16 +582,27 @@ namespace Jangine::Gui
             static Gfx::Text::Layout statusTextLayout;
 
             // Update with absolute time and delta time
-            statusText = std::format("Absolute Time: {:.2f}s, Delta Time: {:.2f}s", absoluteTime, deltaTime);
-            gfx2D->GetDefaultShaper()->CalculateTextLayout(statusText, 1.f, windowSize, true, statusTextLayout);
+            static int i = 11;
+            i = i % sceneView.nodes.size();
+            auto tf = sceneView.nodes[i].worldTransform;
+            auto euler = tf.rotation().canonicalEulerAngles(0, 1, 2);
+            statusText = std::format(
+                "Absolute Time: {:.2f}s, Delta Time: {:.2f}s\nX: {:.2f} Y: {:.2f} Z: {:.2f}\n{}",
+                absoluteTime,
+                deltaTime,
+                Math::rad_to_deg(euler.x()),
+                Math::rad_to_deg(euler.y()),
+                Math::rad_to_deg(euler.z()),
+                hierarchy);
+            gfx2D.GetDefaultShaper()->CalculateTextLayout(statusText, 1.f, windowSize, true, statusTextLayout);
 
             Eigen::Vector2f statusTextMargin = Eigen::Vector2f(2.f, 2.f);
             Eigen::Vector2f statusTextPosition = Eigen::Vector2f(sizeOfFrame.x() + statusTextMargin.x(), sizeOfFrame.y() + statusTextMargin.y());
 
-            if (gfx2D->IsReady())
+            if (gfx2D.IsReady())
             {
                 commandBuffer->DrawImage(
-                    gfx2D->GetAcrylicBuffer(),
+                    gfx2D.GetAcrylicBuffer(),
                     Eigen::Vector2f(sizeOfFrame.x(), sizeOfFrame.y()),
                     Eigen::Vector2f(statusTextLayout.size.x() + statusTextMargin.x() * 2, statusTextLayout.size.y() + statusTextMargin.y() * 2),
                     Gfx::ImageFit::None,
@@ -583,11 +611,11 @@ namespace Jangine::Gui
 
             commandBuffer->DrawText(statusTextLayout, statusTextPosition, Color{1.f, 1.f, 1.f, 1.f});
 
-            scene.Render(gfx2D, commandBuffer);
+            scene.Render(&gfx2D, commandBuffer);
 
             commandBuffer->EndBatch();
         }
-        gfx2D->SubmitCommandBuffer(commandBuffer);
+        gfx2D.SubmitCommandBuffer(commandBuffer);
     }
 
     Gfx::Surface Core::GetSurface(void_t *surfaceCreationHandle) const

@@ -122,14 +122,14 @@ namespace Jangine::Gfx
             return nullptr;
         }
 
-        Core2D *GetCore2D() const
+        Core2D &GetCore2D() const
         {
-            return core2D;
+            return *core2D;
         }
 
-        Core3D *GetCore3D() const
+        Core3D &GetCore3D() const
         {
-            return core3D;
+            return *core3D;
         }
 
         auto ApplyUserInput(UserInput::Event &event)

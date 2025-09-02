@@ -131,24 +131,24 @@ namespace Jangine::Gfx
 
             scene.SetRelativeTransform(scene.GetWorld().GetId(), worldTransform);
 
-            //Jangine::IO::Gltf::Model exportModel{};
-            //Export(exportModel);
-            //Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
-            //if (exportStatus != Jangine::IO::Status::SUCCESS)
+            // Jangine::IO::Gltf::Model exportModel{};
+            // Export(exportModel);
+            // Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
+            // if (exportStatus != Jangine::IO::Status::SUCCESS)
             //{
-            //    logger.Error("Failed to export GLTF model.", __func__);
-            //}
-//
-            //scene.Clear();
-//
-            //Jangine::IO::Gltf::Model readbackModel{};
-            //Jangine::IO::Status readbackStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/urdf_export.glb", readbackModel);
-            //if (readbackStatus != Jangine::IO::Status::SUCCESS)
+            //     logger.Error("Failed to export GLTF model.", __func__);
+            // }
+            //
+            // scene.Clear();
+            //
+            // Jangine::IO::Gltf::Model readbackModel{};
+            // Jangine::IO::Status readbackStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/urdf_export.glb", readbackModel);
+            // if (readbackStatus != Jangine::IO::Status::SUCCESS)
             //{
             //    logger.Error("Failed to read back exported GLTF model.", __func__);
             //}
-//
-            //Import(readbackModel);
+            //
+            // Import(readbackModel);
         }
     }
 
@@ -442,30 +442,30 @@ namespace Jangine::Gfx
         CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
 
         gfx.PixelBufferBarrier(commandBuffer,
-                                renderBuffer.get(),
-                                ImageLayout::UNDEFINED,
-                                ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+                               renderBuffer.get(),
+                               ImageLayout::UNDEFINED,
+                               ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
         gfx.PixelBufferBarrier(commandBuffer,
-                                depthBuffer.get(),
-                                ImageLayout::UNDEFINED,
-                                ImageLayout::DEPTH_ATTACHMENT_OPTIMAL);
+                               depthBuffer.get(),
+                               ImageLayout::UNDEFINED,
+                               ImageLayout::DEPTH_ATTACHMENT_OPTIMAL);
 
         gfx.PixelBufferBarrier(commandBuffer,
-                                motionBuffer.get(),
-                                ImageLayout::UNDEFINED,
-                                ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+                               motionBuffer.get(),
+                               ImageLayout::UNDEFINED,
+                               ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
         // --------------------- OIT
         gfx.PixelBufferBarrier(commandBuffer,
-                                oitNodeHeadBuffer.get(),
-                                ImageLayout::UNDEFINED,
-                                ImageLayout::GENERAL);
+                               oitNodeHeadBuffer.get(),
+                               ImageLayout::UNDEFINED,
+                               ImageLayout::GENERAL);
 
         gfx.ClearPixelBuffer(commandBuffer,
-                              oitNodeHeadBuffer.get(),
-                              0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-                              ImageLayout::GENERAL);
+                             oitNodeHeadBuffer.get(),
+                             0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
+                             ImageLayout::GENERAL);
 
         gfx.FillBuffer(commandBuffer, oitDataBuffer.get(), 0, 0, sizeof(uint32_t));
 
@@ -654,9 +654,9 @@ namespace Jangine::Gfx
         vkCmdEndRendering(commandBuffer.vulkanHandle);
 
         gfx.PixelBufferBarrier(commandBuffer,
-                                depthBuffer.get(),
-                                ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
-                                ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+                               depthBuffer.get(),
+                               ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
+                               ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
         // --------------------- OIT
 #if 1
@@ -750,19 +750,19 @@ namespace Jangine::Gfx
         // render -> display
         {
             gfx.PixelBufferBarrier(commandBuffer,
-                                    displayBuffer.get(),
-                                    ImageLayout::UNDEFINED,
-                                    ImageLayout::TRANSFER_DST_OPTIMAL);
+                                   displayBuffer.get(),
+                                   ImageLayout::UNDEFINED,
+                                   ImageLayout::TRANSFER_DST_OPTIMAL);
             gfx.PixelBufferBarrier(commandBuffer,
-                                    renderBuffer.get(),
-                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                                    ImageLayout::TRANSFER_SRC_OPTIMAL);
+                                   renderBuffer.get(),
+                                   ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                                   ImageLayout::TRANSFER_SRC_OPTIMAL);
             gfx.BlitPixelBuffer(commandBuffer,
-                                 renderBuffer.get(),
-                                 displayBuffer.get(),
-                                 BlitFilter::LINEAR,
-                                 ImageLayout::TRANSFER_SRC_OPTIMAL,
-                                 ImageLayout::TRANSFER_DST_OPTIMAL);
+                                renderBuffer.get(),
+                                displayBuffer.get(),
+                                BlitFilter::LINEAR,
+                                ImageLayout::TRANSFER_SRC_OPTIMAL,
+                                ImageLayout::TRANSFER_DST_OPTIMAL);
         }
 
         // display -> presentation
@@ -770,9 +770,9 @@ namespace Jangine::Gfx
             Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
 
             gfx.PixelBufferBarrier(commandBuffer,
-                                    displayBuffer.get(),
-                                    ImageLayout::TRANSFER_DST_OPTIMAL,
-                                    ImageLayout::TRANSFER_SRC_OPTIMAL);
+                                   displayBuffer.get(),
+                                   ImageLayout::TRANSFER_DST_OPTIMAL,
+                                   ImageLayout::TRANSFER_SRC_OPTIMAL);
 
             VkImageBlit blitRegion{
                 .srcSubresource = {

@@ -98,7 +98,8 @@
         "expected": "cpp",
         "*.inc": "cpp",
         "*.rh": "cpp",
-        "geometry": "cpp"
+        "geometry": "cpp",
+        "variant": "cpp"
     },
     "C_Cpp.default.compileCommands": "j:\\projects\\Jangine\\builddir/compile_commands.json"
 }

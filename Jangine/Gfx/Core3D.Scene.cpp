@@ -248,8 +248,8 @@ namespace Jangine::Gfx
         scene.Print([&](std::string output)
                     { logger.Warning(output); });
 
-        ReadOnlyScene copy;
-        scene.FillReadOnlyCopy(copy);
+        Scene::View copy;
+        scene.GetView(copy);
 
         copy.Print([&](std::string output)
                    { logger.Error(output); });

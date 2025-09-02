@@ -186,49 +186,102 @@ namespace Jangine::Gfx
         UserData userData;
     };
 
-    /// @brief Read-only copy of the scene graph
-    struct ReadOnlyScene
-    {
-        struct ReadOnlyNode
-        {
-            Node::Id self;
-            Node::Id descendant;
-            Node::Id sibling;
-
-            Eigen::Isometry3f relativeTransform;
-            Eigen::Isometry3f worldTransform;
-
-            Node::UserData userData;
-        };
-
-        std::vector<ReadOnlyNode> nodes;
-
-        void Print(std::function<void(std::string)> printFunc, const ReadOnlyNode *node = nullptr, int depth = 0) const
-        {
-            if (node == nullptr)
-                node = &nodes[0];
-            printFunc(std::format("{} {:03d} {}", std::string(depth * 2, ' '), node->self.value, ""));
-
-            if (node->descendant)
-            {
-                Print(printFunc, &nodes[node->descendant], depth + 1);
-            }
-            if (node->sibling)
-            {
-                Print(printFunc, &nodes[node->sibling], depth);
-            }
-        }
-    };
-
     /// @brief Scene graph structure
     class Scene
     {
+        struct TransformCommand
+        {
+            Node::Id nodeId;
+            Eigen::Isometry3f newRelativeTransform;
+        };
+
         struct NodeData
         {
             std::string name;
         };
 
     public:
+        /// @brief Lightweight copy of the scene graph
+        struct View
+        {
+            struct Node
+            {
+                Jangine::Gfx::Node::Id self;
+                Jangine::Gfx::Node::Id descendant;
+                Jangine::Gfx::Node::Id sibling;
+
+                Eigen::Isometry3f relativeTransform;
+                Eigen::Isometry3f worldTransform;
+
+                Jangine::Gfx::Node::UserData userData;
+            };
+
+            std::vector<Node> nodes;
+
+            void Traverse(std::function<void(const Node &, int depth)> func, const Node *node = nullptr, int depth = 0) const
+            {
+                if (node == nullptr)
+                    node = &nodes[0];
+
+                func(*node, depth);
+
+                if (node->descendant)
+                {
+                    Traverse(func, &nodes[node->descendant], depth + 1);
+                }
+                if (node->sibling)
+                {
+                    Traverse(func, &nodes[node->sibling], depth);
+                }
+            }
+
+            void Print(std::function<void(std::string)> printFunc, const Node *node = nullptr, int depth = 0) const
+            {
+                if (node == nullptr)
+                    node = &nodes[0];
+                printFunc(std::format("{} {:03d} {}", std::string(depth * 2, ' '), node->self.value, ""));
+
+                if (node->descendant)
+                {
+                    Print(printFunc, &nodes[node->descendant], depth + 1);
+                }
+                if (node->sibling)
+                {
+                    Print(printFunc, &nodes[node->sibling], depth);
+                }
+            }
+        };
+
+    public:
+        View GetView(View &view)
+        {
+            std::scoped_lock lock(viewLock);
+
+            view.nodes.clear();
+            view.nodes.reserve(nodes.size());
+
+            for (const auto &node : nodes)
+            {
+                View::Node readOnlyNode{
+                    .self = node.GetId(),
+                    .descendant = node.descendant,
+                    .sibling = node.sibling,
+                    .relativeTransform = node.GetRelativeTransform(),
+                    .worldTransform = node.GetWorldTransform(),
+                    .userData = node.GetUserData()};
+
+                view.nodes.push_back(std::move(readOnlyNode));
+            }
+
+            return view;
+        }
+
+        void PostTransformCommand(Node::Id id, const Eigen::Isometry3f &newRelativeTransform)
+        {
+            std::scoped_lock lock(commandQueueLock);
+            commandQueue.push(TransformCommand{id, newRelativeTransform});
+        }
+
         Scene()
         {
             nodes.emplace_back(Node::Id{0});
@@ -402,9 +455,26 @@ namespace Jangine::Gfx
         const std::vector<Node> &GetNodes() const { return nodes; }
         const std::vector<Mesh> &GetMeshes() const { return meshes; }
 
-        /// @brief 
+        /// @brief
         void Update()
         {
+            std::scoped_lock vlock(viewLock);
+
+            // Process command queue
+            {
+                std::scoped_lock cqlock(commandQueueLock);
+                while (!commandQueue.empty())
+                {
+                    auto command = commandQueue.front();
+                    commandQueue.pop();
+                    if (auto *transformCommand = std::get_if<TransformCommand>(&command))
+                    {
+                        SetRelativeTransform(transformCommand->nodeId, transformCommand->newRelativeTransform);
+                    }
+                }
+            }
+
+            // Compose final state
             ApplyTransform(GetWorld(), Eigen::Isometry3f::Identity());
         }
 
@@ -441,26 +511,12 @@ namespace Jangine::Gfx
             }
         }
 
-        void FillReadOnlyCopy(ReadOnlyScene &readOnlyScene) const
-        {
-            readOnlyScene.nodes.clear();
-            readOnlyScene.nodes.reserve(nodes.size());
-
-            for (const auto &node : nodes)
-            {
-                ReadOnlyScene::ReadOnlyNode readOnlyNode{
-                    .self = node.GetId(),
-                    .descendant = node.descendant,
-                    .sibling = node.sibling,
-                    .relativeTransform = node.GetRelativeTransform(),
-                    .worldTransform = node.GetWorldTransform(),
-                    .userData = node.GetUserData()};
-
-                readOnlyScene.nodes.push_back(std::move(readOnlyNode));
-            }
-        }
-
     private:
+        SpinLock commandQueueLock;
+        std::queue<std::variant<std::monostate, TransformCommand>> commandQueue;
+
+        SpinLock viewLock;
+
         SpinLock nodeDataStorageLock;
         std::unordered_map<Node::Id::value_type, NodeData> nodeDataStorage;
 
@@ -551,6 +607,8 @@ namespace Jangine::Gfx
         void Clear();
         void Import(const Jangine::IO::Gltf::Model &gltf);
         void Export(Jangine::IO::Gltf::Model &gltf);
+
+        Scene &GetScene() { return scene; }
 
     private:
         Core &gfx;

@@ -4,6 +4,7 @@
 #include "../Core.hpp"
 #include "../Gfx/Core.hpp"
 #include "../Gfx/Core2D.hpp"
+#include "../Gfx/Core3D.hpp"
 
 typedef struct GLFWwindow GLFWwindow;
 
