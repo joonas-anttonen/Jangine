@@ -156,12 +156,6 @@ namespace Jangine::Gfx
         Node &operator=(Node &&) = default;
         Node(Node &&from) = default;
 
-        /// @brief Apply the parent transform
-        virtual void ApplyTransform(const Eigen::Isometry3f &parentTransform)
-        {
-            worldTransform = parentTransform * relativeTransform;
-        }
-
         /// @brief Get the world transform of the node
         const Eigen::Isometry3f &GetWorldTransform() const { return worldTransform; }
         /// @brief Get the relative transform of the node
@@ -262,17 +256,17 @@ namespace Jangine::Gfx
             root.worldTransform = Eigen::Isometry3f::Identity();
         }
 
-        Node &CreateNode(Node::Id ancestorId = Node::Id{-1})
+        void AssertId(Node::Id id) const
         {
-            if (ancestorId)
-            {
-                ThrowInvalidOperationIf(ancestorId.value < 0 || ancestorId.value >= static_cast<int32_t>(nodes.size()),
-                                        std::format("ancestorId{{}} is out of range.", ancestorId.value));
-            }
+            ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(nodes.size()),
+                                    std::format("Node::Id({}) is out of range.", id.value));
+        }
 
+        Node &CreateNode()
+        {
             Node::Id id = Node::Id{nodes.size()};
             Node node(id);
-            node.ancestor = ancestorId ? ancestorId : Node::Id{0};
+            node.ancestor = Node::Id{0};
             nodes.push_back(std::move(node));
             return nodes.back();
         }
@@ -284,8 +278,19 @@ namespace Jangine::Gfx
             return id;
         }
 
-        void SetAncestor(Node &node, Node::Id newAncestor)
+        void SetMesh(Node::Id id, Mesh::Id meshId)
         {
+            AssertId(id);
+            nodes[id].SetMeshId(meshId);
+        }
+
+        void SetAncestor(Node::Id id, Node::Id newAncestor)
+        {
+            AssertId(id);
+            AssertId(newAncestor);
+
+            Node &node = nodes[id];
+
             // Remove node from its current ancestor's child list
             if (node.ancestor)
             {
@@ -339,12 +344,18 @@ namespace Jangine::Gfx
         }
 
         /// @brief Set the relative transform of the node
-        void SetRelativeTransform(Node &node, const Eigen::Isometry3f &transform) { node.relativeTransform = transform; }
+        void SetRelativeTransform(Node::Id id, const Eigen::Isometry3f &transform)
+        {
+            AssertId(id);
+            nodes[id].relativeTransform = transform;
+        }
 
         /// @brief Get the name of the node, or std::nullopt if it has no name
         /// @note This is thread-safe
         std::optional<std::string> GetName(Node::Id id)
         {
+            AssertId(id);
+
             std::scoped_lock lock(nodeDataStorageLock);
             return nodeDataStorage.contains(id.value) ? std::optional(nodeDataStorage.at(id.value).name) : std::nullopt;
         }
@@ -353,6 +364,8 @@ namespace Jangine::Gfx
         /// @note This is thread-safe
         void SetName(Node::Id id, std::string in_name)
         {
+            AssertId(id);
+
             std::scoped_lock lock(nodeDataStorageLock);
             nodeDataStorage[id.value].name = in_name;
         }
@@ -366,16 +379,14 @@ namespace Jangine::Gfx
         /// @throws InvalidOperationException if the Node::Id is out of range
         Node &GetNode(Node::Id id)
         {
-            ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(nodes.size()),
-                                    std::format("Node::Id({}) is out of range.", id.value));
+            AssertId(id);
             return nodes[id];
         }
         /// @brief Get a node by its Node::Id
         /// @throws InvalidOperationException if the Node::Id is out of range
         const Node &GetNode(Node::Id id) const
         {
-            ThrowInvalidOperationIf(id.value < 0 || id.value >= static_cast<int32_t>(nodes.size()),
-                                    std::format("Node::Id({}) is out of range.", id.value));
+            AssertId(id);
             return nodes[id];
         }
 
@@ -391,6 +402,7 @@ namespace Jangine::Gfx
         const std::vector<Node> &GetNodes() const { return nodes; }
         const std::vector<Mesh> &GetMeshes() const { return meshes; }
 
+        /// @brief 
         void Update()
         {
             ApplyTransform(GetWorld(), Eigen::Isometry3f::Identity());
@@ -399,11 +411,12 @@ namespace Jangine::Gfx
         /// @brief Recursively apply transforms to node and its descendants
         void ApplyTransform(Node &node, const Eigen::Isometry3f &parentTransform)
         {
-            node.ApplyTransform(parentTransform);
+            Eigen::Isometry3f nodeTransform = parentTransform * node.relativeTransform;
+            node.worldTransform = nodeTransform;
 
             if (node.descendant)
             {
-                ApplyTransform(nodes[node.descendant.value], node.GetWorldTransform());
+                ApplyTransform(nodes[node.descendant.value], nodeTransform);
             }
             if (node.sibling)
             {

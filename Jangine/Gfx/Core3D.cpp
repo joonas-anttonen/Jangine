@@ -129,7 +129,7 @@ namespace Jangine::Gfx
             worldTransform.linear() = Eigen::AngleAxisf(-Math::PI / 2.0f, Eigen::Vector3f::UnitX()).toRotationMatrix();
             worldTransform.translation() = Eigen::Vector3f(0, 0, 0);
 
-            scene.SetRelativeTransform(scene.GetWorld(), worldTransform);
+            scene.SetRelativeTransform(scene.GetWorld().GetId(), worldTransform);
 
             //Jangine::IO::Gltf::Model exportModel{};
             //Export(exportModel);
@@ -138,6 +138,17 @@ namespace Jangine::Gfx
             //{
             //    logger.Error("Failed to export GLTF model.", __func__);
             //}
+//
+            //scene.Clear();
+//
+            //Jangine::IO::Gltf::Model readbackModel{};
+            //Jangine::IO::Status readbackStatus = Jangine::IO::Gltf::LoadFromFile("c:/users/jant/desktop/urdf_export.glb", readbackModel);
+            //if (readbackStatus != Jangine::IO::Status::SUCCESS)
+            //{
+            //    logger.Error("Failed to read back exported GLTF model.", __func__);
+            //}
+//
+            //Import(readbackModel);
         }
     }
 
@@ -530,9 +541,6 @@ namespace Jangine::Gfx
 
             for (const auto &primitive : mesh->GetPrimitives())
             {
-                // if (primitive.materialHasTransparency)
-                //     continue;
-
                 vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, !primitive.materialHasTransparency);
 
                 perMeshData.MaterialIndex = primitive.materialIndex;

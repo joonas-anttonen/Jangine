@@ -213,21 +213,27 @@ namespace Jangine::Gfx
         std::function<void(size_t, Node::Id)> importNode = [&](size_t gltfNodeIndex, Node::Id parentId)
         {
             const auto &gltfNode = gltf.nodes[gltfNodeIndex];
-            Node& node = scene.CreateNode();
+            Node &node = scene.CreateNode();
+            Node::Id id = node.GetId();
+
+            if (parentId.value < 0 || parentId.value >= static_cast<int32_t>(scene.GetNodes().size()))
+                ThrowInvalidOperationIf(true, "Node parent is invalid");
+            if (id.value < 0 || id.value >= static_cast<int32_t>(scene.GetNodes().size()))
+                ThrowInvalidOperationIf(true, "Node id is invalid");
 
             if (gltfNode.mesh >= 0)
             {
                 Mesh::Id meshId = meshIds[gltfNode.mesh];
-                node.SetMeshId(meshId);
+                scene.SetMesh(id, meshId);
             }
 
-            scene.SetRelativeTransform(node, gltfNode.transform);
-            scene.SetName(node.GetId(), gltfNode.name);
-            scene.SetAncestor(node, parentId);
+            scene.SetRelativeTransform(id, gltfNode.transform);
+            scene.SetName(id, gltfNode.name);
+            scene.SetAncestor(id, parentId);
 
             for (auto childGltfNodeId : gltfNode.children)
             {
-                importNode(childGltfNodeId, node.GetId());
+                importNode(childGltfNodeId, id);
             }
         };
 
@@ -313,15 +319,14 @@ namespace Jangine::Gfx
                 .primitives = std::move(gltfPrimitives)};
 
             Jangine::IO::Gltf::Model::MeshIndex gltfMeshIndex = gltf.CreateMesh(gltfMesh);
-            meshToGltfMesh[mesh.GetId()] = gltfMeshIndex;
+            meshToGltfMesh[mesh.GetId().value] = gltfMeshIndex;
         }
 
         // First pass: create all nodes
-        for (const auto &node : scene.GetNodes())
+        const auto &nodes = scene.GetNodes();
+        for (size_t i = 1; i < nodes.size(); ++i)
         {
-            // Skip world node
-            if (node.GetId() == Node::Id{0})
-                continue;
+            const auto &node = nodes[i];
 
             Jangine::IO::Gltf::Model::Node gltfNode;
             gltfNode.name = scene.GetName(node.GetId()).value_or(std::format("Node_{:03d}", node.GetId().value));
@@ -330,25 +335,23 @@ namespace Jangine::Gfx
             Mesh::Id associatedMeshId = node.GetMeshId();
             if (associatedMeshId)
             {
-                gltfNode.mesh = meshToGltfMesh.at(associatedMeshId);
+                gltfNode.mesh = meshToGltfMesh.at(associatedMeshId.value);
             }
 
             Jangine::IO::Gltf::Model::NodeIndex gltfNodeIndex = gltf.CreateNode(gltfNode);
-            nodeToGltfNode[node.GetId()] = gltfNodeIndex;
+            nodeToGltfNode[node.GetId().value] = gltfNodeIndex;
         }
 
         // Second pass: set up parent-child relationships
-        for (const auto &node : scene.GetNodes())
+        for (size_t i = 1; i < nodes.size(); ++i)
         {
-            // Skip world node
-            if (node.GetId() == Node::Id{0})
-                continue;
+            const auto &node = nodes[i];
 
             Node::Id descendant = node.GetDescendant();
             while (descendant)
             {
-                Jangine::IO::Gltf::Model::Node &gltfNode = gltf.nodes[nodeToGltfNode.at(node.GetId())];
-                gltfNode.children.push_back(nodeToGltfNode.at(descendant));
+                Jangine::IO::Gltf::Model::Node &gltfNode = gltf.nodes[nodeToGltfNode.at(node.GetId().value)];
+                gltfNode.children.push_back(nodeToGltfNode.at(descendant.value));
                 descendant = scene.GetNode(descendant).GetSibling();
             }
         }
