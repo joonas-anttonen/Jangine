@@ -154,10 +154,10 @@ namespace Jangine::Gfx
 
         CreateDevice(params);
 
-        core2D = new Core2D(this);
+        core2D = new Core2D(*this);
         core2D->Create();
 
-        core3D = new Core3D(this);
+        core3D = new Core3D(*this);
         core3D->Create();
     }
 

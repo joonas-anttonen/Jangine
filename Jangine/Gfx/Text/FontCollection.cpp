@@ -53,7 +53,7 @@ namespace Jangine::Gfx::Text
         }
     }
 
-    FontCollection::FontCollection(Gfx::Core *gfx)
+    FontCollection::FontCollection(Gfx::Core &gfx)
         : gfx(gfx),
           logger(Jangine::Core::GetLogger("Gfx::Text::FontCollection"))
     {
@@ -247,7 +247,7 @@ namespace Jangine::Gfx::Text
         uint32_t atlasSize = 0;
         BuildAtlas(freetypeGlyphs, glyphs, atlasData, atlasSize);
 
-        Handle<PixelBuffer> pixelBuffer = gfx->CreatePixelBuffer(
+        Handle<PixelBuffer> pixelBuffer = gfx.CreatePixelBuffer(
             std::span<const std::byte>(reinterpret_cast<const std::byte *>(atlasData.data()), atlasData.size()),
             atlasSize, atlasSize,
             Format::RGBA8,

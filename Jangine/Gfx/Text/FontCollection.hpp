@@ -73,7 +73,7 @@ namespace Jangine::Gfx::Text
     class FontCollection
     {
     public:
-        FontCollection(Gfx::Core *gfx);
+        FontCollection(Gfx::Core &gfx);
         ~FontCollection();
 
         FontCollection(const FontCollection &) = delete;
@@ -91,7 +91,7 @@ namespace Jangine::Gfx::Text
         std::unordered_map<std::string, std::vector<uint8_t>> fontData;
         std::unordered_map<FontKey, Font> fonts;
 
-        Gfx::Core *gfx;
+        Gfx::Core &gfx;
         const Logging::Logger &logger;
     };
 }

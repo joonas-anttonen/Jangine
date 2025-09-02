@@ -46,6 +46,7 @@
 #include <typeinfo>
 #include <typeindex>
 #include <unordered_map>
+#include <variant>
 #include <vector>
 
 #include <Eigen/Core>

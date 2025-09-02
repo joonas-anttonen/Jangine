@@ -25,25 +25,25 @@
 
 namespace Jangine::Gfx
 {
-    Core2D::Core2D(Gfx::Core *gfx)
+    Core2D::Core2D(Gfx::Core &gfx)
         : gfx(gfx),
           fontCollection(gfx),
           logger(Jangine::Core::GetLogger("Gfx::Core2D")),
-          backBuffer(nullptr, std::ref(*gfx)),
-          renderPipeline(nullptr, std::ref(*gfx)),
-          compositePipeline(nullptr, std::ref(*gfx)),
-          vertexBuffer(nullptr, std::ref(*gfx)),
-          indexBuffer(nullptr, std::ref(*gfx)),
-          nearestPixelSampler(nullptr, std::ref(*gfx)),
-          linearPixelSampler(nullptr, std::ref(*gfx)),
-          blurHorizontalPipeline(nullptr, std::ref(*gfx)),
-          blurVerticalPipeline(nullptr, std::ref(*gfx)),
-          blurSampler(nullptr, std::ref(*gfx)),
-          blurIntermediateBuffer(nullptr, std::ref(*gfx)),
+          backBuffer(nullptr, std::ref(gfx)),
+          renderPipeline(nullptr, std::ref(gfx)),
+          compositePipeline(nullptr, std::ref(gfx)),
+          vertexBuffer(nullptr, std::ref(gfx)),
+          indexBuffer(nullptr, std::ref(gfx)),
+          nearestPixelSampler(nullptr, std::ref(gfx)),
+          linearPixelSampler(nullptr, std::ref(gfx)),
+          blurHorizontalPipeline(nullptr, std::ref(gfx)),
+          blurVerticalPipeline(nullptr, std::ref(gfx)),
+          blurSampler(nullptr, std::ref(gfx)),
+          blurIntermediateBuffer(nullptr, std::ref(gfx)),
           blurBuffer(),
-          blurNoiseBuffer(nullptr, std::ref(*gfx)),
-          blurNoiseSampler(nullptr, std::ref(*gfx)),
-          placeholderBuffer(nullptr, std::ref(*gfx))
+          blurNoiseBuffer(nullptr, std::ref(gfx)),
+          blurNoiseSampler(nullptr, std::ref(gfx)),
+          placeholderBuffer(nullptr, std::ref(gfx))
     {
         logger.Func(__func__);
 
@@ -63,19 +63,19 @@ namespace Jangine::Gfx
         defaultShaper = defaultFont->CreateTextShaper();
 
         uint8_t data[4] = {255, 255, 255, 255};
-        placeholderBuffer = gfx->CreatePixelBuffer(
+        placeholderBuffer = gfx.CreatePixelBuffer(
             std::span<const std::byte>(reinterpret_cast<const std::byte *>(data), sizeof(data)),
             1,
             1,
             Format::RGBA8,
             PixelBufferUsage::Sampled);
 
-        vertexBuffer = gfx->CreateMemoryBuffer(
+        vertexBuffer = gfx.CreateMemoryBuffer(
             MAX_VERTICES * sizeof(Vertex2f),
             MemoryBufferUsage::Vertex,
             MemoryAccess::Write);
 
-        indexBuffer = gfx->CreateMemoryBuffer(
+        indexBuffer = gfx.CreateMemoryBuffer(
             MAX_INDICES * sizeof(uint16_t),
             MemoryBufferUsage::Index,
             MemoryAccess::Write);
@@ -87,7 +87,7 @@ namespace Jangine::Gfx
             .addressModeU = SamplerAddressMode::CLAMP_TO_BORDER,
             .addressModeV = SamplerAddressMode::CLAMP_TO_BORDER,
             .borderColor = BorderColor::FLOAT_OPAQUE_WHITE};
-        nearestPixelSampler = gfx->CreatePixelSampler(nearestParameters);
+        nearestPixelSampler = gfx.CreatePixelSampler(nearestParameters);
 
         PixelSamplerParameters linearParameters = {
             .minFilter = SamplerFilter::LINEAR,
@@ -96,7 +96,7 @@ namespace Jangine::Gfx
             .addressModeU = SamplerAddressMode::CLAMP_TO_EDGE,
             .addressModeV = SamplerAddressMode::CLAMP_TO_EDGE,
             .borderColor = BorderColor::FLOAT_OPAQUE_BLACK};
-        linearPixelSampler = gfx->CreatePixelSampler(linearParameters);
+        linearPixelSampler = gfx.CreatePixelSampler(linearParameters);
 
         // --------------------- BLUR
         PixelSamplerParameters blurSamplerParameters = {
@@ -106,7 +106,7 @@ namespace Jangine::Gfx
             .addressModeU = SamplerAddressMode::REPEAT,
             .addressModeV = SamplerAddressMode::REPEAT,
             .borderColor = BorderColor::FLOAT_OPAQUE_BLACK};
-        blurNoiseSampler = gfx->CreatePixelSampler(blurSamplerParameters);
+        blurNoiseSampler = gfx.CreatePixelSampler(blurSamplerParameters);
 
         // Use a fixed seed for repeatability, or std::random_device for more randomness
         std::mt19937 rng(42); // Fixed seed
@@ -120,7 +120,7 @@ namespace Jangine::Gfx
             noiseData[i] = static_cast<std::byte>(dist(rng));
         }
 
-        blurNoiseBuffer = gfx->CreatePixelBuffer(
+        blurNoiseBuffer = gfx.CreatePixelBuffer(
             std::span<const std::byte>(noiseData),
             noiseSize,
             noiseSize,
@@ -139,7 +139,7 @@ namespace Jangine::Gfx
         bool_t recreateBackBuffer = !backBuffer || outputSizeChanged;
         if (recreateBackBuffer)
         {
-            backBuffer = gfx->CreatePixelBuffer(
+            backBuffer = gfx.CreatePixelBuffer(
                 displayParameters.surfaceWidth,
                 displayParameters.surfaceHeight,
                 displayParameters.surfaceFormat,
@@ -147,14 +147,14 @@ namespace Jangine::Gfx
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc);
 
             // --------------------- BLUR
-            blurIntermediateBuffer = gfx->CreatePixelBuffer(
+            blurIntermediateBuffer = gfx.CreatePixelBuffer(
                 displayParameters.surfaceWidth,
                 displayParameters.surfaceHeight,
                 displayParameters.surfaceFormat,
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Color);
-            blurBuffer = gfx->CreatePixelBuffer(
+            blurBuffer = gfx.CreatePixelBuffer(
                 displayParameters.surfaceWidth,
                 displayParameters.surfaceHeight,
                 displayParameters.surfaceFormat,
@@ -179,7 +179,7 @@ namespace Jangine::Gfx
         if (!renderPipeline)
         {
             PipelineParameters mainParams;
-            mainParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-2d"),
+            mainParams.shaderProgram = ThrowInvalidOperationIfNull(gfx.GetShaderProgram("built-in-2d"),
                                                                    "Shader program 'built-in-2d' not found in cache.");
             mainParams.pushConstantRanges = {
                 {.stageFlags = ShaderStage::VERTEX | ShaderStage::FRAGMENT,
@@ -221,14 +221,14 @@ namespace Jangine::Gfx
                 {.format = Format::BGRA8,
                  .blend = straightAlphaBlend}};
 
-            renderPipeline = gfx->CreatePipeline(mainParams);
+            renderPipeline = gfx.CreatePipeline(mainParams);
         }
 
         // Composition pipeline (no vertex input)
         if (!compositePipeline)
         {
             PipelineParameters compositionParams;
-            compositionParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-2d-composition"),
+            compositionParams.shaderProgram = ThrowInvalidOperationIfNull(gfx.GetShaderProgram("built-in-2d-composition"),
                                                                           "Shader program 'built-in-2d-composition' not found in cache.");
             compositionParams.pushConstantRanges = {};
             compositionParams.descriptorLayout = {
@@ -252,13 +252,13 @@ namespace Jangine::Gfx
                 {.format = Format::BGRA8,
                  .blend = straightAlphaBlend}};
 
-            compositePipeline = gfx->CreatePipeline(compositionParams);
+            compositePipeline = gfx.CreatePipeline(compositionParams);
         }
 
         if (!blurHorizontalPipeline)
         {
             PipelineParameters blurPipelineParams;
-            blurPipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-blur"),
+            blurPipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx.GetShaderProgram("built-in-blur"),
                                                                            "Shader program 'built-in-blur' not found in cache.");
             blurPipelineParams.pushConstantRanges = {
                 {.stageFlags = ShaderStage::FRAGMENT,
@@ -302,13 +302,13 @@ namespace Jangine::Gfx
                 {.stage = ShaderStage::FRAGMENT,
                  .entries = {{.id = 0, .offset = 0, .size = sizeof(uint32_t)}},
                  .data = PipelineParameters::Specialization::ReadData(BlurSpecialization{1})}};
-            blurHorizontalPipeline = gfx->CreatePipeline(blurPipelineParams);
+            blurHorizontalPipeline = gfx.CreatePipeline(blurPipelineParams);
 
             blurPipelineParams.specialization = {
                 {.stage = ShaderStage::FRAGMENT,
                  .entries = {{.id = 0, .offset = 0, .size = sizeof(uint32_t)}},
                  .data = PipelineParameters::Specialization::ReadData(BlurSpecialization{0})}};
-            blurVerticalPipeline = gfx->CreatePipeline(blurPipelineParams);
+            blurVerticalPipeline = gfx.CreatePipeline(blurPipelineParams);
 
             PixelSamplerParameters samplerParams{
                 .minFilter = SamplerFilter::NEAREST,
@@ -320,7 +320,7 @@ namespace Jangine::Gfx
                 .borderColor = BorderColor::FLOAT_OPAQUE_WHITE,
             };
 
-            blurSampler = gfx->CreatePixelSampler(samplerParams);
+            blurSampler = gfx.CreatePixelSampler(samplerParams);
         }
 
         isReady = true;
@@ -359,8 +359,8 @@ namespace Jangine::Gfx
 
         if (commandBufferChanged)
         {
-            gfx->WriteMemoryBuffer(vertexBuffer.get(), currentCommandBuffer->GetVertexData());
-            gfx->WriteMemoryBuffer(indexBuffer.get(), currentCommandBuffer->GetIndexData());
+            gfx.WriteMemoryBuffer(vertexBuffer.get(), currentCommandBuffer->GetVertexData());
+            gfx.WriteMemoryBuffer(indexBuffer.get(), currentCommandBuffer->GetIndexData());
         }
 
         auto batches = currentCommandBuffer->GetBatches();
@@ -475,7 +475,7 @@ namespace Jangine::Gfx
                  .pBufferInfo = nullptr,
                  .pTexelBufferView = nullptr}};
 
-            gfx->PushDescriptorSets(
+            gfx.PushDescriptorSets(
                 commandBuffer,
                 renderPipeline.get(),
                 2,
@@ -501,21 +501,21 @@ namespace Jangine::Gfx
         vkCmdEndRendering(vulkanCommandBuffer);
 
         // FIXME: Stop cheating!
-        gfx->FullBarrier(commandBuffer);
+        gfx.FullBarrier(commandBuffer);
     }
 
     void Core2D::PrepareFrame(const Presenter &presenter)
     {
         CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
 
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 backBuffer.get(),
                                 ImageLayout::UNDEFINED,
                                 ImageLayout::TRANSFER_DST_OPTIMAL);
-        gfx->ClearPixelBuffer(commandBuffer,
+        gfx.ClearPixelBuffer(commandBuffer,
                               backBuffer.get(),
                               Color::Transparent);
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 backBuffer.get(),
                                 ImageLayout::TRANSFER_DST_OPTIMAL,
                                 ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
@@ -523,12 +523,12 @@ namespace Jangine::Gfx
         // --------------------- BLUR
         Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
 
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 presentationBuffer,
                                 ImageLayout::TRANSFER_DST_OPTIMAL,
                                 ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         {
-            gfx->PixelBufferBarrier(commandBuffer,
+            gfx.PixelBufferBarrier(commandBuffer,
                                     blurIntermediateBuffer.get(),
                                     ImageLayout::UNDEFINED,
                                     ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
@@ -633,7 +633,7 @@ namespace Jangine::Gfx
                  .pImageInfo = &noiseSampler,
                  .pBufferInfo = nullptr,
                  .pTexelBufferView = nullptr}};
-            gfx->PushDescriptorSets(
+            gfx.PushDescriptorSets(
                 commandBuffer,
                 blurVerticalPipeline.get(),
                 4,
@@ -649,11 +649,11 @@ namespace Jangine::Gfx
 
             vkCmdEndRendering(commandBuffer.vulkanHandle);
 
-            gfx->PixelBufferBarrier(commandBuffer,
+            gfx.PixelBufferBarrier(commandBuffer,
                                     blurIntermediateBuffer.get(),
                                     ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                                     ImageLayout::SHADER_READ_ONLY_OPTIMAL);
-            gfx->PixelBufferBarrier(commandBuffer,
+            gfx.PixelBufferBarrier(commandBuffer,
                                     blurBuffer.get(),
                                     ImageLayout::UNDEFINED,
                                     ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
@@ -717,7 +717,7 @@ namespace Jangine::Gfx
                 .pImageInfo = &sourceSampler,
                 .pBufferInfo = nullptr,
                 .pTexelBufferView = nullptr};
-            gfx->PushDescriptorSets(
+            gfx.PushDescriptorSets(
                 commandBuffer,
                 blurHorizontalPipeline.get(),
                 4,
@@ -732,13 +732,13 @@ namespace Jangine::Gfx
 
             vkCmdEndRendering(commandBuffer.vulkanHandle);
 
-            gfx->PixelBufferBarrier(commandBuffer,
+            gfx.PixelBufferBarrier(commandBuffer,
                                     blurBuffer.get(),
                                     ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                                     ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         }
 
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 presentationBuffer,
                                 ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                                 ImageLayout::TRANSFER_DST_OPTIMAL);
@@ -750,11 +750,11 @@ namespace Jangine::Gfx
         CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
         Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
 
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 presentationBuffer,
                                 ImageLayout::TRANSFER_DST_OPTIMAL,
                                 ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 backBuffer.get(),
                                 ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                                 ImageLayout::SHADER_READ_ONLY_OPTIMAL);
@@ -835,7 +835,7 @@ namespace Jangine::Gfx
              .pBufferInfo = nullptr,
              .pTexelBufferView = nullptr}};
 
-        gfx->PushDescriptorSets(
+        gfx.PushDescriptorSets(
             commandBuffer,
             compositePipeline.get(),
             2,
@@ -846,8 +846,8 @@ namespace Jangine::Gfx
         vkCmdEndRendering(vulkanCommandBuffer);
 
         // FIXME: Stop cheating!
-        gfx->FullBarrier(commandBuffer);
-        gfx->PixelBufferBarrier(
+        gfx.FullBarrier(commandBuffer);
+        gfx.PixelBufferBarrier(
             commandBuffer,
             presentationBuffer,
             ImageLayout::COLOR_ATTACHMENT_OPTIMAL,

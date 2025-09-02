@@ -24,23 +24,23 @@
 
 namespace Jangine::Gfx
 {
-    Core3D::Core3D(Gfx::Core *gfx)
+    Core3D::Core3D(Gfx::Core &gfx)
         : gfx(gfx),
-          shapeVertexBuffer(nullptr, std::ref(*gfx)),
-          shapeIndexBuffer(nullptr, std::ref(*gfx)),
-          perSceneBuffer(nullptr, std::ref(*gfx)),
-          perMeshBuffer(nullptr, std::ref(*gfx)),
-          perShapeMeshBuffer(nullptr, std::ref(*gfx)),
-          renderBuffer(nullptr, std::ref(*gfx)),
-          depthBuffer(nullptr, std::ref(*gfx)),
-          motionBuffer(nullptr, std::ref(*gfx)),
-          displayBuffer(nullptr, std::ref(*gfx)),
-          meshPipeline(nullptr, std::ref(*gfx)),
-          oitCompositionPipeline(nullptr, std::ref(*gfx)),
-          oitDataBuffer(nullptr, std::ref(*gfx)),
-          oitNodeBuffer(nullptr, std::ref(*gfx)),
-          oitNodeHeadBuffer(nullptr, std::ref(*gfx)),
-          shapePipeline(nullptr, std::ref(*gfx)),
+          shapeVertexBuffer(nullptr, std::ref(gfx)),
+          shapeIndexBuffer(nullptr, std::ref(gfx)),
+          perSceneBuffer(nullptr, std::ref(gfx)),
+          perMeshBuffer(nullptr, std::ref(gfx)),
+          perShapeMeshBuffer(nullptr, std::ref(gfx)),
+          renderBuffer(nullptr, std::ref(gfx)),
+          depthBuffer(nullptr, std::ref(gfx)),
+          motionBuffer(nullptr, std::ref(gfx)),
+          displayBuffer(nullptr, std::ref(gfx)),
+          meshPipeline(nullptr, std::ref(gfx)),
+          oitCompositionPipeline(nullptr, std::ref(gfx)),
+          oitDataBuffer(nullptr, std::ref(gfx)),
+          oitNodeBuffer(nullptr, std::ref(gfx)),
+          oitNodeHeadBuffer(nullptr, std::ref(gfx)),
+          shapePipeline(nullptr, std::ref(gfx)),
           logger(Jangine::Core::GetLogger("Gfx::Core3D"))
     {
         logger.Func(__func__);
@@ -55,27 +55,27 @@ namespace Jangine::Gfx
     {
         logger.Func(__func__);
 
-        shapeVertexBuffer = gfx->CreateMemoryBuffer(
+        shapeVertexBuffer = gfx.CreateMemoryBuffer(
             MAX_VERTICES * sizeof(ShapeVertex),
             MemoryBufferUsage::Vertex,
             MemoryAccess::Write);
 
-        shapeIndexBuffer = gfx->CreateMemoryBuffer(
+        shapeIndexBuffer = gfx.CreateMemoryBuffer(
             MAX_INDICES * sizeof(uint16_t),
             MemoryBufferUsage::Index,
             MemoryAccess::Write);
 
-        perSceneBuffer = gfx->CreateMemoryBuffer(
+        perSceneBuffer = gfx.CreateMemoryBuffer(
             sizeof(PerSceneData),
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
 
-        perMeshBuffer = gfx->CreateMemoryBuffer(
-            Math::AlignUp(sizeof(PerMeshData), gfx->GetCapabilities().uniformBufferOffsetAlignment) * 1024,
+        perMeshBuffer = gfx.CreateMemoryBuffer(
+            Math::AlignUp(sizeof(PerMeshData), gfx.GetCapabilities().uniformBufferOffsetAlignment) * 1024,
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
 
-        perShapeMeshBuffer = gfx->CreateMemoryBuffer(
+        perShapeMeshBuffer = gfx.CreateMemoryBuffer(
             sizeof(PerDiscMeshData) * 10,
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
@@ -171,7 +171,7 @@ namespace Jangine::Gfx
 
         if (initializeRender)
         {
-            renderBuffer = gfx->CreatePixelBuffer(
+            renderBuffer = gfx.CreatePixelBuffer(
                 wantedDisplayParameters.renderWidth,
                 wantedDisplayParameters.renderHeight,
                 Format::RGBA32,
@@ -179,15 +179,15 @@ namespace Jangine::Gfx
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Color);
 
-            depthBuffer = gfx->CreatePixelBuffer(
+            depthBuffer = gfx.CreatePixelBuffer(
                 wantedDisplayParameters.renderWidth,
                 wantedDisplayParameters.renderHeight,
-                gfx->GetDeviceDepthFormat(),
+                gfx.GetDeviceDepthFormat(),
                 PixelBufferUsage::DepthAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Depth);
 
-            motionBuffer = gfx->CreatePixelBuffer(
+            motionBuffer = gfx.CreatePixelBuffer(
                 wantedDisplayParameters.renderWidth,
                 wantedDisplayParameters.renderHeight,
                 Format::R16G16,
@@ -198,28 +198,28 @@ namespace Jangine::Gfx
             // --------------------- OIT
             size_t oitNodeCount = displayParameters.renderWidth * displayParameters.renderHeight * MAX_OIT_NODES_PER_PIXEL;
             size_t oitStorageSize = sizeof(OITNode) * oitNodeCount;
-            size_t maxStorageSize = gfx->GetCapabilities().maxStorageBufferRange;
+            size_t maxStorageSize = gfx.GetCapabilities().maxStorageBufferRange;
             if (oitStorageSize > maxStorageSize)
             {
                 oitNodeCount = maxStorageSize / sizeof(OITNode);
                 logger.Warning(std::format("Requested OIT storage size {} exceeds device maximum storage buffer range {}. Reducing OIT node count to {}.", oitStorageSize, maxStorageSize, oitNodeCount), __func__);
             }
 
-            oitDataBuffer = gfx->CreateMemoryBuffer(
+            oitDataBuffer = gfx.CreateMemoryBuffer(
                 sizeof(OITData),
                 MemoryBufferUsage::Storage | MemoryBufferUsage::TransferDst,
                 MemoryAccess::None);
             OITData oitData = {
                 .count = 0,
                 .maxNodeCount = static_cast<uint32_t>(oitNodeCount)};
-            gfx->StageToMemoryBuffer(oitDataBuffer.get(), Span(oitData));
+            gfx.StageToMemoryBuffer(oitDataBuffer.get(), Span(oitData));
 
-            oitNodeBuffer = gfx->CreateMemoryBuffer(
+            oitNodeBuffer = gfx.CreateMemoryBuffer(
                 sizeof(OITNode) * oitNodeCount,
                 MemoryBufferUsage::Storage,
                 MemoryAccess::None);
 
-            oitNodeHeadBuffer = gfx->CreatePixelBuffer(
+            oitNodeHeadBuffer = gfx.CreatePixelBuffer(
                 wantedDisplayParameters.renderWidth,
                 wantedDisplayParameters.renderHeight,
                 Format::U32,
@@ -230,7 +230,7 @@ namespace Jangine::Gfx
 
         if (initializeDisplay)
         {
-            displayBuffer = gfx->CreatePixelBuffer(
+            displayBuffer = gfx.CreatePixelBuffer(
                 wantedDisplayParameters.displayWidth,
                 wantedDisplayParameters.displayHeight,
                 Format::RGBA32,
@@ -253,7 +253,7 @@ namespace Jangine::Gfx
                                   ColorComponent::B | ColorComponent::A};
 
             PipelineParameters shapePipelineParams;
-            shapePipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-shape-disc"),
+            shapePipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx.GetShaderProgram("built-in-shape-disc"),
                                                                             "Shader program 'built-in-shape-disc' not found in cache.");
             shapePipelineParams.pushConstantRanges = {};
             shapePipelineParams.descriptorLayout = {
@@ -288,7 +288,7 @@ namespace Jangine::Gfx
                 {.format = Format::RGBA32,
                  .blend = straightAlphaBlend}};
 
-            shapePipeline = gfx->CreatePipeline(shapePipelineParams);
+            shapePipeline = gfx.CreatePipeline(shapePipelineParams);
         }
 
         if (!meshPipeline)
@@ -305,7 +305,7 @@ namespace Jangine::Gfx
                                   ColorComponent::B | ColorComponent::A};
 
             PipelineParameters meshPipelineParams;
-            meshPipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-mesh"),
+            meshPipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx.GetShaderProgram("built-in-mesh"),
                                                                            "Shader program 'built-in-mesh' not found in cache.");
             meshPipelineParams.pushConstantRanges = {};
             meshPipelineParams.descriptorLayout = {
@@ -360,9 +360,9 @@ namespace Jangine::Gfx
                 {.format = Format::RGBA32,
                  .blend = straightAlphaBlend}};
 
-            meshPipeline = gfx->CreatePipeline(meshPipelineParams);
+            meshPipeline = gfx.CreatePipeline(meshPipelineParams);
 
-            meshPipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx->GetShaderProgram("built-in-oit-composition"),
+            meshPipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx.GetShaderProgram("built-in-oit-composition"),
                                                                            "Shader program 'built-in-oit-composition' not found in cache.");
             meshPipelineParams.pushConstantRanges = {};
             meshPipelineParams.descriptorLayout = {
@@ -389,7 +389,7 @@ namespace Jangine::Gfx
                 {.format = Format::RGBA32,
                  .blend = straightAlphaBlend}};
 
-            oitCompositionPipeline = gfx->CreatePipeline(meshPipelineParams);
+            oitCompositionPipeline = gfx.CreatePipeline(meshPipelineParams);
         }
 
         camera.SetOrthographic(displayParameters.GetAspectRatio(), camera.GetOrthographicFoV(), -100.0f, 100.0f);
@@ -409,7 +409,7 @@ namespace Jangine::Gfx
         float_t viewportWidth = static_cast<float_t>(renderExtent.width);
         float_t viewportHeight = static_cast<float_t>(renderExtent.height);
 
-        Rectangle suggestedViewport = gfx->UnsafeGetCurrentViewport();
+        Rectangle suggestedViewport = gfx.UnsafeGetCurrentViewport();
         viewportX = Math::Map(suggestedViewport.left, 0.0f, static_cast<float_t>(displayParameters.surfaceWidth), 0.0f, static_cast<float_t>(renderBuffer->width));
         viewportY = Math::Map(suggestedViewport.top, 0.0f, static_cast<float_t>(displayParameters.surfaceHeight), 0.0f, static_cast<float_t>(renderBuffer->height));
         viewportWidth = Math::Map(suggestedViewport.width(), 0.0f, static_cast<float_t>(displayParameters.surfaceWidth), 0.0f, static_cast<float_t>(renderBuffer->width));
@@ -424,7 +424,7 @@ namespace Jangine::Gfx
             .maxDepth = 1.0f};
         VkRect2D scissor{{0, 0}, {renderExtent.width, renderExtent.height}};
 
-        camera.Update(gfx->GetUserInput(), deltaTime);
+        camera.Update(gfx.GetUserInput(), deltaTime);
 
         scene.Update();
 
@@ -437,39 +437,39 @@ namespace Jangine::Gfx
             static_cast<float_t>(displayParameters.renderWidth),
             static_cast<float_t>(displayParameters.renderHeight));
 
-        gfx->WriteMemoryBuffer(perSceneBuffer.get(), Span(sceneData));
+        gfx.WriteMemoryBuffer(perSceneBuffer.get(), Span(sceneData));
 
         CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
 
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 renderBuffer.get(),
                                 ImageLayout::UNDEFINED,
                                 ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 depthBuffer.get(),
                                 ImageLayout::UNDEFINED,
                                 ImageLayout::DEPTH_ATTACHMENT_OPTIMAL);
 
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 motionBuffer.get(),
                                 ImageLayout::UNDEFINED,
                                 ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
         // --------------------- OIT
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 oitNodeHeadBuffer.get(),
                                 ImageLayout::UNDEFINED,
                                 ImageLayout::GENERAL);
 
-        gfx->ClearPixelBuffer(commandBuffer,
+        gfx.ClearPixelBuffer(commandBuffer,
                               oitNodeHeadBuffer.get(),
                               0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
                               ImageLayout::GENERAL);
 
-        gfx->FillBuffer(commandBuffer, oitDataBuffer.get(), 0, 0, sizeof(uint32_t));
+        gfx.FillBuffer(commandBuffer, oitDataBuffer.get(), 0, 0, sizeof(uint32_t));
 
-        gfx->TransferBarrier(commandBuffer);
+        gfx.TransferBarrier(commandBuffer);
         // ---------------------
 
         VkRenderingAttachmentInfo colorAttachment{
@@ -537,7 +537,7 @@ namespace Jangine::Gfx
             const Mesh *mesh = scene.GetMesh(associatedMeshId);
             const MeshBuffer *meshBuffer = mesh->GetBuffer();
 
-            gfx->BindBuffers(commandBuffer, meshBuffer->GetVertexBuffer(), meshBuffer->GetIndexBuffer());
+            gfx.BindBuffers(commandBuffer, meshBuffer->GetVertexBuffer(), meshBuffer->GetIndexBuffer());
 
             for (const auto &primitive : mesh->GetPrimitives())
             {
@@ -545,8 +545,8 @@ namespace Jangine::Gfx
 
                 perMeshData.MaterialIndex = primitive.materialIndex;
 
-                size_t perMeshOffset = drawCount++ * Math::AlignUp(sizeof(PerMeshData), gfx->GetCapabilities().uniformBufferOffsetAlignment);
-                gfx->WriteMemoryBuffer(perMeshBuffer.get(), Span(perMeshData), perMeshOffset);
+                size_t perMeshOffset = drawCount++ * Math::AlignUp(sizeof(PerMeshData), gfx.GetCapabilities().uniformBufferOffsetAlignment);
+                gfx.WriteMemoryBuffer(perMeshBuffer.get(), Span(perMeshData), perMeshOffset);
 
                 VkDescriptorBufferInfo perSceneBufferInfo{
                     .buffer = perSceneBuffer->vulkanBuffer,
@@ -635,7 +635,7 @@ namespace Jangine::Gfx
                      .pBufferInfo = nullptr,
                      .pTexelBufferView = nullptr}};
 
-                gfx->PushDescriptorSets(
+                gfx.PushDescriptorSets(
                     commandBuffer,
                     meshPipeline.get(),
                     6,
@@ -653,7 +653,7 @@ namespace Jangine::Gfx
 
         vkCmdEndRendering(commandBuffer.vulkanHandle);
 
-        gfx->PixelBufferBarrier(commandBuffer,
+        gfx.PixelBufferBarrier(commandBuffer,
                                 depthBuffer.get(),
                                 ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
                                 ImageLayout::SHADER_READ_ONLY_OPTIMAL);
@@ -735,7 +735,7 @@ namespace Jangine::Gfx
                  .pImageInfo = &perDepthBuffer,
                  .pBufferInfo = nullptr,
                  .pTexelBufferView = nullptr}};
-            gfx->PushDescriptorSets(
+            gfx.PushDescriptorSets(
                 commandBuffer,
                 oitCompositionPipeline.get(),
                 3,
@@ -749,15 +749,15 @@ namespace Jangine::Gfx
 
         // render -> display
         {
-            gfx->PixelBufferBarrier(commandBuffer,
+            gfx.PixelBufferBarrier(commandBuffer,
                                     displayBuffer.get(),
                                     ImageLayout::UNDEFINED,
                                     ImageLayout::TRANSFER_DST_OPTIMAL);
-            gfx->PixelBufferBarrier(commandBuffer,
+            gfx.PixelBufferBarrier(commandBuffer,
                                     renderBuffer.get(),
                                     ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                                     ImageLayout::TRANSFER_SRC_OPTIMAL);
-            gfx->BlitPixelBuffer(commandBuffer,
+            gfx.BlitPixelBuffer(commandBuffer,
                                  renderBuffer.get(),
                                  displayBuffer.get(),
                                  BlitFilter::LINEAR,
@@ -769,7 +769,7 @@ namespace Jangine::Gfx
         {
             Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
 
-            gfx->PixelBufferBarrier(commandBuffer,
+            gfx.PixelBufferBarrier(commandBuffer,
                                     displayBuffer.get(),
                                     ImageLayout::TRANSFER_DST_OPTIMAL,
                                     ImageLayout::TRANSFER_SRC_OPTIMAL);
@@ -820,7 +820,7 @@ namespace Jangine::Gfx
     meshData.Radius = 0.5f;
 
     std::span<const std::byte> perMeshDataSpan(reinterpret_cast<const std::byte *>(&meshData), sizeof(meshData));
-    gfx->WriteMemoryBuffer(perShapeMeshBuffer.get(), perMeshDataSpan);
+    gfx.WriteMemoryBuffer(perShapeMeshBuffer.get(), perMeshDataSpan);
 
     // Add a single quad
     uint16_t quadIndices[6] = {0, 1, 2, 0, 2, 3};
@@ -830,8 +830,8 @@ namespace Jangine::Gfx
         {{-1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
         {{-1.0f, -1.0f, 0.0f}, {1.0f, -1.0f}}};
     std::span<const std::byte> vertexDataSpan(reinterpret_cast<const std::byte *>(quadVertices), sizeof(quadVertices));
-    gfx->WriteMemoryBuffer(shapeVertexBuffer.get(), vertexDataSpan);
+    gfx.WriteMemoryBuffer(shapeVertexBuffer.get(), vertexDataSpan);
 
     std::span<const std::byte> indexDataSpan(reinterpret_cast<const std::byte *>(quadIndices), sizeof(quadIndices));
-    gfx->WriteMemoryBuffer(shapeIndexBuffer.get(), indexDataSpan);
+    gfx.WriteMemoryBuffer(shapeIndexBuffer.get(), indexDataSpan);
 }*/

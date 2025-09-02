@@ -541,7 +541,7 @@ namespace Jangine::Gfx
         };
 
     public:
-        Core3D(Gfx::Core *gfx);
+        Core3D(Gfx::Core &gfx);
         ~Core3D();
 
         void Create();
@@ -553,7 +553,7 @@ namespace Jangine::Gfx
         void Export(Jangine::IO::Gltf::Model &gltf);
 
     private:
-        Core *gfx;
+        Core &gfx;
 
         DisplayParameters displayParameters;
 

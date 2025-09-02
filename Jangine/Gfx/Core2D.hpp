@@ -31,7 +31,7 @@ namespace Jangine::Gfx
             float strength;
         };
 
-        Core2D(Gfx::Core *gfx);
+        Core2D(Gfx::Core &gfx);
         ~Core2D();
         Core2D &operator=(const Core2D &) = delete;
         Core2D(const Core2D &) = delete;
@@ -113,7 +113,7 @@ namespace Jangine::Gfx
         static constexpr uint32_t MAX_VERTICES = 65536;
         static constexpr uint32_t MAX_INDICES = 65536;
 
-        Gfx::Core *gfx = nullptr;
+        Gfx::Core &gfx;
 
         DisplayParameters displayParameters;
 
