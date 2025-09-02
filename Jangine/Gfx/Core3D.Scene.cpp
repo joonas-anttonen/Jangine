@@ -177,18 +177,21 @@ namespace Jangine::Gfx
             vertices.size() * sizeof(MeshBuffer::Vertex),
             MemoryBufferUsage::Vertex | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
+        gfx->SetDebugName(_vertexBuffer.get(), "glTF::VertexBuffer");
         gfx->StageToMemoryBuffer(_vertexBuffer.get(), Span(vertices));
 
         auto _indexBuffer = gfx->CreateMemoryBuffer(
             indices.size() * sizeof(MeshBuffer::Index),
             MemoryBufferUsage::Index | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
+        gfx->SetDebugName(_indexBuffer.get(), "glTF::IndexBuffer");
         gfx->StageToMemoryBuffer(_indexBuffer.get(), Span(indices));
 
         auto _materialBuffer = gfx->CreateMemoryBuffer(
             materials.size() * sizeof(MeshBuffer::Material),
             MemoryBufferUsage::Storage | MemoryBufferUsage::TransferDst,
             MemoryAccess::None);
+        gfx->SetDebugName(_materialBuffer.get(), "glTF::MaterialBuffer");
         gfx->StageToMemoryBuffer(_materialBuffer.get(), Span(materials));
 
         SharedHandle<MeshBuffer> meshBuffer = std::make_shared<MeshBuffer>(

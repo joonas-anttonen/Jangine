@@ -220,6 +220,10 @@ namespace Jangine::Gfx
 
         void PushDescriptorSets(CommandBuffer commandBuffer, Pipeline *pipeline, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *descriptorWrites);
 
+        void SetDebugName(MemoryBuffer *memoryBuffer, const std::string &name);
+        void SetDebugName(PixelBuffer *pixelBuffer, const std::string &name);
+        void SetDebugName(Pipeline *pipeline, const std::string &name);
+
     private:
         void CreateInstance(const ApiParameters &params);
         void CreateDevice(const Parameters &params);

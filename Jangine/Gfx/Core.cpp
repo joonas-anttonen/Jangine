@@ -1241,6 +1241,43 @@ namespace Jangine::Gfx
         }
     }
 
+    static void SetDebugNameInternal(VkDevice device, uint64_t objectHandle, VkObjectType objectType, const std::string &name)
+    {
+        static PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT = nullptr;
+
+        if (!vkSetDebugUtilsObjectNameEXT)
+        {
+            vkSetDebugUtilsObjectNameEXT = reinterpret_cast<PFN_vkSetDebugUtilsObjectNameEXT>(
+                vkGetDeviceProcAddr(device, "vkSetDebugUtilsObjectNameEXT"));
+        }
+
+        if (vkSetDebugUtilsObjectNameEXT)
+        {
+            VkDebugUtilsObjectNameInfoEXT nameInfo = {
+                .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
+                .pNext = nullptr,
+                .objectType = objectType,
+                .objectHandle = objectHandle,
+                .pObjectName = name.c_str()};
+            vkSetDebugUtilsObjectNameEXT(device, &nameInfo);
+        }
+    }
+
+    void Core::SetDebugName(MemoryBuffer *memoryBuffer, const std::string &name)
+    {
+        SetDebugNameInternal(vulkanDevice, reinterpret_cast<uint64_t>(memoryBuffer->vulkanBuffer), VK_OBJECT_TYPE_BUFFER, name);
+    }
+
+    void Core::SetDebugName(PixelBuffer *pixelBuffer, const std::string &name)
+    {
+        SetDebugNameInternal(vulkanDevice, reinterpret_cast<uint64_t>(pixelBuffer->vulkanImage), VK_OBJECT_TYPE_IMAGE, name);
+    }
+
+    void Core::SetDebugName(Pipeline *pipeline, const std::string &name)
+    {
+        SetDebugNameInternal(vulkanDevice, reinterpret_cast<uint64_t>(pipeline->vulkanHandle), VK_OBJECT_TYPE_PIPELINE, name);
+    }
+
     void Core::ResolveDeviceSampleCount()
     {
         ThrowInvalidOperationIf(!vulkanPhysicalDevice);
