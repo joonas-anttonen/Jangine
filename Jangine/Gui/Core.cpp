@@ -555,7 +555,7 @@ namespace Jangine::Gui
         if (hierarchy.empty())
         {
             sceneView.Traverse([&](const Gfx::Scene::View::Node &node, int depth)
-                               { hierarchy += std::format("{} {:03d} {}\n", std::string(depth * 2, ' '), node.self.value, core3D.GetScene().GetName(node.self).value_or("NO_NAME")); });
+                               { hierarchy += std::format("{} {:03d} {}\n", std::string(depth, ' '), node.self.value, core3D.GetScene().GetName(node.self).value_or("NO_NAME")); });
         }
 
         auto rot = Eigen::AngleAxisf(static_cast<float_t>(0), Eigen::Vector3f::UnitY());
@@ -594,7 +594,7 @@ namespace Jangine::Gui
                 Math::rad_to_deg(euler.y()),
                 Math::rad_to_deg(euler.z()),
                 hierarchy);
-            gfx2D.GetDefaultShaper()->CalculateTextLayout(statusText, 1.f, windowSize, true, statusTextLayout);
+            gfx2D.GetDefaultShaper()->CalculateTextLayout(statusText, 0.5f, windowSize, false, statusTextLayout);
 
             Eigen::Vector2f statusTextMargin = Eigen::Vector2f(2.f, 2.f);
             Eigen::Vector2f statusTextPosition = Eigen::Vector2f(sizeOfFrame.x() + statusTextMargin.x(), sizeOfFrame.y() + statusTextMargin.y());
