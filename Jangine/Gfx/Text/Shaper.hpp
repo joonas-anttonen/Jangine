@@ -93,8 +93,8 @@ namespace Jangine::Gfx::Text
             Iterator &operator++()
             {
                 pos = next;
-                // Skip leading spaces
-                while (pos < line.size() && line[pos] == ' ')
+                // Skip only the first space if present
+                if (pos < line.size() && line[pos] == ' ')
                     ++pos;
                 if (pos >= line.size())
                 {
@@ -112,7 +112,7 @@ namespace Jangine::Gfx::Text
         {
             size_t start = pos;
             // Skip leading spaces
-            while (start < line.size() && line[start] == ' ')
+            if (start < line.size() && line[start] == ' ')
                 ++start;
             if (start >= line.size())
                 return end();
