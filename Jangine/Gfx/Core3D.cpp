@@ -514,16 +514,16 @@ namespace Jangine::Gfx
         const auto &nodes = scene.GetNodes();
         for (size_t i = 1; i < nodes.size(); i++)
         {
-            const Node *node = nodes[i];
+            const Node &node = nodes[i];
+            Mesh::Id associatedMeshId = node.GetMeshId();
 
-            if (node->GetType() != typeid(MeshNode))
+            if (!associatedMeshId)
                 continue;
 
-            perMeshData.Transform = node->GetWorldTransform().matrix();
+            perMeshData.Transform = node.GetWorldTransform().matrix();
             perMeshData.Color = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
 
-            const MeshNode *meshNode = dynamic_cast<const MeshNode *>(node);
-            const Mesh *mesh = scene.GetMesh(meshNode->GetMeshId());
+            const Mesh *mesh = scene.GetMesh(associatedMeshId);
             const MeshBuffer *meshBuffer = mesh->GetBuffer();
 
             gfx->BindBuffers(commandBuffer, meshBuffer->GetVertexBuffer(), meshBuffer->GetIndexBuffer());
