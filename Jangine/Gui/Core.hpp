@@ -81,6 +81,13 @@ namespace Jangine::Gui
         Color backgroundColor{0.1f, 0.1f, 0.1f, 1.0f};
         Color foregroundColor{1.0f, 1.0f, 1.0f, 1.0f};
 
+        bool_t isVisible = true;
+        bool_t isEnabled = true;
+        bool_t isFocusable = true;
+
+        bool_t isMouseFocused = false;
+        bool_t isKeyboardFocused = false;
+
         explicit GuiNode(std::type_index type)
             : type(type)
         {
@@ -112,10 +119,59 @@ namespace Jangine::Gui
 
         virtual void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer)
         {
+
             for (auto &child : descendants)
             {
                 child->Render(gfx2D, commandBuffer);
             }
+        }
+
+        std::optional<GuiNode *> ContainsPoint(const Eigen::Vector2f &point)
+        {
+            bool_t isTestable = isVisible && isEnabled;
+            if (!isTestable)
+                return std::nullopt;
+
+            auto contains = bounds.Contains(point);
+            if (contains)
+            {
+                for (int32_t i = static_cast<int32_t>(descendants.size()) - 1; i >= 0; --i)
+                {
+                    auto result = descendants[i]->ContainsPoint(point);
+                    if (result)
+                        return result;
+                }
+
+                if (isFocusable)
+                    return this;
+            }
+
+            return std::nullopt;
+        }
+
+        virtual void HandleMouseEnter(bool_t)
+        {
+        }
+
+        virtual void HandleMouseFocus(bool_t)
+        {
+        }
+
+        virtual void HandleKeyboardFocus(bool_t)
+        {
+        }
+
+        virtual void HandleMouseMotion(Eigen::Vector2f)
+        {
+        }
+
+        virtual void HandleMouseButton(UserInput::Digital, UserInput::Action, UserInput::Mods)
+        {
+        }
+
+        Eigen::Vector2f GetLocalPosition(const Eigen::Vector2f &position) const
+        {
+            return position - bounds.position();
         }
     };
 
@@ -124,6 +180,7 @@ namespace Jangine::Gui
         explicit AcrylicPanel(std::type_index type)
             : GuiNode(type)
         {
+            isFocusable = false;
         }
 
         void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
@@ -262,6 +319,7 @@ namespace Jangine::Gui
         explicit GridNode(std::type_index type)
             : GuiNode(type)
         {
+            isFocusable = false;
         }
 
         std::vector<Column> columns;
@@ -404,13 +462,29 @@ namespace Jangine::Gui
 
     struct GuiScene
     {
+        const Logging::Logger &logger;
+
         std::vector<GuiNode *> nodes;
 
+        GuiNode *nodeThatHasMouse{nullptr};
+        GuiNode *nodeThatCapturedMouse{nullptr};
+        GuiNode *nodeThatHasKeyboard{nullptr};
+
+        GuiScene &operator=(const GuiScene &) = delete;
+        GuiScene(const GuiScene &) = delete;
+        GuiScene &operator=(GuiScene &&) = default;
+        GuiScene(GuiScene &&from) = default;
+
         GuiScene()
+            : logger(Jangine::Core::GetLogger("Gui::Scene"))
         {
             auto world = new GuiRoot(typeid(GuiRoot));
             world->SetName("Root");
             nodes.push_back(world);
+
+            nodeThatHasMouse = world;
+            nodeThatCapturedMouse = nullptr;
+            nodeThatHasKeyboard = world;
         }
 
         ~GuiScene()
@@ -465,6 +539,24 @@ namespace Jangine::Gui
         void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer)
         {
             GetRoot()->Render(gfx2D, commandBuffer);
+
+            // debug highlight mouse focused node
+            if (nodeThatHasMouse)
+            {
+                commandBuffer->DrawRectangle(
+                    nodeThatHasMouse->bounds.Crop(1, 1, 1, 1),
+                    Color::Red,
+                    2.0f);
+            }
+
+            // debug highlight keyboard focused node
+            if (nodeThatHasKeyboard)
+            {
+                commandBuffer->DrawRectangle(
+                    nodeThatHasKeyboard->bounds.Crop(2, 2, 2, 2),
+                    Color::Cyan,
+                    2.0f);
+            }
         }
 
         void Print(const GuiNode *node, int depth = 0) const
@@ -473,6 +565,110 @@ namespace Jangine::Gui
             for (auto child : node->GetDescendants())
             {
                 Print(child, depth + 1);
+            }
+        }
+
+        void HandleMouseEnter(bool_t entered)
+        {
+            if (!entered)
+            {
+                if (nodeThatHasMouse)
+                {
+                    nodeThatHasMouse->isMouseFocused = false;
+                    nodeThatHasMouse->HandleMouseFocus(false);
+                    nodeThatHasMouse = nullptr;
+                }
+            }
+        }
+
+        void HandleMouseMotion(const Eigen::Vector2f &position)
+        {
+            if (nodeThatCapturedMouse)
+            {
+                // If a node has captured the mouse, it gets all mouse move events
+                nodeThatCapturedMouse->HandleMouseMotion(
+                    nodeThatCapturedMouse->GetLocalPosition(position));
+                return;
+            }
+
+            auto nodeAtMouse = GetRoot()->ContainsPoint(position);
+            if (nodeAtMouse != nodeThatHasMouse)
+            {
+                if (nodeThatHasMouse)
+                {
+                    nodeThatHasMouse->isMouseFocused = false;
+                    nodeThatHasMouse->HandleMouseFocus(false);
+                }
+
+                nodeThatHasMouse = nodeAtMouse.value_or(GetRoot());
+                if (nodeThatHasMouse)
+                {
+                    logger.Warning(std::format("Gained mouse focus on '{}'", nodeThatHasMouse->GetName()));
+                    nodeThatHasMouse->isMouseFocused = true;
+                    nodeThatHasMouse->HandleMouseFocus(true);
+                }
+            }
+
+            if (nodeThatHasMouse)
+            {
+                nodeThatHasMouse->HandleMouseMotion(
+                    nodeThatHasMouse->GetLocalPosition(position));
+            }
+        }
+
+        void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods mods)
+        {
+            if (nodeThatCapturedMouse)
+            {
+                // If a node has captured the mouse, it gets all mouse button events
+                nodeThatCapturedMouse->HandleMouseButton(
+                    button,
+                    action,
+                    mods);
+
+                // End capture on mouse button release
+                if (action == UserInput::Action::RELEASE)
+                {
+                    nodeThatCapturedMouse = nullptr;
+                }
+                return;
+            }
+            if (nodeThatHasMouse)
+            {
+                nodeThatHasMouse->HandleMouseButton(
+                    button,
+                    action,
+                    mods);
+
+                // Start capture on mouse button press - if the node is enabled and focusable
+                if (action == UserInput::Action::PRESS &&
+                    nodeThatHasMouse->isEnabled &&
+                    nodeThatHasMouse->isFocusable)
+                {
+                    nodeThatCapturedMouse = nodeThatHasMouse;
+                    MoveKeyboardFocus(nodeThatHasMouse);
+                }
+            }
+        }
+
+        void MoveKeyboardFocus(GuiNode *newNodeThatHasKeyboard)
+        {
+            if (newNodeThatHasKeyboard == nodeThatHasKeyboard)
+                return;
+
+            if (nodeThatHasKeyboard)
+            {
+                nodeThatHasKeyboard->isKeyboardFocused = false;
+                nodeThatHasKeyboard->HandleKeyboardFocus(false);
+            }
+
+            nodeThatHasKeyboard = newNodeThatHasKeyboard;
+
+            if (nodeThatHasKeyboard)
+            {
+                logger.Warning(std::format("Gained keyboard focus on '{}'", nodeThatHasKeyboard->GetName()));
+                nodeThatHasKeyboard->isKeyboardFocused = true;
+                nodeThatHasKeyboard->HandleKeyboardFocus(true);
             }
         }
     };

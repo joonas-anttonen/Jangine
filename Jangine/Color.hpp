@@ -71,6 +71,7 @@ namespace Jangine
 
         static const Color White, Black, Transparent;
         static const Color Maximum;
+        static const Color Red, Green, Blue, Yellow, Cyan, Magenta;
 
         static const Color NordPolarNight1;   // nord0 - dark blue-gray
         static const Color NordPolarNight2;   // nord1 - slightly lighter blue-gray
@@ -98,6 +99,12 @@ namespace Jangine
         (float_t)std::numeric_limits<uint32_t>::max(), 
         (float_t)std::numeric_limits<uint32_t>::max(), 
         (float_t)std::numeric_limits<uint32_t>::max());
+    inline const Color Color::Red = Color(1, 0, 0, 1);
+    inline const Color Color::Green = Color(0, 1, 0, 1);
+    inline const Color Color::Blue = Color(0, 0, 1, 1);
+    inline const Color Color::Yellow = Color(1, 1, 0, 1);
+    inline const Color Color::Cyan = Color(0, 1, 1, 1);
+    inline const Color Color::Magenta = Color(1, 0, 1, 1);
 
     inline const Color Color::NordPolarNight1 = Color::FromUInt(0x2E3440);   // dark blue-gray
     inline const Color Color::NordPolarNight2 = Color::FromUInt(0x3B4252);   // slightly lighter blue-gray

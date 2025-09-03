@@ -381,16 +381,26 @@ namespace Jangine::Gui
         return jangineMods;
     }
 
-    void Core::HandleMouseButton(GLFWwindow *window, int button, int action, int mods)
+    void Core::HandleMouseButton(GLFWwindow *window, int glfw_button, int glfw_action, int glfw_mods)
     {
         (void)window; // Avoid unused parameter warning
 
+        UserInput::Digital button = ConvertGlfwMouseButtonToJangine(glfw_button);
+        UserInput::Action action = ConvertGlfwActionToJangine(glfw_action);
+        UserInput::Mods mods = ConvertGlfwModsToJangine(glfw_mods);
+
         UserInput::Event event;
         event.type = UserInput::Event::Type::DIGITAL;
-        event.field0 = static_cast<float_t>(ConvertGlfwMouseButtonToJangine(button));
-        event.field1 = static_cast<float_t>(ConvertGlfwActionToJangine(action));
-        event.field2 = static_cast<float_t>(ConvertGlfwModsToJangine(mods));
+        event.field0 = static_cast<float_t>(button);
+        event.field1 = static_cast<float_t>(action);
+        event.field2 = static_cast<float_t>(mods);
         Jangine::Core::GetInstance().PostUserInput(event);
+
+        Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
+        if (core)
+        {
+            core->scene.HandleMouseButton(button, action, mods);
+        }
     }
 
     void Core::HandleMouseMotion(GLFWwindow *window, double xpos, double ypos)
@@ -414,6 +424,8 @@ namespace Jangine::Gui
             event.field0 = delta.x();
             event.field1 = delta.y();
             Jangine::Core::GetInstance().PostUserInput(event);
+
+            core->scene.HandleMouseMotion(newMousePosition);
         }
     }
 
@@ -436,6 +448,7 @@ namespace Jangine::Gui
         if (core)
         {
             core->mouseInsideWindow = false;
+            core->scene.HandleMouseEnter(entered != 0);
         }
     }
 
@@ -508,7 +521,12 @@ namespace Jangine::Gui
         SynchronizeWithGlfw();
 
         // --------------------- TESTING
+        viewport = scene.CreateNode<GuiNode>();
+        viewport->SetName("3D Viewport");
+        viewport->gridCoordinates = {0, 0, 1, 1};
+
         auto grid = scene.CreateNode<GridNode>();
+        scene.SetAncestor(grid, viewport);
         grid->SetName("Grid");
         grid->SetColumnsAndRows(
             {
@@ -519,15 +537,34 @@ namespace Jangine::Gui
                 {Unit::FRACTION, 1.0f},
             });
 
-        viewport = scene.CreateNode<GuiNode>();
-        viewport->SetName("3D Viewport");
-        viewport->gridCoordinates = {0, 0, 1, 1};
-        // scene.SetAncestor(viewport, grid);
-
         auto acrylic = scene.CreateNode<AcrylicPanel>();
         acrylic->SetName("AcrylicPanel");
         acrylic->gridCoordinates = {1, 0, 1, 1};
         scene.SetAncestor(acrylic, grid);
+
+        auto gridRightPanel = scene.CreateNode<GridNode>();
+        gridRightPanel->SetName("GridRightPanel");
+        gridRightPanel->gridCoordinates = {1, 0, 1, 1};
+        scene.SetAncestor(gridRightPanel, grid);
+        gridRightPanel->SetColumnsAndRows(
+            {
+                {Unit::FRACTION, 1.0f},
+            },
+            {
+                {Unit::PIXELS, 32.0f},
+                {Unit::PIXELS, 32.0f},
+                {Unit::PIXELS, 32.0f},
+                {Unit::PIXELS, 32.0f},
+                {Unit::FRACTION, 1.0f},
+            });
+
+            for (uint32_t i = 0; i < 4; ++i)
+            {
+                auto button = scene.CreateNode<GuiNode>();
+                button->SetName(std::format("Button {}", i + 1));
+                button->gridCoordinates = {0, i, 1, 1};
+                scene.SetAncestor(button, gridRightPanel);
+            }
 
         scene.Print(scene.GetRoot());
         scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
