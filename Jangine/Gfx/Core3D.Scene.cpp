@@ -247,12 +247,6 @@ namespace Jangine::Gfx
 
         scene.Print([&](std::string output)
                     { logger.Warning(output); });
-
-        Scene::View copy;
-        scene.GetView(copy);
-
-        copy.Print([&](std::string output)
-                   { logger.Error(output); });
     }
 
     void Core3D::Export(Jangine::IO::Gltf::Model &gltf)
