@@ -480,7 +480,7 @@ namespace Jangine::Gui
     class JANGINE_API Core
     {
     public:
-        Core(const ApiParameters &parameters, Gfx::Core *gfx);
+        Core(const ApiParameters &parameters, Gfx::Core &gfx);
         ~Core();
 
         Core &operator=(const Core &) = delete;
@@ -514,7 +514,7 @@ namespace Jangine::Gui
 
         GLFWwindow *glfwWindow = nullptr;
 
-        Gfx::Core *gfx = nullptr;
+        Gfx::Core &gfx;
 
         const Logging::Logger &logger;
 

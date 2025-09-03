@@ -45,7 +45,7 @@ namespace Jangine
             Gui::ApiParameters guiApiParameters = {
                 .enableDebugging = parameters.enableDebugging,
                 .preferX11 = false};
-            Gui::Core gui(guiApiParameters, &gfx);
+            Gui::Core gui(guiApiParameters, gfx);
 
             Gui::Parameters guiParameters{
                 .windowTitle = parameters.appName,

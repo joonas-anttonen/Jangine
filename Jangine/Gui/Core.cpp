@@ -21,7 +21,7 @@ namespace Jangine::Gui
         }
     }
 
-    Core::Core(const ApiParameters &parameters, Gfx::Core *gfx)
+    Core::Core(const ApiParameters &parameters, Gfx::Core &gfx)
         : logger(Jangine::Core::GetLogger("Gui::Core")), gfx(gfx)
     {
         logger.Func(__func__);
@@ -58,10 +58,10 @@ namespace Jangine::Gui
         Jangine::Core::GetInstance().PostToGfxThread(
             [this, currentWindow]()
             {
-                Gfx::DisplayParameters newDisplayParameters = gfx->GetDisplayParameters();
+                Gfx::DisplayParameters newDisplayParameters = gfx.GetDisplayParameters();
                 newDisplayParameters.surfaceWidth = currentWindow.x();
                 newDisplayParameters.surfaceHeight = currentWindow.y();
-                gfx->InitializeRendering(newDisplayParameters);
+                gfx.InitializeRendering(newDisplayParameters);
             });
     }
 
@@ -531,7 +531,7 @@ namespace Jangine::Gui
 
         scene.Print(scene.GetRoot());
         scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
-        gfx->UnsafeSetViewport(viewport->bounds);
+        gfx.UnsafeSetViewport(viewport->bounds);
         // --------------------- TESTING
     }
 
@@ -547,9 +547,9 @@ namespace Jangine::Gui
         SynchronizeWithGlfw();
 
         scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
-        gfx->UnsafeSetViewport(viewport->bounds);
+        gfx.UnsafeSetViewport(viewport->bounds);
 
-        Gfx::Core3D &core3D = gfx->GetCore3D();
+        Gfx::Core3D &core3D = gfx.GetCore3D();
 
         core3D.GetScene().GetView(sceneView);
         if (hierarchy.empty())
@@ -562,7 +562,7 @@ namespace Jangine::Gui
         auto rotTf = rot * Eigen::Isometry3f{Eigen::Translation3f(0.0f, 0.0f, 0.0f)};
         core3D.GetScene().PostTransformCommand(Gfx::Node::Id{1}, rotTf);
 
-        Gfx::Core2D &gfx2D = gfx->GetCore2D();
+        Gfx::Core2D &gfx2D = gfx.GetCore2D();
         Gfx::CommandBuffer2D *commandBuffer = nullptr;
 
         bool_t acquiredCommandBuffer = gfx2D.TryAcquireCommandBuffer(&commandBuffer);
