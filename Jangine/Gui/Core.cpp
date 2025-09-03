@@ -558,13 +558,32 @@ namespace Jangine::Gui
                 {Unit::FRACTION, 1.0f},
             });
 
-            for (uint32_t i = 0; i < 4; ++i)
-            {
-                auto button = scene.CreateNode<GuiNode>();
-                button->SetName(std::format("Button {}", i + 1));
-                button->gridCoordinates = {0, i, 1, 1};
-                scene.SetAncestor(button, gridRightPanel);
-            }
+        Style buttonBasicStyle{
+            .backgroundColor = Color::FromUInt(0x3a3f4b),
+            .foregroundColor = Color::FromUInt(0xabb2bf),
+            .margin = Spacing{
+                .left = {Unit::PIXELS, 4.0f},
+                .top = {Unit::PIXELS, 4.0f},
+                .right = {Unit::PIXELS, 4.0f},
+                .bottom = {Unit::PIXELS, 4.0f},
+            }};
+        Style buttonHoveredStyle{
+            .backgroundColor = Color::FromUInt(0x4b5160),
+        };
+        Style buttonActiveStyle{
+            .backgroundColor = Color::FromUInt(0x282c34),
+        };
+
+        for (uint32_t i = 0; i < 4; ++i)
+        {
+            auto button = scene.CreateNode<GuiButton>();
+            button->SetName(std::format("Button {}", i + 1));
+            button->SetStyle(buttonBasicStyle);
+            button->SetHoveredStyle(buttonHoveredStyle);
+            button->SetActiveStyle(buttonActiveStyle);
+            button->gridCoordinates = {0, i, 1, 1};
+            scene.SetAncestor(button, gridRightPanel);
+        }
 
         scene.Print(scene.GetRoot());
         scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));

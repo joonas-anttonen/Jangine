@@ -138,6 +138,7 @@ jangine = library(
         'Jangine/IO/Urdf.cpp',
         'Jangine/IO/WebP.cpp',
         'Jangine/Gui/Core.cpp',
+        'Jangine/Gui/Scene.cpp',
         built_in_fonts,
         built_in_shaders,
     ],
