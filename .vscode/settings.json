@@ -1,6 +1,9 @@
 {
     "C_Cpp.default.configurationProvider": "mesonbuild.mesonbuild",
-    "mesonbuild.configureOnOpen": false,
+    "C_Cpp.default.compileCommands": "j:\\projects\\Jangine\\builddir/compile_commands.json",
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.pythonProjects": [],
+    "cmake.ignoreCMakeListsMissing": true,
     "files.associations": {
         "format": "cpp",
         "thread": "cpp",
@@ -100,6 +103,5 @@
         "*.rh": "cpp",
         "geometry": "cpp",
         "variant": "cpp"
-    },
-    "C_Cpp.default.compileCommands": "j:\\projects\\Jangine\\builddir/compile_commands.json"
+    }
 }
