@@ -42,6 +42,7 @@ namespace Jangine::Gfx
             uint32_t indexCount;
             SharedHandle<PixelBuffer> texture;
             const Text::Font *font;
+            std::optional<Rectangle> scissor;
         };
 
         /// @brief Batch of draw commands
@@ -56,6 +57,17 @@ namespace Jangine::Gfx
             uint32_t commandCount;
             PixelBuffer *surface;
         };
+
+        void PushScissor(Rectangle scissor)
+        {
+            scissorStack.push(scissor);
+        }
+
+        void PopScissor()
+        {
+            ThrowInvalidOperationIf(scissorStack.empty());
+            scissorStack.pop();
+        }
 
         /// @brief Resets the command buffer to its initial state.
         void Reset()
@@ -115,10 +127,15 @@ namespace Jangine::Gfx
             }
 
             // Check if new command is needed (font changed)
-            auto &currentCommand = GetCurrentCommand();
-            if (currentCommand.font != layout.font)
+            if (GetCurrentCommand().font != layout.font)
             {
                 BeginCommand().font = layout.font;
+            }
+            if (scissorStack.size() > 0 && GetCurrentCommand().scissor != scissorStack.top())
+            {
+                auto &newCommand = BeginCommand();
+                newCommand.font = layout.font;
+                newCommand.scissor = scissorStack.top();
             }
 
             for (const auto &glyph : layout.glyphs)
@@ -141,6 +158,10 @@ namespace Jangine::Gfx
 
             Command &newCommand = BeginCommand();
             newCommand.texture = image;
+            if (scissorStack.size() > 0)
+            {
+                newCommand.scissor = scissorStack.top();
+            }
 
             Eigen::Vector2f imageExtent(static_cast<float_t>(image->width), static_cast<float_t>(image->height));
             Eigen::Vector2f uv0(0.0f, 0.0f);
@@ -206,12 +227,20 @@ namespace Jangine::Gfx
             {
                 return;
             }
-            
+
             auto &currentCommand = GetCurrentCommand();
             if (currentCommand.texture || currentCommand.font)
             {
                 auto &command = BeginCommand();
-                (void)command;
+                if (scissorStack.size() > 0 && GetCurrentCommand().scissor != scissorStack.top())
+                {
+                    command.scissor = scissorStack.top();
+                }
+            }
+            else if (scissorStack.size() > 0 && GetCurrentCommand().scissor != scissorStack.top())
+            {
+                auto &newCommand = BeginCommand();
+                newCommand.scissor = scissorStack.top();
             }
 
             float_t half_thickness = thickness * 0.5f;
@@ -252,7 +281,15 @@ namespace Jangine::Gfx
             if (currentCommand.texture || currentCommand.font)
             {
                 auto &command = BeginCommand();
-                (void)command;
+                if (scissorStack.size() > 0 && GetCurrentCommand().scissor != scissorStack.top())
+                {
+                    command.scissor = scissorStack.top();
+                }
+            }
+            else if (scissorStack.size() > 0 && GetCurrentCommand().scissor != scissorStack.top())
+            {
+                auto &newCommand = BeginCommand();
+                newCommand.scissor = scissorStack.top();
             }
 
             PushQuadUV(rectangle.position(), rectangle.position() + rectangle.extent(),
@@ -270,7 +307,15 @@ namespace Jangine::Gfx
             if (currentCommand.texture || currentCommand.font)
             {
                 auto &command = BeginCommand();
-                (void)command;
+                if (scissorStack.size() > 0 && GetCurrentCommand().scissor != scissorStack.top())
+                {
+                    command.scissor = scissorStack.top();
+                }
+            }
+            else if (scissorStack.size() > 0 && GetCurrentCommand().scissor != scissorStack.top())
+            {
+                auto &newCommand = BeginCommand();
+                newCommand.scissor = scissorStack.top();
             }
 
             PushQuadUV(a, c, Eigen::Vector2f(0, 0), Eigen::Vector2f(1, 1), color);
@@ -345,5 +390,7 @@ namespace Jangine::Gfx
         std::vector<Eigen::Vector2f> temp_points;
         std::vector<Eigen::Vector2f> temp_normals;
         std::vector<Eigen::Vector2f> scratchVertices;
+
+        std::stack<Rectangle> scissorStack;
     };
 }

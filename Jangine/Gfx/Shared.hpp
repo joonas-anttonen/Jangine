@@ -235,6 +235,15 @@ namespace Jangine::Gfx
         Eigen::Vector2f extent() const { return {width(), height()}; }
         Eigen::Vector2f center() const { return {left + width() / 2.0f, top + height() / 2.0f}; }
 
+        bool_t operator==(const Rectangle &other) const
+        {
+            return left == other.left && top == other.top && right == other.right && bottom == other.bottom;
+        }
+        bool_t operator!=(const Rectangle &other) const
+        {
+            return !(*this == other);
+        }
+
         bool Contains(const Eigen::Vector2f &p) const
         {
             return (left <= p.x()) && (top <= p.y()) && (right >= p.x()) && (bottom >= p.y());

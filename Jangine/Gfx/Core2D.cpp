@@ -417,7 +417,6 @@ namespace Jangine::Gfx
         vkCmdBeginRendering(vulkanCommandBuffer, &renderingInfo);
         vkCmdBindPipeline(vulkanCommandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline->vulkanHandle);
         vkCmdSetViewport(vulkanCommandBuffer, 0, 1, &viewport);
-        vkCmdSetScissor(vulkanCommandBuffer, 0, 1, &scissor);
 
         VkDeviceSize vertexBufferOffset = 0;
         vkCmdBindVertexBuffers(vulkanCommandBuffer, 0, 1, &vertexBuffer->vulkanBuffer, &vertexBufferOffset);
@@ -442,6 +441,22 @@ namespace Jangine::Gfx
                 commandTexture = command.font->GetPixelBuffer()->vulkanImageView;
                 commandSampler = linearPixelSampler->vulkanHandle;
                 pushConstants.smoothing = 1;
+            }
+
+            if (command.scissor)
+            {
+                Rectangle scissorRectangle = command.scissor.value();
+                VkRect2D commandScissor{
+                    .offset = {.x = static_cast<int32_t>(scissorRectangle.left),
+                               .y = static_cast<int32_t>(scissorRectangle.top)},
+                    .extent = {.width = static_cast<uint32_t>(scissorRectangle.width()),
+                               .height = static_cast<uint32_t>(scissorRectangle.height())}
+                };
+                vkCmdSetScissor(vulkanCommandBuffer, 0, 1, &commandScissor);
+            }
+            else
+            {
+                vkCmdSetScissor(vulkanCommandBuffer, 0, 1, &scissor);
             }
 
             VkDescriptorImageInfo imageInfo{
@@ -509,29 +524,29 @@ namespace Jangine::Gfx
         CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
 
         gfx.PixelBufferBarrier(commandBuffer,
-                                backBuffer.get(),
-                                ImageLayout::UNDEFINED,
-                                ImageLayout::TRANSFER_DST_OPTIMAL);
+                               backBuffer.get(),
+                               ImageLayout::UNDEFINED,
+                               ImageLayout::TRANSFER_DST_OPTIMAL);
         gfx.ClearPixelBuffer(commandBuffer,
-                              backBuffer.get(),
-                              Color::Transparent);
+                             backBuffer.get(),
+                             Color::Transparent);
         gfx.PixelBufferBarrier(commandBuffer,
-                                backBuffer.get(),
-                                ImageLayout::TRANSFER_DST_OPTIMAL,
-                                ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+                               backBuffer.get(),
+                               ImageLayout::TRANSFER_DST_OPTIMAL,
+                               ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
         // --------------------- BLUR
         Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
 
         gfx.PixelBufferBarrier(commandBuffer,
-                                presentationBuffer,
-                                ImageLayout::TRANSFER_DST_OPTIMAL,
-                                ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+                               presentationBuffer,
+                               ImageLayout::TRANSFER_DST_OPTIMAL,
+                               ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         {
             gfx.PixelBufferBarrier(commandBuffer,
-                                    blurIntermediateBuffer.get(),
-                                    ImageLayout::UNDEFINED,
-                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+                                   blurIntermediateBuffer.get(),
+                                   ImageLayout::UNDEFINED,
+                                   ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
             BlurPushConstants blurPushConstants{
                 .scale = 2.0f,
@@ -650,13 +665,13 @@ namespace Jangine::Gfx
             vkCmdEndRendering(commandBuffer.vulkanHandle);
 
             gfx.PixelBufferBarrier(commandBuffer,
-                                    blurIntermediateBuffer.get(),
-                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                                    ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+                                   blurIntermediateBuffer.get(),
+                                   ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                                   ImageLayout::SHADER_READ_ONLY_OPTIMAL);
             gfx.PixelBufferBarrier(commandBuffer,
-                                    blurBuffer.get(),
-                                    ImageLayout::UNDEFINED,
-                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+                                   blurBuffer.get(),
+                                   ImageLayout::UNDEFINED,
+                                   ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
 
             colorAttachment = {
                 .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
@@ -733,15 +748,15 @@ namespace Jangine::Gfx
             vkCmdEndRendering(commandBuffer.vulkanHandle);
 
             gfx.PixelBufferBarrier(commandBuffer,
-                                    blurBuffer.get(),
-                                    ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                                    ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+                                   blurBuffer.get(),
+                                   ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                                   ImageLayout::SHADER_READ_ONLY_OPTIMAL);
         }
 
         gfx.PixelBufferBarrier(commandBuffer,
-                                presentationBuffer,
-                                ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                                ImageLayout::TRANSFER_DST_OPTIMAL);
+                               presentationBuffer,
+                               ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                               ImageLayout::TRANSFER_DST_OPTIMAL);
         // --------------------- BLUR
     }
 
@@ -751,13 +766,13 @@ namespace Jangine::Gfx
         Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
 
         gfx.PixelBufferBarrier(commandBuffer,
-                                presentationBuffer,
-                                ImageLayout::TRANSFER_DST_OPTIMAL,
-                                ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+                               presentationBuffer,
+                               ImageLayout::TRANSFER_DST_OPTIMAL,
+                               ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
         gfx.PixelBufferBarrier(commandBuffer,
-                                backBuffer.get(),
-                                ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-                                ImageLayout::SHADER_READ_ONLY_OPTIMAL);
+                               backBuffer.get(),
+                               ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+                               ImageLayout::SHADER_READ_ONLY_OPTIMAL);
 
         VkCommandBuffer vulkanCommandBuffer = commandBuffer.vulkanHandle;
 
