@@ -28,7 +28,15 @@ namespace Jangine::Gui
         {
             if (action == UserInput::Action::PRESS)
             {
-                UpdateValueFromPosition(position);
+                dragStartPosition = GetLocalPosition(thumbArea.position() + thumbArea.extent() / 2.0f);
+
+                if (!thumbArea.Contains(GetGlobalPosition(position)))
+                {
+                    UpdateValueFromPosition(position);
+                }
+
+                dragStartPosition = position;
+
                 isActive = true;
                 scene.InvalidateLayout();
             }

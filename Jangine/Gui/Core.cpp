@@ -601,9 +601,10 @@ namespace Jangine::Gui
             }};
         Style sliderHoveredStyle{
             .backgroundColor = Color::FromUInt(0x4b5160),
+            .foregroundColor = Color::FromUInt(0x61afef),
         };
         Style sliderActiveStyle{
-            .backgroundColor = Color::FromUInt(0x282c34),
+            .foregroundColor = Color::FromUInt(0xc678dd),
         };
 
         auto slider = scene.CreateNode<GuiSlider>();

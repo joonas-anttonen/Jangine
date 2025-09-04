@@ -265,6 +265,11 @@ namespace Jangine::Gui
         {
             return position - bounds.position();
         }
+
+        Eigen::Vector2f GetGlobalPosition(const Eigen::Vector2f &localPosition) const
+        {
+            return localPosition + bounds.position();
+        }
     };
 
     struct GuiButton : public GuiNode
@@ -300,6 +305,8 @@ namespace Jangine::Gui
         Gfx::Rectangle thumbArea;
         Gfx::Rectangle trackArea;
 
+        Eigen::Vector2f dragStartPosition;
+
         std::function<void(GuiSlider &, float_t)> onValueChanged;
 
         explicit GuiSlider(std::type_index type, GuiScene &scene)
@@ -318,19 +325,30 @@ namespace Jangine::Gui
 
         void UpdateValueFromPosition(Eigen::Vector2f position)
         {
+            float_t previousValue = value;
+
             if (orientation == Orientation::HORIZONTAL)
             {
-                float_t newValue = (position.x() - thumbSize / 2.0f) / (bounds.width() - thumbSize);
+                float_t delta = position.x() - dragStartPosition.x();
+                float_t sliderRange = bounds.width() - thumbSize;
+                float_t newValue = (thumbArea.left - bounds.left + delta) / sliderRange;
                 value = std::clamp(newValue, 0.0f, 1.0f);
             }
             else
             {
-                float_t newValue = (position.y() - thumbSize / 2.0f) / (bounds.height() - thumbSize);
+                float_t delta = position.y() - dragStartPosition.y();
+                float_t sliderRange = bounds.height() - thumbSize;
+                float_t newValue = (thumbArea.top - bounds.top + delta) / sliderRange;
                 value = std::clamp(newValue, 0.0f, 1.0f);
             }
 
-            if (onValueChanged)
-                onValueChanged(*this, value);
+            if (value != previousValue)
+            {
+                dragStartPosition = position;
+
+                if (onValueChanged)
+                    onValueChanged(*this, value);
+            }
         }
 
         void UpdateLayout(Gfx::Rectangle area) override
