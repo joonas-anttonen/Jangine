@@ -18,6 +18,12 @@ namespace Jangine::Gui
         // EM,
     };
 
+    enum class Orientation
+    {
+        HORIZONTAL,
+        VERTICAL,
+    };
+
     struct Measure
     {
         Unit unit = Unit::FRACTION;
@@ -239,10 +245,6 @@ namespace Jangine::Gui
             return std::nullopt;
         }
 
-        virtual void HandleMouseEnter(bool_t)
-        {
-        }
-
         virtual void HandleMouseFocus(bool_t)
         {
         }
@@ -267,6 +269,8 @@ namespace Jangine::Gui
 
     struct GuiButton : public GuiNode
     {
+        std::function<void(GuiButton &)> onClick;
+
         explicit GuiButton(std::type_index type, GuiScene &scene)
             : GuiNode(type, scene)
         {
@@ -283,6 +287,107 @@ namespace Jangine::Gui
         }
 
         void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods) override;
+    };
+
+    struct GuiSlider : public GuiNode
+    {
+        Orientation orientation = Orientation::HORIZONTAL;
+
+        float_t thumbSize = 16.0f;
+        float_t trackSize = 8.0f;
+        float_t value = 0.5f; // 0.0 - 1.0
+
+        Gfx::Rectangle thumbArea;
+        Gfx::Rectangle trackArea;
+
+        Eigen::Vector2f mousePosition;
+
+        std::function<void(GuiSlider &, float_t)> onValueChanged;
+
+        explicit GuiSlider(std::type_index type, GuiScene &scene)
+            : GuiNode(type, scene)
+        {
+        }
+
+        void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods) override;
+        void HandleMouseMotion(Eigen::Vector2f position) override
+        {
+            mousePosition = position;
+
+            if (isActive)
+            {
+                UpdateValueFromPosition(mousePosition);
+            }
+        }
+
+        void UpdateValueFromPosition(Eigen::Vector2f position)
+        {
+            if (orientation == Orientation::HORIZONTAL)
+            {
+                float_t newValue = (position.x() - thumbSize / 2.0f) / (bounds.width() - thumbSize);
+                value = std::clamp(newValue, 0.0f, 1.0f);
+            }
+            else
+            {
+                float_t newValue = (position.y() - thumbSize / 2.0f) / (bounds.height() - thumbSize);
+                value = std::clamp(newValue, 0.0f, 1.0f);
+            }
+
+            if (onValueChanged)
+                onValueChanged(*this, value);
+        }
+
+        void UpdateLayout(Gfx::Rectangle area) override
+        {
+            bounds = area;
+            bounds = bounds.Crop(
+                computedStyle.margin ? computedStyle.margin->left.value : 0.0f,
+                computedStyle.margin ? computedStyle.margin->top.value : 0.0f,
+                computedStyle.margin ? computedStyle.margin->right.value : 0.0f,
+                computedStyle.margin ? computedStyle.margin->bottom.value : 0.0f);
+
+            if (orientation == Orientation::HORIZONTAL)
+            {
+                thumbArea = Gfx::Rectangle(
+                    bounds.left + (bounds.width() - thumbSize) * value,
+                    bounds.center().y() - thumbSize / 2.0f,
+                    bounds.left + (bounds.width() - thumbSize) * value + thumbSize,
+                    bounds.center().y() + thumbSize / 2.0f);
+
+                trackArea = Gfx::Rectangle(
+                    bounds.left + thumbSize / 2.0f,
+                    bounds.center().y() - trackSize / 2.0f,
+                    bounds.right - thumbSize / 2.0f,
+                    bounds.center().y() + trackSize / 2.0f);
+            }
+            else
+            {
+                thumbArea = Gfx::Rectangle(
+                    bounds.center().x() - thumbSize / 2.0f,
+                    bounds.top + (bounds.height() - thumbSize) * value,
+                    bounds.center().x() + thumbSize / 2.0f,
+                    bounds.top + (bounds.height() - thumbSize) * value + thumbSize);
+
+                trackArea = Gfx::Rectangle(
+                    bounds.center().x() - trackSize / 2.0f,
+                    bounds.top + thumbSize / 2.0f,
+                    bounds.center().x() + trackSize / 2.0f,
+                    bounds.bottom - thumbSize / 2.0f);
+            }
+
+            GuiNode::UpdateLayout(area);
+        }
+
+        void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        {
+            if (!isVisible)
+                return;
+
+            commandBuffer->FillRectangle(trackArea, backgroundColor);
+            commandBuffer->FillRectangle(thumbArea, foregroundColor);
+
+            GuiNode::Render(gfx2D, commandBuffer);
+        }
     };
 
     struct AcrylicPanel : public GuiNode

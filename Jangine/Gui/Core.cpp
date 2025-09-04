@@ -555,6 +555,7 @@ namespace Jangine::Gui
                 {Unit::PIXELS, 32.0f},
                 {Unit::PIXELS, 32.0f},
                 {Unit::PIXELS, 32.0f},
+                {Unit::PIXELS, 32.0f},
                 {Unit::FRACTION, 1.0f},
             });
 
@@ -577,13 +578,45 @@ namespace Jangine::Gui
         for (uint32_t i = 0; i < 4; ++i)
         {
             auto button = scene.CreateNode<GuiButton>();
-            button->SetName(std::format("Button {}", i + 1));
+            button->SetName(std::format("Button_{:03d}", i + 1));
             button->SetStyle(buttonBasicStyle);
             button->SetHoveredStyle(buttonHoveredStyle);
             button->SetActiveStyle(buttonActiveStyle);
             button->gridCoordinates = {0, i, 1, 1};
             scene.SetAncestor(button, gridRightPanel);
+            button->onClick = [this](GuiButton &b)
+            {
+                logger.Warning(std::format("{} clicked", b.GetName()), __func__);
+            };
         }
+
+        Style sliderBasicStyle{
+            .backgroundColor = Color::FromUInt(0x3a3f4b),
+            .foregroundColor = Color::FromUInt(0xabb2bf),
+            .margin = Spacing{
+                .left = {Unit::PIXELS, 4.0f},
+                .top = {Unit::PIXELS, 4.0f},
+                .right = {Unit::PIXELS, 4.0f},
+                .bottom = {Unit::PIXELS, 4.0f},
+            }};
+        Style sliderHoveredStyle{
+            .backgroundColor = Color::FromUInt(0x4b5160),
+        };
+        Style sliderActiveStyle{
+            .backgroundColor = Color::FromUInt(0x282c34),
+        };
+
+        auto slider = scene.CreateNode<GuiSlider>();
+        slider->SetName("Slider_001");
+        slider->SetStyle(sliderBasicStyle);
+        slider->SetHoveredStyle(sliderHoveredStyle);
+        slider->SetActiveStyle(sliderActiveStyle);
+        slider->gridCoordinates = {0, 4, 1, 1};
+        scene.SetAncestor(slider, gridRightPanel);
+        slider->onValueChanged = [this](GuiSlider &s, float_t value)
+        {
+            logger.Warning(std::format("{} value changed: {}", s.GetName(), value), __func__);
+        };
 
         scene.Print(scene.GetRoot());
         scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
