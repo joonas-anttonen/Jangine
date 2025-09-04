@@ -257,7 +257,7 @@ namespace Jangine::Gui
         {
         }
 
-        virtual void HandleMouseButton(UserInput::Digital, UserInput::Action, UserInput::Mods)
+        virtual void HandleMouseButton(UserInput::Digital, UserInput::Action, UserInput::Mods, Eigen::Vector2f)
         {
         }
 
@@ -286,7 +286,7 @@ namespace Jangine::Gui
             GuiNode::Render(gfx2D, commandBuffer);
         }
 
-        void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods) override;
+        void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f) override;
     };
 
     struct GuiSlider : public GuiNode
@@ -300,8 +300,6 @@ namespace Jangine::Gui
         Gfx::Rectangle thumbArea;
         Gfx::Rectangle trackArea;
 
-        Eigen::Vector2f mousePosition;
-
         std::function<void(GuiSlider &, float_t)> onValueChanged;
 
         explicit GuiSlider(std::type_index type, GuiScene &scene)
@@ -309,14 +307,12 @@ namespace Jangine::Gui
         {
         }
 
-        void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods) override;
+        void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f position) override;
         void HandleMouseMotion(Eigen::Vector2f position) override
         {
-            mousePosition = position;
-
             if (isActive)
             {
-                UpdateValueFromPosition(mousePosition);
+                UpdateValueFromPosition(position);
             }
         }
 
@@ -696,6 +692,8 @@ namespace Jangine::Gui
         GuiNode *nodeThatCapturedMouse{nullptr};
         GuiNode *nodeThatHasKeyboard{nullptr};
 
+        Eigen::Vector2f mousePosition{-1.0f, -1.0f};
+
         GuiScene &operator=(const GuiScene &) = delete;
         GuiScene(const GuiScene &) = delete;
         GuiScene &operator=(GuiScene &&) = default;
@@ -804,6 +802,8 @@ namespace Jangine::Gui
         {
             if (!entered)
             {
+                mousePosition = {-1.0f, -1.0f};
+
                 if (nodeThatHasMouse)
                 {
                     nodeThatHasMouse->isHovered = false;
@@ -816,6 +816,8 @@ namespace Jangine::Gui
 
         void HandleMouseMotion(const Eigen::Vector2f &position)
         {
+            mousePosition = position;
+
             if (nodeThatCapturedMouse)
             {
                 // If a node has captured the mouse, it gets all mouse move events
@@ -858,7 +860,8 @@ namespace Jangine::Gui
                 nodeThatCapturedMouse->HandleMouseButton(
                     button,
                     action,
-                    mods);
+                    mods,
+                    nodeThatCapturedMouse->GetLocalPosition(mousePosition));
 
                 // End capture on mouse button release
                 if (action == UserInput::Action::RELEASE)
@@ -872,7 +875,8 @@ namespace Jangine::Gui
                 nodeThatHasMouse->HandleMouseButton(
                     button,
                     action,
-                    mods);
+                    mods,
+                    nodeThatHasMouse->GetLocalPosition(mousePosition));
 
                 // Start capture on mouse button press - if the node is enabled and focusable
                 if (action == UserInput::Action::PRESS &&

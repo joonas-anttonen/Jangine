@@ -2,7 +2,7 @@
 
 namespace Jangine::Gui
 {
-    void GuiButton::HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods)
+    void GuiButton::HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f)
     {
         if (button == UserInput::Digital::MOUSE_L)
         {
@@ -22,13 +22,13 @@ namespace Jangine::Gui
         }
     }
 
-    void GuiSlider::HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods)
+    void GuiSlider::HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f position)
     {
         if (button == UserInput::Digital::MOUSE_L)
         {
             if (action == UserInput::Action::PRESS)
             {
-                UpdateValueFromPosition(mousePosition);
+                UpdateValueFromPosition(position);
                 isActive = true;
                 scene.InvalidateLayout();
             }
