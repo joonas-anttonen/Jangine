@@ -134,7 +134,7 @@ namespace Jangine::Gui
             return descendants;
         }
 
-        virtual void UpdateLayout(Gfx::Rectangle area)
+        virtual void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area)
         {
             bounds = area;
             bounds = bounds.Crop(
@@ -145,12 +145,14 @@ namespace Jangine::Gui
 
             for (auto &child : descendants)
             {
-                child->UpdateLayout(area);
+                child->UpdateLayout(gfx2D, area);
             }
         }
 
-        virtual void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer)
+        virtual void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer)
         {
+            if (!isVisible)
+                return;
 
             for (auto &child : descendants)
             {
@@ -281,7 +283,7 @@ namespace Jangine::Gui
         {
         }
 
-        void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
         {
             if (!isVisible)
                 return;
@@ -292,6 +294,93 @@ namespace Jangine::Gui
         }
 
         void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f) override;
+    };
+
+    struct GuiTreeView : public GuiNode
+    {
+        struct Item
+        {
+            std::string text;
+            std::vector<Item> children;
+            bool_t isExpanded = false;
+            bool_t isSelected = false;
+            void *userData = nullptr;
+
+            Gfx::Rectangle bounds;
+            Gfx::Text::Layout textLayout;
+        };
+
+        std::vector<Item> items;
+        float_t itemHeight = 24.0f;
+        float_t indentSize = 16.0f;
+
+        explicit GuiTreeView(std::type_index type, GuiScene &scene)
+            : GuiNode(type, scene)
+        {
+        }
+
+        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
+        {
+            bounds = area;
+            bounds = bounds.Crop(
+                computedStyle.margin ? computedStyle.margin->left.value : 0.0f,
+                computedStyle.margin ? computedStyle.margin->top.value : 0.0f,
+                computedStyle.margin ? computedStyle.margin->right.value : 0.0f,
+                computedStyle.margin ? computedStyle.margin->bottom.value : 0.0f);
+
+            std::function<void(std::vector<Item> &, float_t, float_t)> layoutItems = [&](std::vector<Item> &items, float_t startY, float_t indent)
+            {
+                float_t y = startY;
+                for (auto &item : items)
+                {
+                    item.bounds = Gfx::Rectangle(bounds.left + indent, y, bounds.right, y + itemHeight).Crop(1, 1, 1, 1);
+                    gfx2D.GetDefaultShaper()->CalculateTextLayout(
+                        item.text,
+                        1.0f,
+                        item.bounds.extent(),
+                        false,
+                        item.textLayout);
+                    y += itemHeight;
+                    if (item.isExpanded && !item.children.empty())
+                    {
+                        layoutItems(item.children, y, indent + indentSize);
+                        y += static_cast<float_t>(item.children.size()) * itemHeight; // Approximate height
+                    }
+                }
+            };
+            layoutItems(items, bounds.top, 0.0f);
+
+            GuiNode::UpdateLayout(gfx2D, area);
+        }
+
+        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        {
+            if (!isVisible)
+                return;
+
+            commandBuffer->FillRectangle(bounds, backgroundColor);
+
+            std::function<void(const std::vector<Item> &)> renderItems = [&](const std::vector<Item> &items)
+            {
+                for (const auto &item : items)
+                {
+                    Color itemColor = item.isSelected ? foregroundColor.WithAlpha(0.5f) : backgroundColor;
+                    commandBuffer->FillRectangle(item.bounds, itemColor);
+                    commandBuffer->DrawText(
+                        item.textLayout,
+                        item.bounds.position(),
+                        Color::White);
+
+                    if (item.isExpanded && !item.children.empty())
+                    {
+                        renderItems(item.children);
+                    }
+                }
+            };
+            renderItems(items);
+
+            GuiNode::Render(gfx2D, commandBuffer);
+        }
     };
 
     struct GuiSlider : public GuiNode
@@ -351,7 +440,7 @@ namespace Jangine::Gui
             }
         }
 
-        void UpdateLayout(Gfx::Rectangle area) override
+        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
         {
             bounds = area;
             bounds = bounds.Crop(
@@ -389,10 +478,10 @@ namespace Jangine::Gui
                     bounds.bottom - thumbSize / 2.0f);
             }
 
-            GuiNode::UpdateLayout(area);
+            GuiNode::UpdateLayout(gfx2D, area);
         }
 
-        void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
         {
             if (!isVisible)
                 return;
@@ -412,12 +501,15 @@ namespace Jangine::Gui
             isFocusable = false;
         }
 
-        void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
         {
-            if (gfx2D->IsReady())
+            if (!isVisible)
+                return;
+
+            if (gfx2D.IsReady())
             {
                 commandBuffer->DrawImage(
-                    gfx2D->GetAcrylicBuffer(),
+                    gfx2D.GetAcrylicBuffer(),
                     bounds.position(),
                     bounds.extent(),
                     Gfx::ImageFit::None,
@@ -474,7 +566,7 @@ namespace Jangine::Gui
             frameColor = color;
         }
 
-        void UpdateLayout(Gfx::Rectangle area) override
+        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
         {
             bounds = area;
 
@@ -494,11 +586,11 @@ namespace Jangine::Gui
 
             for (auto &child : descendants)
             {
-                child->UpdateLayout(contentArea);
+                child->UpdateLayout(gfx2D, contentArea);
             }
         }
 
-        void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
         {
             if (frameMode != FrameMode::NONE)
             {
@@ -560,7 +652,7 @@ namespace Jangine::Gui
             rows = rws;
         }
 
-        void UpdateLayout(Gfx::Rectangle area) override
+        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
         {
             bounds = area;
             bounds = bounds.Crop(computedStyle.margin ? computedStyle.margin->left.value : 0.0f,
@@ -678,7 +770,7 @@ namespace Jangine::Gui
                     bottom += rows[r].computedHeight;
                 }
 
-                element->UpdateLayout(Gfx::Rectangle(left, top, right, bottom));
+                element->UpdateLayout(gfx2D, Gfx::Rectangle(left, top, right, bottom));
             }
 
             // Update column and row bounds for debugging
@@ -778,13 +870,13 @@ namespace Jangine::Gui
             pendingLayoutUpdate = true;
         }
 
-        void UpdateLayout(Gfx::Rectangle area)
+        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area)
         {
             GetRoot()->ComputeStyle();
-            GetRoot()->UpdateLayout(area);
+            GetRoot()->UpdateLayout(gfx2D, area);
         }
 
-        void Render(Gfx::Core2D *gfx2D, Gfx::CommandBuffer2D *commandBuffer)
+        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer)
         {
             GetRoot()->Render(gfx2D, commandBuffer);
 

@@ -109,6 +109,11 @@ namespace Jangine::Gfx
         {
             ThrowInvalidOperationIfNot(batchInProgress);
 
+            if (color.IsTransparent() || layout.glyphs.empty() || layout.font == nullptr)
+            {
+                return;
+            }
+
             // Check if new command is needed (font changed)
             auto &currentCommand = GetCurrentCommand();
             if (currentCommand.font != layout.font)
@@ -128,6 +133,11 @@ namespace Jangine::Gfx
         void DrawImage(SharedHandle<PixelBuffer> image, Eigen::Vector2f targetPosition, Eigen::Vector2f targetExtent, ImageFit imageFit, Color color = Color::White)
         {
             ThrowInvalidOperationIfNot(batchInProgress);
+
+            if (color.IsTransparent() || !image)
+            {
+                return;
+            }
 
             Command &newCommand = BeginCommand();
             newCommand.texture = image;
@@ -192,13 +202,18 @@ namespace Jangine::Gfx
 
         void DrawRectangle(Eigen::Vector2f a, Eigen::Vector2f c, Color color, float_t thickness = 1.0f)
         {
+            if (color.IsTransparent())
+            {
+                return;
+            }
+            
             auto &currentCommand = GetCurrentCommand();
             if (currentCommand.texture || currentCommand.font)
             {
                 auto &command = BeginCommand();
                 (void)command;
             }
-            
+
             float_t half_thickness = thickness * 0.5f;
 
             // Top edge
@@ -228,6 +243,11 @@ namespace Jangine::Gfx
 
         void FillRectangle(Rectangle rectangle, Color color)
         {
+            if (color.IsTransparent())
+            {
+                return;
+            }
+
             auto &currentCommand = GetCurrentCommand();
             if (currentCommand.texture || currentCommand.font)
             {
@@ -241,6 +261,11 @@ namespace Jangine::Gfx
 
         void FillRectangle(Eigen::Vector2f a, Eigen::Vector2f c, Color color)
         {
+            if (color.IsTransparent())
+            {
+                return;
+            }
+
             auto &currentCommand = GetCurrentCommand();
             if (currentCommand.texture || currentCommand.font)
             {
@@ -253,6 +278,11 @@ namespace Jangine::Gfx
 
         void PushQuadUV(Eigen::Vector2f a, Eigen::Vector2f c, Eigen::Vector2f a_uv, Eigen::Vector2f c_uv, Color color)
         {
+            if (color.IsTransparent())
+            {
+                return;
+            }
+
             auto quadStartIndex = static_cast<uint16_t>(vertices.size());
             indices.push_back(quadStartIndex + 0);
             indices.push_back(quadStartIndex + 1);

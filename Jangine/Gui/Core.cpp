@@ -619,9 +619,39 @@ namespace Jangine::Gui
             logger.Warning(std::format("{} value changed: {}", s.GetName(), value), __func__);
         };
 
+        Style treeViewBasicStyle{
+            .backgroundColor = Color::Transparent,
+            .foregroundColor = Color::FromUInt(0xabb2bf),
+            .margin = Spacing{
+                .left = {Unit::PIXELS, 4.0f},
+                .top = {Unit::PIXELS, 4.0f},
+                .right = {Unit::PIXELS, 4.0f},
+                .bottom = {Unit::PIXELS, 4.0f},
+            }};
+
+        auto treeView = scene.CreateNode<GuiTreeView>();
+        treeView->SetName("TreeView_001");
+        treeView->SetStyle(treeViewBasicStyle);
+        treeView->gridCoordinates = {0, 5, 1, 1};
+        scene.SetAncestor(treeView, gridRightPanel);
+        for (uint32_t i = 0; i < 3; ++i)
+        {
+            auto &item = treeView->items.emplace_back();
+            item.text = std::format("Item {:03d}", i + 1);
+            item.isExpanded = (i % 2) == 0;
+            item.userData = nullptr;
+            for (uint32_t j = 0; j < 2; ++j)
+            {
+                auto &subItem = item.children.emplace_back();
+                subItem.text = std::format("SubItem {:03d}.{:03d}", i + 1, j + 1);
+                subItem.isExpanded = false;
+                subItem.userData = nullptr;
+            }
+        }
+
         scene.Print(scene.GetRoot());
-        scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
-        gfx.UnsafeSetViewport(viewport->bounds);
+        //scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
+        //gfx.UnsafeSetViewport(viewport->bounds);
         // --------------------- TESTING
     }
 
@@ -636,10 +666,12 @@ namespace Jangine::Gui
 
         SynchronizeWithGlfw();
 
-        scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
-        gfx.UnsafeSetViewport(viewport->bounds);
-
         Gfx::Core3D &core3D = gfx.GetCore3D();
+        Gfx::Core2D &gfx2D = gfx.GetCore2D();
+        Gfx::CommandBuffer2D *commandBuffer = nullptr;
+
+        scene.UpdateLayout(gfx2D, Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
+        gfx.UnsafeSetViewport(viewport->bounds);
 
         core3D.GetScene().GetView(sceneView);
         if (hierarchy.empty())
@@ -651,9 +683,6 @@ namespace Jangine::Gui
         auto rot = Eigen::AngleAxisf(static_cast<float_t>(0), Eigen::Vector3f::UnitY());
         auto rotTf = rot * Eigen::Isometry3f{Eigen::Translation3f(0.0f, 0.0f, 0.0f)};
         core3D.GetScene().PostTransformCommand(Gfx::Node::Id{1}, rotTf);
-
-        Gfx::Core2D &gfx2D = gfx.GetCore2D();
-        Gfx::CommandBuffer2D *commandBuffer = nullptr;
 
         bool_t acquiredCommandBuffer = gfx2D.TryAcquireCommandBuffer(&commandBuffer);
         if (!acquiredCommandBuffer)
@@ -701,7 +730,7 @@ namespace Jangine::Gui
 
             commandBuffer->DrawText(statusTextLayout, statusTextPosition, Color{1.f, 1.f, 1.f, 1.f});
 
-            scene.Render(&gfx2D, commandBuffer);
+            scene.Render(gfx2D, commandBuffer);
 
             commandBuffer->EndBatch();
         }
