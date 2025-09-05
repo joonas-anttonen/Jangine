@@ -110,8 +110,8 @@ namespace Jangine::Gfx
 
         static constexpr size_t COMMAND_BUFFER_POOL_SIZE = 4;
 
-        static constexpr uint32_t MAX_VERTICES = 65536;
-        static constexpr uint32_t MAX_INDICES = 65536;
+        static constexpr uint32_t MAX_VERTICES = 65536 * 2;
+        static constexpr uint32_t MAX_INDICES = 65536 * 2;
 
         Gfx::Core &gfx;
 

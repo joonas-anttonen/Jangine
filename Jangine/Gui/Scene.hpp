@@ -145,7 +145,7 @@ namespace Jangine::Gui
 
             for (auto &child : descendants)
             {
-                child->UpdateLayout(gfx2D, area);
+                child->UpdateLayout(gfx2D, bounds);
             }
         }
 
@@ -263,6 +263,10 @@ namespace Jangine::Gui
         {
         }
 
+        virtual void HandleMouseScroll(Eigen::Vector2f, Eigen::Vector2f)
+        {
+        }
+
         Eigen::Vector2f GetLocalPosition(const Eigen::Vector2f &position) const
         {
             return position - bounds.position();
@@ -271,6 +275,11 @@ namespace Jangine::Gui
         Eigen::Vector2f GetGlobalPosition(const Eigen::Vector2f &localPosition) const
         {
             return localPosition + bounds.position();
+        }
+
+        virtual Eigen::Vector2f Measure(Gfx::Core2D &)
+        {
+            return Eigen::Vector2f{0.0f, 0.0f};
         }
     };
 
@@ -296,7 +305,28 @@ namespace Jangine::Gui
         void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f) override;
     };
 
-    struct GuiTreeView : public GuiNode
+    struct Slider;
+
+    struct ScrollView : public GuiNode
+    {
+        explicit ScrollView(std::type_index type, GuiScene &scene);
+
+        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override;
+
+        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override;
+
+        Slider &horizontalSlider;
+        Slider &verticalSlider;
+
+        float_t horizontalScroll = 0.0f; // 0.0 - 1.0
+        float_t verticalScroll = 0.0f;   // 0.0 - 1.0
+
+        Gfx::Rectangle contentBounds;
+
+        void HandleMouseScroll(Eigen::Vector2f, Eigen::Vector2f) override;
+    };
+
+    struct TreeView : public GuiNode
     {
         struct Item
         {
@@ -311,44 +341,51 @@ namespace Jangine::Gui
         };
 
         std::vector<Item> items;
-        float_t itemHeight = 24.0f;
-        float_t indentSize = 16.0f;
+        float_t itemHeight = 32.0f;
+        float_t indentSize = 8.0f;
 
-        explicit GuiTreeView(std::type_index type, GuiScene &scene)
+        explicit TreeView(std::type_index type, GuiScene &scene)
             : GuiNode(type, scene)
         {
         }
 
-        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
+        Eigen::Vector2f Measure(Gfx::Core2D &gfx2D) override
         {
-            bounds = area;
-            bounds = bounds.Crop(
-                computedStyle.margin ? computedStyle.margin->left.value : 0.0f,
-                computedStyle.margin ? computedStyle.margin->top.value : 0.0f,
-                computedStyle.margin ? computedStyle.margin->right.value : 0.0f,
-                computedStyle.margin ? computedStyle.margin->bottom.value : 0.0f);
+            float_t width = 0.0f;
+            float_t height = 0.0f;
+            float_t currentY = 0.0f;
 
-            std::function<void(std::vector<Item> &, float_t, float_t)> layoutItems = [&](std::vector<Item> &items, float_t startY, float_t indent)
+            // TODO: We CAN know the available area here, would reduce the amount of text layouting we do
+            std::function<void(std::vector<Item> &, float_t)> layoutItems = [&](std::vector<Item> &items, float_t indent)
             {
-                float_t y = startY;
                 for (auto &item : items)
                 {
-                    item.bounds = Gfx::Rectangle(bounds.left + indent, y, bounds.right, y + itemHeight).Crop(1, 1, 1, 1);
                     gfx2D.GetDefaultShaper()->CalculateTextLayout(
                         item.text,
                         1.0f,
-                        item.bounds.extent(),
+                        Eigen::Vector2f(9999.0f, 9999.0f),
                         false,
                         item.textLayout);
-                    y += itemHeight;
+                    item.bounds = Gfx::Rectangle(indent, currentY, indent + item.textLayout.size.x(), currentY + itemHeight);
+                    width = std::max(width, item.bounds.right);
+                    height = std::max(height, item.bounds.bottom);
+                    item.bounds = item.bounds.Crop(1, 1, 1, 1);
+                    currentY += itemHeight;
                     if (item.isExpanded && !item.children.empty())
                     {
-                        layoutItems(item.children, y, indent + indentSize);
-                        y += static_cast<float_t>(item.children.size()) * itemHeight; // Approximate height
+                        layoutItems(item.children, indent + indentSize);
                     }
                 }
             };
-            layoutItems(items, bounds.top, 0.0f);
+            layoutItems(items, 0.0f);
+
+            return {width, height};
+        }
+
+        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
+        {
+            auto measuredSize = Measure(gfx2D);
+            (void)measuredSize;
 
             GuiNode::UpdateLayout(gfx2D, area);
         }
@@ -360,15 +397,16 @@ namespace Jangine::Gui
 
             commandBuffer->FillRectangle(bounds, backgroundColor);
 
+            // TODO: Don't render items outside of current scissor
             std::function<void(const std::vector<Item> &)> renderItems = [&](const std::vector<Item> &items)
             {
                 for (const auto &item : items)
                 {
                     Color itemColor = item.isSelected ? foregroundColor.WithAlpha(0.5f) : backgroundColor;
-                    commandBuffer->FillRectangle(item.bounds, itemColor);
+                    commandBuffer->FillRectangle(item.bounds.Move(bounds.position()), Color::Cyan);
                     commandBuffer->DrawText(
                         item.textLayout,
-                        item.bounds.position(),
+                        item.bounds.position() + bounds.position(),
                         Color::White);
 
                     if (item.isExpanded && !item.children.empty())
@@ -383,7 +421,7 @@ namespace Jangine::Gui
         }
     };
 
-    struct GuiSlider : public GuiNode
+    struct Slider : public GuiNode
     {
         Orientation orientation = Orientation::HORIZONTAL;
 
@@ -396,9 +434,9 @@ namespace Jangine::Gui
 
         Eigen::Vector2f dragStartPosition;
 
-        std::function<void(GuiSlider &, float_t)> onValueChanged;
+        std::function<void(Slider &, float_t)> onValueChanged;
 
-        explicit GuiSlider(std::type_index type, GuiScene &scene)
+        explicit Slider(std::type_index type, GuiScene &scene)
             : GuiNode(type, scene)
         {
         }
@@ -619,11 +657,11 @@ namespace Jangine::Gui
         }
     };
 
-    struct GridNode : public GuiNode
+    struct Grid : public GuiNode
     {
         struct Column
         {
-            Measure width;
+            Jangine::Gui::Measure width;
             float_t computedWidth = 0.0f;
 
             Eigen::Vector2f bounds{0.0f, 0.0f};
@@ -631,13 +669,13 @@ namespace Jangine::Gui
 
         struct Row
         {
-            Measure height;
+            Jangine::Gui::Measure height;
             float_t computedHeight = 0.0f;
 
             Eigen::Vector2f bounds{0.0f, 0.0f};
         };
 
-        explicit GridNode(std::type_index type, GuiScene &scene)
+        explicit Grid(std::type_index type, GuiScene &scene)
             : GuiNode(type, scene)
         {
             isFocusable = false;
@@ -804,6 +842,8 @@ namespace Jangine::Gui
 
         Eigen::Vector2f mousePosition{-1.0f, -1.0f};
 
+        std::vector<std::function<bool_t(Eigen::Vector2f, Eigen::Vector2f)>> mouseScrollHandlers;
+
         GuiScene &operator=(const GuiScene &) = delete;
         GuiScene(const GuiScene &) = delete;
         GuiScene &operator=(GuiScene &&) = default;
@@ -881,7 +921,7 @@ namespace Jangine::Gui
             GetRoot()->Render(gfx2D, commandBuffer);
 
             // debug highlight mouse focused node
-            if (nodeThatHasMouse)
+            /*if (nodeThatHasMouse)
             {
                 commandBuffer->DrawRectangle(
                     nodeThatHasMouse->bounds.Crop(1, 1, 1, 1),
@@ -896,7 +936,7 @@ namespace Jangine::Gui
                     nodeThatHasKeyboard->bounds.Crop(2, 2, 2, 2),
                     Color::Cyan,
                     2.0f);
-            }
+            }*/
         }
 
         void Print(const GuiNode *node, int depth = 0) const
@@ -996,6 +1036,20 @@ namespace Jangine::Gui
                     nodeThatCapturedMouse = nodeThatHasMouse;
                     MoveKeyboardFocus(nodeThatHasMouse);
                 }
+            }
+        }
+
+        void HandleMouseScroll(const Eigen::Vector2f &offset)
+        {
+            for (auto &handler : mouseScrollHandlers)
+            {
+                if (handler(offset, mousePosition))
+                    return;
+            }
+
+            if (nodeThatHasMouse)
+            {
+                nodeThatHasMouse->HandleMouseScroll(offset, nodeThatHasMouse->GetLocalPosition(mousePosition));
             }
         }
 

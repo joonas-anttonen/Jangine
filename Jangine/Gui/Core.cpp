@@ -438,6 +438,12 @@ namespace Jangine::Gui
         event.field0 = static_cast<float_t>(xoffset);
         event.field1 = static_cast<float_t>(yoffset);
         Jangine::Core::GetInstance().PostUserInput(event);
+
+        Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
+        if (core)
+        {
+            core->scene.HandleMouseScroll(Eigen::Vector2f(static_cast<float_t>(xoffset), static_cast<float_t>(yoffset)) / 10.0f);
+        }
     }
 
     void Core::HandleMouseEnter(GLFWwindow *window, int entered)
@@ -475,6 +481,8 @@ namespace Jangine::Gui
             windowSize = {static_cast<float_t>(width), static_cast<float_t>(height)};
         }
     }
+
+    TreeView *treeView;
 
     void Core::Create(const Parameters &parameters)
     {
@@ -525,13 +533,13 @@ namespace Jangine::Gui
         viewport->SetName("3D Viewport");
         viewport->gridCoordinates = {0, 0, 1, 1};
 
-        auto grid = scene.CreateNode<GridNode>();
+        auto grid = scene.CreateNode<Grid>();
         scene.SetAncestor(grid, viewport);
         grid->SetName("Grid");
         grid->SetColumnsAndRows(
             {
                 {Unit::FRACTION, 1.0f},
-                {Unit::PIXELS, 256.0f},
+                {Unit::PIXELS, 512.0f},
             },
             {
                 {Unit::FRACTION, 1.0f},
@@ -542,7 +550,7 @@ namespace Jangine::Gui
         acrylic->gridCoordinates = {1, 0, 1, 1};
         scene.SetAncestor(acrylic, grid);
 
-        auto gridRightPanel = scene.CreateNode<GridNode>();
+        auto gridRightPanel = scene.CreateNode<Grid>();
         gridRightPanel->SetName("GridRightPanel");
         gridRightPanel->gridCoordinates = {1, 0, 1, 1};
         scene.SetAncestor(gridRightPanel, grid);
@@ -607,52 +615,37 @@ namespace Jangine::Gui
             .foregroundColor = Color::FromUInt(0xc678dd),
         };
 
-        auto slider = scene.CreateNode<GuiSlider>();
+        auto slider = scene.CreateNode<Slider>();
         slider->SetName("Slider_001");
         slider->SetStyle(sliderBasicStyle);
         slider->SetHoveredStyle(sliderHoveredStyle);
         slider->SetActiveStyle(sliderActiveStyle);
         slider->gridCoordinates = {0, 4, 1, 1};
         scene.SetAncestor(slider, gridRightPanel);
-        slider->onValueChanged = [this](GuiSlider &s, float_t value)
+        slider->onValueChanged = [this](Slider &s, float_t value)
         {
             logger.Warning(std::format("{} value changed: {}", s.GetName(), value), __func__);
         };
 
+        auto treeViewScrollView = scene.CreateNode<ScrollView>();
+        treeViewScrollView->SetName("ScrollView");
+        treeViewScrollView->gridCoordinates = {0, 5, 1, 1};
+        scene.SetAncestor(treeViewScrollView, gridRightPanel);
+
         Style treeViewBasicStyle{
             .backgroundColor = Color::Transparent,
             .foregroundColor = Color::FromUInt(0xabb2bf),
-            .margin = Spacing{
-                .left = {Unit::PIXELS, 4.0f},
-                .top = {Unit::PIXELS, 4.0f},
-                .right = {Unit::PIXELS, 4.0f},
-                .bottom = {Unit::PIXELS, 4.0f},
-            }};
+        };
 
-        auto treeView = scene.CreateNode<GuiTreeView>();
+        treeView = scene.CreateNode<TreeView>();
         treeView->SetName("TreeView_001");
         treeView->SetStyle(treeViewBasicStyle);
-        treeView->gridCoordinates = {0, 5, 1, 1};
-        scene.SetAncestor(treeView, gridRightPanel);
-        for (uint32_t i = 0; i < 3; ++i)
-        {
-            auto &item = treeView->items.emplace_back();
-            item.text = std::format("Item {:03d}", i + 1);
-            item.isExpanded = (i % 2) == 0;
-            item.userData = nullptr;
-            for (uint32_t j = 0; j < 2; ++j)
-            {
-                auto &subItem = item.children.emplace_back();
-                subItem.text = std::format("SubItem {:03d}.{:03d}", i + 1, j + 1);
-                subItem.isExpanded = false;
-                subItem.userData = nullptr;
-            }
-        }
+        scene.SetAncestor(treeView, treeViewScrollView);
 
         scene.Print(scene.GetRoot());
-        //scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
-        //gfx.UnsafeSetViewport(viewport->bounds);
-        // --------------------- TESTING
+        // scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
+        // gfx.UnsafeSetViewport(viewport->bounds);
+        //  --------------------- TESTING
     }
 
     Gfx::Scene::View sceneView;
@@ -676,6 +669,40 @@ namespace Jangine::Gui
         core3D.GetScene().GetView(sceneView);
         if (hierarchy.empty())
         {
+            // Duplicate scene hierarchy to treeView
+
+            std::function<void(const Gfx::Scene::View::Node &, TreeView::Item &)> duplicateNodeToTreeView;
+            duplicateNodeToTreeView = [&](const Gfx::Scene::View::Node &node, TreeView::Item &item)
+            {
+                item.text = core3D.GetScene().GetName(node.self).value_or("NO_NAME");
+                item.isExpanded = true;
+
+                if (node.descendant)
+                {
+                    auto childNode = sceneView.at(node.descendant);
+                    while (childNode.self)
+                    {
+                        item.children.emplace_back();
+                        duplicateNodeToTreeView(childNode, item.children.back());
+                        if (!childNode.sibling)
+                        {
+                            break;
+                        }
+                        childNode = sceneView.at(childNode.sibling);
+                    }
+                }
+            };
+
+            auto &nodes = sceneView.nodes;
+            for (const auto &node : nodes)
+            {
+                if (!node.ancestor)
+                {
+                    treeView->items.emplace_back();
+                    duplicateNodeToTreeView(node, treeView->items.back());
+                }
+            }
+
             sceneView.Traverse([&](const Gfx::Scene::View::Node &node, int depth)
                                { hierarchy += std::format("{} {:03d} {}\n", std::string(depth, ' '), node.self.value, core3D.GetScene().GetName(node.self).value_or("NO_NAME")); });
         }

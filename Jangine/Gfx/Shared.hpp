@@ -244,6 +244,15 @@ namespace Jangine::Gfx
             return !(*this == other);
         }
 
+        Rectangle Combine(const Rectangle &other) const
+        {
+            return Rectangle(
+                std::min(left, other.left),
+                std::min(top, other.top),
+                std::max(right, other.right),
+                std::max(bottom, other.bottom));
+        }
+
         bool Contains(const Eigen::Vector2f &p) const
         {
             return (left <= p.x()) && (top <= p.y()) && (right >= p.x()) && (bottom >= p.y());

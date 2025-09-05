@@ -207,6 +207,7 @@ namespace Jangine::Gfx
             struct Node
             {
                 Jangine::Gfx::Node::Id self;
+                Jangine::Gfx::Node::Id ancestor;
                 Jangine::Gfx::Node::Id descendant;
                 Jangine::Gfx::Node::Id sibling;
 
@@ -217,6 +218,16 @@ namespace Jangine::Gfx
             };
 
             std::vector<Node> nodes;
+
+            Node& at(Jangine::Gfx::Node::Id id)
+            {
+                if (id.value < 0 || id.value >= static_cast<int32_t>(nodes.size()))
+                {
+                    std::cout << std::format("Node::Id({}) is out of range, valid range is [0, {})", id.value, nodes.size()) << std::endl;
+                }
+
+                return nodes.at(static_cast<size_t>(id));
+            }
 
             void Traverse(std::function<void(const Node &, int depth)> func, const Node *node = nullptr, int depth = 0) const
             {
@@ -264,6 +275,7 @@ namespace Jangine::Gfx
             {
                 View::Node readOnlyNode{
                     .self = node.GetId(),
+                    .ancestor = node.ancestor,
                     .descendant = node.descendant,
                     .sibling = node.sibling,
                     .relativeTransform = node.GetRelativeTransform(),
