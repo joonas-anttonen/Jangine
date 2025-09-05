@@ -610,14 +610,10 @@ namespace Jangine::Gui
         scene.SetAncestor(treeView, treeViewScrollView);
 
         scene.Print(scene.GetRoot());
-        // scene.UpdateLayout(Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
-        // gfx.UnsafeSetViewport(viewport->bounds);
         //  --------------------- TESTING
     }
 
     Gfx::Scene::View sceneView;
-
-    std::string hierarchy;
 
     void Core::Render(double_t absoluteTime, float_t deltaTime)
     {
@@ -631,7 +627,7 @@ namespace Jangine::Gui
         gfx.UnsafeSetViewport(viewport->bounds);
 
         core3D.GetScene().GetView(sceneView);
-        if (hierarchy.empty())
+        if (treeView->items.empty())
         {
             // Duplicate scene hierarchy to treeView
 
@@ -666,14 +662,7 @@ namespace Jangine::Gui
                     duplicateNodeToTreeView(node, treeView->items.back());
                 }
             }
-
-            sceneView.Traverse([&](const Gfx::Scene::View::Node &node, int depth)
-                               { hierarchy += std::format("{} {:03d} {}\n", std::string(depth, ' '), node.self.value, core3D.GetScene().GetName(node.self).value_or("NO_NAME")); });
         }
-
-        auto rot = Eigen::AngleAxisf(static_cast<float_t>(0), Eigen::Vector3f::UnitY());
-        auto rotTf = rot * Eigen::Isometry3f{Eigen::Translation3f(0.0f, 0.0f, 0.0f)};
-        core3D.GetScene().PostTransformCommand(Gfx::Node::Id{1}, rotTf);
 
         bool_t acquiredCommandBuffer = gfx2D.TryAcquireCommandBuffer(&commandBuffer);
         if (!acquiredCommandBuffer)
@@ -692,19 +681,11 @@ namespace Jangine::Gui
             static Gfx::Text::Layout statusTextLayout;
 
             // Update with absolute time and delta time
-            static int i = 11;
-            i = i % sceneView.nodes.size();
-            auto tf = sceneView.nodes[i].worldTransform;
-            auto euler = tf.rotation().canonicalEulerAngles(0, 1, 2);
             statusText = std::format(
-                "Absolute Time: {:.2f}s, Delta Time: {:.2f}s\nX: {:.2f} Y: {:.2f} Z: {:.2f}\n{}",
+                "Absolute Time: {:.2f}s, Delta Time: {:.2f}s",
                 absoluteTime,
-                deltaTime,
-                Math::rad_to_deg(euler.x()),
-                Math::rad_to_deg(euler.y()),
-                Math::rad_to_deg(euler.z()),
-                hierarchy);
-            gfx2D.GetDefaultShaper()->CalculateTextLayout(statusText, 0.5f, windowSize, false, statusTextLayout);
+                deltaTime);
+            gfx2D.GetDefaultShaper()->CalculateTextLayout(statusText, 1.0f, windowSize, false, statusTextLayout);
 
             Eigen::Vector2f statusTextMargin = Eigen::Vector2f(2.f, 2.f);
             Eigen::Vector2f statusTextPosition = Eigen::Vector2f(sizeOfFrame.x() + statusTextMargin.x(), sizeOfFrame.y() + statusTextMargin.y());

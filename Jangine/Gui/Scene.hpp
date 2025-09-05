@@ -394,8 +394,8 @@ namespace Jangine::Gui
         };
 
         std::vector<Item> items;
-        float_t itemHeight = 32.0f;
-        float_t indentSize = 8.0f;
+        float_t itemHeight = 16.0f;
+        float_t indentSize = 12.0f;
 
         explicit TreeView(std::type_index type, Scene &scene)
             : Node(type, scene)
@@ -415,7 +415,7 @@ namespace Jangine::Gui
                 {
                     gfx2D.GetDefaultShaper()->CalculateTextLayout(
                         item.text,
-                        1.0f,
+                        0.5f,
                         Eigen::Vector2f(9999.0f, 9999.0f),
                         false,
                         item.textLayout);

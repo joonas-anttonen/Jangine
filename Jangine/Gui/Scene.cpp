@@ -69,7 +69,7 @@ namespace Jangine::Gui
 
                 if (shouldHandleScroll && bounds.Contains(position))
                 {
-                    HandleMouseScroll(offset, position);
+                    HandleMouseScroll(offset * 0.5f, position);
                     return true;
                 }
                 return false;
