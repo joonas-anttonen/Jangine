@@ -8,7 +8,7 @@
 
 namespace Jangine::Gui
 {
-    struct GuiScene;
+    struct Scene;
 
     enum class Unit
     {
@@ -38,14 +38,6 @@ namespace Jangine::Gui
         Measure bottom{Unit::PIXELS, 0.0f};
     };
 
-    struct GridCoordinates
-    {
-        size_t column = 0;
-        size_t row = 0;
-        size_t columnSpan = 1;
-        size_t rowSpan = 1;
-    };
-
     /// @brief Style settings for GUI elements. Defined either fully or partially. Applied to elements as needed.
     struct Style
     {
@@ -67,7 +59,7 @@ namespace Jangine::Gui
         }
     };
 
-    struct GuiNode
+    struct Node
     {
         struct Id
         {
@@ -82,14 +74,22 @@ namespace Jangine::Gui
             int32_t value;
         };
 
+        struct GridCoordinates
+        {
+            size_t column = 0;
+            size_t row = 0;
+            size_t columnSpan = 1;
+            size_t rowSpan = 1;
+        };
+
         GridCoordinates gridCoordinates;
 
         std::type_index type;
-        GuiScene &scene;
+        Scene &scene;
 
         std::string name;
-        GuiNode *ancestor = nullptr;
-        std::vector<GuiNode *> descendants;
+        Node *ancestor = nullptr;
+        std::vector<Node *> descendants;
 
         Gfx::Rectangle bounds;
         Color backgroundColor{Color::Black};
@@ -115,7 +115,7 @@ namespace Jangine::Gui
 
         // --------------------- STYLE
 
-        explicit GuiNode(std::type_index type, GuiScene &scene)
+        explicit Node(std::type_index type, Scene &scene)
             : type(type), scene(scene)
         {
         }
@@ -129,7 +129,7 @@ namespace Jangine::Gui
             this->name = in_name;
         }
 
-        const std::vector<GuiNode *> &GetDescendants() const
+        const std::vector<Node *> &GetDescendants() const
         {
             return descendants;
         }
@@ -224,7 +224,7 @@ namespace Jangine::Gui
 
         // --------------------- STYLE
 
-        std::optional<GuiNode *> ContainsPoint(const Eigen::Vector2f &point)
+        std::optional<Node *> ContainsPoint(const Eigen::Vector2f &point)
         {
             bool_t isTestable = isVisible && isEnabled;
             if (!isTestable)
@@ -255,7 +255,7 @@ namespace Jangine::Gui
         {
         }
 
-        virtual void HandleMouseMotion(Eigen::Vector2f)
+        virtual void HandleMouseMotion(Eigen::Vector2f, Eigen::Vector2f)
         {
         }
 
@@ -264,6 +264,10 @@ namespace Jangine::Gui
         }
 
         virtual void HandleMouseScroll(Eigen::Vector2f, Eigen::Vector2f)
+        {
+        }
+
+        virtual void HandleKey(UserInput::Digital, UserInput::Action, UserInput::Mods)
         {
         }
 
@@ -283,12 +287,12 @@ namespace Jangine::Gui
         }
     };
 
-    struct GuiButton : public GuiNode
+    struct GuiButton : public Node
     {
         std::function<void(GuiButton &)> onClick;
 
-        explicit GuiButton(std::type_index type, GuiScene &scene)
-            : GuiNode(type, scene)
+        explicit GuiButton(std::type_index type, Scene &scene)
+            : Node(type, scene)
         {
         }
 
@@ -299,17 +303,66 @@ namespace Jangine::Gui
 
             commandBuffer->FillRectangle(bounds, backgroundColor);
 
-            GuiNode::Render(gfx2D, commandBuffer);
+            Node::Render(gfx2D, commandBuffer);
         }
 
         void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f) override;
     };
 
+    /// @brief A viewport for 3D content.
+    struct Viewport : public Node
+    {
+        explicit Viewport(std::type_index type, Scene &scene)
+            : Node(type, scene)
+        {
+        }
+
+        void HandleMouseFocus(bool_t focused) override;
+
+        void HandleMouseMotion(Eigen::Vector2f, Eigen::Vector2f delta) override
+        {
+            UserInput::Event event;
+            event.type = UserInput::Event::Type::MOUSE_MOVE;
+            event.field0 = delta.x();
+            event.field1 = delta.y();
+            Jangine::Core::GetInstance().PostUserInput(event);
+        }
+
+        void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods mods, Eigen::Vector2f) override
+        {
+            UserInput::Event event;
+            event.type = UserInput::Event::Type::DIGITAL;
+            event.field0 = static_cast<float_t>(button);
+            event.field1 = static_cast<float_t>(action);
+            event.field2 = static_cast<float_t>(mods);
+            Jangine::Core::GetInstance().PostUserInput(event);
+        }
+
+        void HandleMouseScroll(Eigen::Vector2f offset, Eigen::Vector2f) override
+        {
+            UserInput::Event event;
+            event.type = UserInput::Event::Type::MOUSE_SCROLL;
+            event.field0 = offset.x();
+            event.field1 = offset.y();
+            Jangine::Core::GetInstance().PostUserInput(event);
+        }
+
+        void HandleKey(UserInput::Digital key, UserInput::Action action, UserInput::Mods mods) override
+        {
+            UserInput::Event event;
+            event.type = UserInput::Event::Type::DIGITAL;
+            event.field0 = static_cast<float_t>(key);
+            event.field1 = static_cast<float_t>(action);
+            event.field2 = static_cast<float_t>(mods);
+            Jangine::Core::GetInstance().PostUserInput(event);
+        }
+    };
+
     struct Slider;
 
-    struct ScrollView : public GuiNode
+    struct ScrollView : public Node
     {
-        explicit ScrollView(std::type_index type, GuiScene &scene);
+        explicit ScrollView(std::type_index type, Scene &scene);
 
         void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override;
 
@@ -326,7 +379,7 @@ namespace Jangine::Gui
         void HandleMouseScroll(Eigen::Vector2f, Eigen::Vector2f) override;
     };
 
-    struct TreeView : public GuiNode
+    struct TreeView : public Node
     {
         struct Item
         {
@@ -344,8 +397,8 @@ namespace Jangine::Gui
         float_t itemHeight = 32.0f;
         float_t indentSize = 8.0f;
 
-        explicit TreeView(std::type_index type, GuiScene &scene)
-            : GuiNode(type, scene)
+        explicit TreeView(std::type_index type, Scene &scene)
+            : Node(type, scene)
         {
         }
 
@@ -387,7 +440,7 @@ namespace Jangine::Gui
             auto measuredSize = Measure(gfx2D);
             (void)measuredSize;
 
-            GuiNode::UpdateLayout(gfx2D, area);
+            Node::UpdateLayout(gfx2D, area);
         }
 
         void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
@@ -403,7 +456,7 @@ namespace Jangine::Gui
                 for (const auto &item : items)
                 {
                     Color itemColor = item.isSelected ? foregroundColor.WithAlpha(0.5f) : backgroundColor;
-                    commandBuffer->FillRectangle(item.bounds.Move(bounds.position()), Color::Cyan);
+                    commandBuffer->FillRectangle(item.bounds.Move(bounds.position()), itemColor);
                     commandBuffer->DrawText(
                         item.textLayout,
                         item.bounds.position() + bounds.position(),
@@ -417,11 +470,11 @@ namespace Jangine::Gui
             };
             renderItems(items);
 
-            GuiNode::Render(gfx2D, commandBuffer);
+            Node::Render(gfx2D, commandBuffer);
         }
     };
 
-    struct Slider : public GuiNode
+    struct Slider : public Node
     {
         Orientation orientation = Orientation::HORIZONTAL;
 
@@ -436,13 +489,13 @@ namespace Jangine::Gui
 
         std::function<void(Slider &, float_t)> onValueChanged;
 
-        explicit Slider(std::type_index type, GuiScene &scene)
-            : GuiNode(type, scene)
+        explicit Slider(std::type_index type, Scene &scene)
+            : Node(type, scene)
         {
         }
 
         void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f position) override;
-        void HandleMouseMotion(Eigen::Vector2f position) override
+        void HandleMouseMotion(Eigen::Vector2f position, Eigen::Vector2f) override
         {
             if (isActive)
             {
@@ -516,7 +569,7 @@ namespace Jangine::Gui
                     bounds.bottom - thumbSize / 2.0f);
             }
 
-            GuiNode::UpdateLayout(gfx2D, area);
+            Node::UpdateLayout(gfx2D, area);
         }
 
         void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
@@ -527,14 +580,14 @@ namespace Jangine::Gui
             commandBuffer->FillRectangle(trackArea, backgroundColor);
             commandBuffer->FillRectangle(thumbArea, foregroundColor);
 
-            GuiNode::Render(gfx2D, commandBuffer);
+            Node::Render(gfx2D, commandBuffer);
         }
     };
 
-    struct AcrylicPanel : public GuiNode
+    struct AcrylicPanel : public Node
     {
-        explicit AcrylicPanel(std::type_index type, GuiScene &scene)
-            : GuiNode(type, scene)
+        explicit AcrylicPanel(std::type_index type, Scene &scene)
+            : Node(type, scene)
         {
             isFocusable = false;
         }
@@ -561,7 +614,7 @@ namespace Jangine::Gui
         }
     };
 
-    struct GuiRoot : public GuiNode
+    struct GuiRoot : public Node
     {
         enum class FrameMode
         {
@@ -570,8 +623,8 @@ namespace Jangine::Gui
             FULL,
         };
 
-        explicit GuiRoot(std::type_index type, GuiScene &scene)
-            : GuiNode(type, scene)
+        explicit GuiRoot(std::type_index type, Scene &scene)
+            : Node(type, scene)
         {
         }
 
@@ -657,7 +710,7 @@ namespace Jangine::Gui
         }
     };
 
-    struct Grid : public GuiNode
+    struct Grid : public Node
     {
         struct Column
         {
@@ -675,8 +728,8 @@ namespace Jangine::Gui
             Eigen::Vector2f bounds{0.0f, 0.0f};
         };
 
-        explicit Grid(std::type_index type, GuiScene &scene)
-            : GuiNode(type, scene)
+        explicit Grid(std::type_index type, Scene &scene)
+            : Node(type, scene)
         {
             isFocusable = false;
         }
@@ -828,28 +881,28 @@ namespace Jangine::Gui
         }
     };
 
-    struct GuiScene
+    struct Scene
     {
         const Logging::Logger &logger;
 
-        std::vector<GuiNode *> nodes;
+        std::vector<Node *> nodes;
 
         bool_t pendingLayoutUpdate{true};
 
-        GuiNode *nodeThatHasMouse{nullptr};
-        GuiNode *nodeThatCapturedMouse{nullptr};
-        GuiNode *nodeThatHasKeyboard{nullptr};
+        Node *nodeThatHasMouse{nullptr};
+        Node *nodeThatCapturedMouse{nullptr};
+        Node *nodeThatHasKeyboard{nullptr};
 
         Eigen::Vector2f mousePosition{-1.0f, -1.0f};
 
         std::vector<std::function<bool_t(Eigen::Vector2f, Eigen::Vector2f)>> mouseScrollHandlers;
 
-        GuiScene &operator=(const GuiScene &) = delete;
-        GuiScene(const GuiScene &) = delete;
-        GuiScene &operator=(GuiScene &&) = default;
-        GuiScene(GuiScene &&from) = default;
+        Scene &operator=(const Scene &) = delete;
+        Scene(const Scene &) = delete;
+        Scene &operator=(Scene &&) = default;
+        Scene(Scene &&from) = default;
 
-        GuiScene()
+        Scene()
             : logger(Jangine::Core::GetLogger("Gui::Scene"))
         {
             auto world = new GuiRoot(typeid(GuiRoot), *this);
@@ -861,7 +914,7 @@ namespace Jangine::Gui
             nodeThatHasKeyboard = world;
         }
 
-        ~GuiScene()
+        ~Scene()
         {
             for (auto node : nodes)
             {
@@ -871,7 +924,7 @@ namespace Jangine::Gui
 
         GuiRoot *GetRoot() { return static_cast<GuiRoot *>(nodes[0]); }
 
-        template <DerivedFrom<GuiNode> T>
+        template <DerivedFrom<Node> T>
         T *CreateNode()
         {
             auto node = new T(typeid(T), *this);
@@ -881,12 +934,12 @@ namespace Jangine::Gui
             return node;
         }
 
-        void SetName(GuiNode *node, const std::string &name)
+        void SetName(Node *node, const std::string &name)
         {
             node->SetName(name);
         }
 
-        void SetAncestor(GuiNode *node, GuiNode *ancestor)
+        void SetAncestor(Node *node, Node *ancestor)
         {
             if (node->ancestor)
             {
@@ -939,7 +992,7 @@ namespace Jangine::Gui
             }*/
         }
 
-        void Print(const GuiNode *node, int depth = 0) const
+        void Print(const Node *node, int depth = 0) const
         {
             std::cout << std::format("{} {:03d} {}", std::string(depth * 2, ' '), 0, node->GetName()) << std::endl;
             for (auto child : node->GetDescendants())
@@ -966,13 +1019,15 @@ namespace Jangine::Gui
 
         void HandleMouseMotion(const Eigen::Vector2f &position)
         {
+            Eigen::Vector2f delta = position - mousePosition;
             mousePosition = position;
 
             if (nodeThatCapturedMouse)
             {
                 // If a node has captured the mouse, it gets all mouse move events
                 nodeThatCapturedMouse->HandleMouseMotion(
-                    nodeThatCapturedMouse->GetLocalPosition(position));
+                    nodeThatCapturedMouse->GetLocalPosition(position),
+                    delta);
                 return;
             }
 
@@ -998,7 +1053,8 @@ namespace Jangine::Gui
             if (nodeThatHasMouse)
             {
                 nodeThatHasMouse->HandleMouseMotion(
-                    nodeThatHasMouse->GetLocalPosition(position));
+                    nodeThatHasMouse->GetLocalPosition(position),
+                    delta);
             }
         }
 
@@ -1053,7 +1109,15 @@ namespace Jangine::Gui
             }
         }
 
-        void MoveKeyboardFocus(GuiNode *newNodeThatHasKeyboard)
+        void HandleKey(UserInput::Digital key, UserInput::Action action, UserInput::Mods mods)
+        {
+            if (nodeThatHasKeyboard)
+            {
+                nodeThatHasKeyboard->HandleKey(key, action, mods);
+            }
+        }
+
+        void MoveKeyboardFocus(Node *newNodeThatHasKeyboard)
         {
             if (newNodeThatHasKeyboard == nodeThatHasKeyboard)
                 return;

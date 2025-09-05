@@ -50,7 +50,7 @@ namespace Jangine::Gfx
         // 1. Adjust camera distance ("scale")
         if (zoom != 0.0f)
         {
-            const float_t zoomMetersPerSecond = 1.0f * deltaTime;
+            const float_t zoomMetersPerSecond = 10.0f * deltaTime;
 
             if (projectionType == ProjectionType::Perspective)
             {

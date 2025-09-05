@@ -2,6 +2,14 @@
 
 namespace Jangine::Gui
 {
+    void Viewport::HandleMouseFocus(bool_t focused)
+    {
+        if (focused)
+        {
+            scene.MoveKeyboardFocus(this);
+        }
+    }
+
     void GuiButton::HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f)
     {
         if (button == UserInput::Digital::MOUSE_L)
@@ -48,15 +56,13 @@ namespace Jangine::Gui
         }
     }
 
-    ScrollView::ScrollView(std::type_index type, GuiScene &scene)
-        : GuiNode(type, scene), horizontalSlider(*scene.CreateNode<Slider>()), verticalSlider(*scene.CreateNode<Slider>())
+    ScrollView::ScrollView(std::type_index type, Scene &scene)
+        : Node(type, scene), horizontalSlider(*scene.CreateNode<Slider>()), verticalSlider(*scene.CreateNode<Slider>())
     {
         // Register scroll handler
         scene.mouseScrollHandlers.push_back(
             [this](Eigen::Vector2f offset, Eigen::Vector2f position)
             {
-                std::cout << "ScrollView::HandleMouseScroll offset=" << offset.transpose() << " pos=" << position.transpose() << std::endl;
-
                 bool_t shouldHandleHorizontal = horizontalSlider.isVisible && offset.x() != 0.0f;
                 bool_t shouldHandleVertical = verticalSlider.isVisible && offset.y() != 0.0f;
                 bool_t shouldHandleScroll = shouldHandleHorizontal || shouldHandleVertical;

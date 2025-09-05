@@ -65,9 +65,6 @@ namespace Jangine::Gui
         void SynchronizeWithGfx(Eigen::Vector2i currentWindow);
         void SynchronizeWithGlfw();
 
-        bool_t mouseInsideWindow{false};
-        Eigen::Vector2f mousePosition;
-
         GLFWwindow *glfwWindow = nullptr;
 
         Gfx::Core &gfx;
@@ -75,8 +72,8 @@ namespace Jangine::Gui
         const Logging::Logger &logger;
 
         // --------------------- TESTING
-        GuiScene scene;
-        GuiNode *viewport{nullptr};
+        Scene scene;
+        Viewport *viewport{nullptr};
         Eigen::Vector2f windowSize{0.0f, 0.0f};
         // --------------------- TESTING
     };

@@ -383,18 +383,9 @@ namespace Jangine::Gui
 
     void Core::HandleMouseButton(GLFWwindow *window, int glfw_button, int glfw_action, int glfw_mods)
     {
-        (void)window; // Avoid unused parameter warning
-
         UserInput::Digital button = ConvertGlfwMouseButtonToJangine(glfw_button);
         UserInput::Action action = ConvertGlfwActionToJangine(glfw_action);
         UserInput::Mods mods = ConvertGlfwModsToJangine(glfw_mods);
-
-        UserInput::Event event;
-        event.type = UserInput::Event::Type::DIGITAL;
-        event.field0 = static_cast<float_t>(button);
-        event.field1 = static_cast<float_t>(action);
-        event.field2 = static_cast<float_t>(mods);
-        Jangine::Core::GetInstance().PostUserInput(event);
 
         Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
         if (core)
@@ -410,35 +401,12 @@ namespace Jangine::Gui
         Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
         if (core)
         {
-            if (!core->mouseInsideWindow)
-            {
-                core->mouseInsideWindow = true;
-                core->mousePosition = newMousePosition;
-            }
-
-            Eigen::Vector2f delta = newMousePosition - core->mousePosition;
-            core->mousePosition = newMousePosition;
-
-            UserInput::Event event;
-            event.type = UserInput::Event::Type::MOUSE_MOVE;
-            event.field0 = delta.x();
-            event.field1 = delta.y();
-            Jangine::Core::GetInstance().PostUserInput(event);
-
             core->scene.HandleMouseMotion(newMousePosition);
         }
     }
 
     void Core::HandleScroll(GLFWwindow *window, double xoffset, double yoffset)
     {
-        (void)window; // Avoid unused parameter warning
-
-        UserInput::Event event;
-        event.type = UserInput::Event::Type::MOUSE_SCROLL;
-        event.field0 = static_cast<float_t>(xoffset);
-        event.field1 = static_cast<float_t>(yoffset);
-        Jangine::Core::GetInstance().PostUserInput(event);
-
         Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
         if (core)
         {
@@ -453,22 +421,21 @@ namespace Jangine::Gui
         Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
         if (core)
         {
-            core->mouseInsideWindow = false;
             core->scene.HandleMouseEnter(entered != 0);
         }
     }
 
-    void Core::HandleKey(GLFWwindow *window, int key, int scancode, int action, int mods)
+    void Core::HandleKey(GLFWwindow *window, int glfw_key, int, int glfw_action, int glfw_mods)
     {
-        (void)window; // Avoid unused parameter warning
+        UserInput::Digital key = ConvertGlfwKeyToJangine(glfw_key);
+        UserInput::Action action = ConvertGlfwActionToJangine(glfw_action);
+        UserInput::Mods mods = ConvertGlfwModsToJangine(glfw_mods);
 
-        UserInput::Event event;
-        event.type = UserInput::Event::Type::DIGITAL;
-        event.field0 = static_cast<float_t>(ConvertGlfwKeyToJangine(key));
-        event.field1 = static_cast<float_t>(ConvertGlfwActionToJangine(action));
-        event.field2 = static_cast<float_t>(ConvertGlfwModsToJangine(mods));
-        event.field3 = static_cast<float_t>(scancode);
-        Jangine::Core::GetInstance().PostUserInput(event);
+        Core *core = reinterpret_cast<Core *>(glfwGetWindowUserPointer(window));
+        if (core)
+        {
+            core->scene.HandleKey(key, action, mods);
+        }
     }
 
     void Core::SynchronizeWithGlfw()
@@ -529,8 +496,8 @@ namespace Jangine::Gui
         SynchronizeWithGlfw();
 
         // --------------------- TESTING
-        viewport = scene.CreateNode<GuiNode>();
-        viewport->SetName("3D Viewport");
+        viewport = scene.CreateNode<Viewport>();
+        viewport->SetName("Viewport");
         viewport->gridCoordinates = {0, 0, 1, 1};
 
         auto grid = scene.CreateNode<Grid>();
@@ -654,9 +621,6 @@ namespace Jangine::Gui
 
     void Core::Render(double_t absoluteTime, float_t deltaTime)
     {
-        (void)absoluteTime; // Avoid unused parameter warning
-        (void)deltaTime;    // Avoid unused parameter warning
-
         SynchronizeWithGlfw();
 
         Gfx::Core3D &core3D = gfx.GetCore3D();
