@@ -11,7 +11,7 @@
 
 namespace Jangine::Gfx
 {
-    class Core2D;
+    class Overlay;
     class Core3D;
 
     struct ApiParameters
@@ -122,9 +122,9 @@ namespace Jangine::Gfx
             return nullptr;
         }
 
-        Core2D &GetCore2D() const
+        Overlay &GetCore2D() const
         {
-            return *core2D;
+            return *overlay;
         }
 
         Core3D &GetCore3D() const
@@ -257,7 +257,7 @@ namespace Jangine::Gfx
         bool_t pendingScreenCapture = false;
 
         Presenter *presenter = nullptr;
-        Core2D *core2D = nullptr;
+        Overlay *overlay = nullptr;
         Core3D *core3D = nullptr;
 
         std::unordered_map<std::string, ShaderProgram> shaderProgramCache;

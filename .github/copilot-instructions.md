@@ -10,7 +10,7 @@
 ## Architecture
 
 - **Core Engine:** `Jangine/Core.cpp` and `Jangine/Core.hpp` manage engine lifecycle, logging, and subsystem orchestration.
-- **Graphics:** The `Jangine/Gfx/` directory contains 2D/3D rendering (`Core2D.cpp`, `Core3D.cpp`), shader management (`ShaderProgram.hpp`), and presentation (`Presenter.cpp`).
+- **Graphics:** The `Jangine/Gfx/` directory contains 2D/3D rendering (`Overlay.cpp`, `Core3D.cpp`), shader management (`ShaderProgram.hpp`), and presentation (`Presenter.cpp`).
 - **GUI:** `Jangine/Gui/Core.cpp` integrates with GLFW for windowing and input.
 - **IO:** Asset loading (GLTF, WebP) is handled in `Jangine/IO/`.
 - **Tools:** Custom compilers for fonts and shaders are in `Jangine/Tools/` and invoked via Meson custom targets to generate headers (`BuiltInFonts.hpp`, `BuiltInShaders.hpp`).

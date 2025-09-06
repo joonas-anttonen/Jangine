@@ -1,6 +1,5 @@
 #include "Core.hpp"
-#include "../Gfx/CommandBuffer2D.hpp"
-#include "../Gfx/Core2D.hpp"
+#include "../Gfx/Overlay.hpp"
 
 #define VK_VERSION_1_0
 typedef void *PFN_vkGetInstanceProcAddr;
@@ -620,10 +619,10 @@ namespace Jangine::Gui
         SynchronizeWithGlfw();
 
         Gfx::Core3D &core3D = gfx.GetCore3D();
-        Gfx::Core2D &gfx2D = gfx.GetCore2D();
-        Gfx::CommandBuffer2D *commandBuffer = nullptr;
+        auto &overlay = gfx.GetCore2D();
+        Gfx::Overlay::CommandBuffer *commandBuffer = nullptr;
 
-        scene.UpdateLayout(gfx2D, Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
+        scene.UpdateLayout(overlay, Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
         gfx.UnsafeSetViewport(viewport->bounds);
 
         core3D.GetScene().GetView(sceneView);
@@ -664,7 +663,7 @@ namespace Jangine::Gui
             }
         }
 
-        bool_t acquiredCommandBuffer = gfx2D.TryAcquireCommandBuffer(&commandBuffer);
+        bool_t acquiredCommandBuffer = overlay.TryAcquireCommandBuffer(&commandBuffer);
         if (!acquiredCommandBuffer)
         {
             // logger.Warning("Failed to acquire command buffer", __func__);
@@ -685,15 +684,15 @@ namespace Jangine::Gui
                 "Absolute Time: {:.2f}s, Delta Time: {:.2f}s",
                 absoluteTime,
                 deltaTime);
-            gfx2D.GetDefaultShaper()->CalculateTextLayout(statusText, 1.0f, windowSize, false, statusTextLayout);
+            overlay.GetDefaultShaper()->CalculateTextLayout(statusText, 1.0f, windowSize, false, statusTextLayout);
 
             Eigen::Vector2f statusTextMargin = Eigen::Vector2f(2.f, 2.f);
             Eigen::Vector2f statusTextPosition = Eigen::Vector2f(sizeOfFrame.x() + statusTextMargin.x(), sizeOfFrame.y() + statusTextMargin.y());
 
-            if (gfx2D.IsReady())
+            if (overlay.IsReady())
             {
                 commandBuffer->DrawImage(
-                    gfx2D.GetAcrylicBuffer(),
+                    overlay.GetAcrylicBuffer(),
                     Eigen::Vector2f(sizeOfFrame.x(), sizeOfFrame.y()),
                     Eigen::Vector2f(statusTextLayout.size.x() + statusTextMargin.x() * 2, statusTextLayout.size.y() + statusTextMargin.y() * 2),
                     Gfx::ImageFit::None,
@@ -702,11 +701,11 @@ namespace Jangine::Gui
 
             commandBuffer->DrawText(statusTextLayout, statusTextPosition, Color{1.f, 1.f, 1.f, 1.f});
 
-            scene.Render(gfx2D, commandBuffer);
+            scene.Render(overlay, commandBuffer);
 
             commandBuffer->EndBatch();
         }
-        gfx2D.SubmitCommandBuffer(commandBuffer);
+        overlay.SubmitCommandBuffer(commandBuffer);
     }
 
     Gfx::Surface Core::GetSurface(void_t *surfaceCreationHandle) const

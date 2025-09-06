@@ -1,6 +1,6 @@
 #include "Core.hpp"
 #include "Presenter.hpp"
-#include "Core2D.hpp"
+#include "Overlay.hpp"
 #include "Core3D.hpp"
 
 #include "../Logging/Logger.hpp"
@@ -85,10 +85,10 @@ namespace Jangine::Gfx
             vkDeviceWaitIdle(vulkanDevice);
         }
 
-        if (core2D)
+        if (overlay)
         {
-            delete core2D;
-            core2D = nullptr;
+            delete overlay;
+            overlay = nullptr;
         }
 
         if (core3D)
@@ -154,8 +154,8 @@ namespace Jangine::Gfx
 
         CreateDevice(params);
 
-        core2D = new Core2D(*this);
-        core2D->Create();
+        overlay = new Overlay(*this);
+        overlay->Create();
 
         core3D = new Core3D(*this);
         core3D->Create();
@@ -193,9 +193,9 @@ namespace Jangine::Gfx
         {
             presenter->InitializeRendering(displayParameters);
         }
-        if (core2D)
+        if (overlay)
         {
-            core2D->InitializeRendering(displayParameters);
+            overlay->InitializeRendering(displayParameters);
         }
         if (core3D)
         {
@@ -235,9 +235,9 @@ namespace Jangine::Gfx
             core3D->Render(*presenter, absoluteTime, deltaTime);
         }
 
-        if (core2D)
+        if (overlay)
         {
-            core2D->Render(*presenter, absoluteTime, deltaTime);
+            overlay->Render(*presenter, absoluteTime, deltaTime);
         }
 
         if (!pendingScreenCapture)

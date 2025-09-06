@@ -1,4 +1,4 @@
-#include "Core2d.hpp"
+#include "Overlay.hpp"
 #include "Core.hpp"
 
 // Disable warnings for external Vulkan header
@@ -25,10 +25,10 @@
 
 namespace Jangine::Gfx
 {
-    Core2D::Core2D(Gfx::Core &gfx)
+    Overlay::Overlay(Gfx::Core &gfx)
         : gfx(gfx),
           fontCollection(gfx),
-          logger(Jangine::Core::GetLogger("Gfx::Core2D")),
+          logger(Jangine::Core::GetLogger("Gfx::Overlay")),
           backBuffer(nullptr, std::ref(gfx)),
           renderPipeline(nullptr, std::ref(gfx)),
           compositePipeline(nullptr, std::ref(gfx)),
@@ -50,12 +50,12 @@ namespace Jangine::Gfx
         InitializeCommandBufferPool();
     }
 
-    Core2D::~Core2D()
+    Overlay::~Overlay()
     {
         logger.Func(__func__);
     }
 
-    void Core2D::Create()
+    void Overlay::Create()
     {
         logger.Func(__func__);
 
@@ -129,7 +129,7 @@ namespace Jangine::Gfx
         // --------------------- BLUR
     }
 
-    void Core2D::InitializeRendering(const DisplayParameters &wantedDisplayParameters)
+    void Overlay::InitializeRendering(const DisplayParameters &wantedDisplayParameters)
     {
         logger.Func(__func__);
 
@@ -326,7 +326,7 @@ namespace Jangine::Gfx
         isReady = true;
     }
 
-    void Core2D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
+    void Overlay::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
     {
         // Avoid unused parameter warning
         (void)absoluteTime;
@@ -373,7 +373,7 @@ namespace Jangine::Gfx
         FinishFrame(presenter);
     }
 
-    void Core2D::RecordBatch(CommandBuffer commandBuffer, std::span<const CommandBuffer2D::Command> commands, PixelBuffer *targetBuffer)
+    void Overlay::RecordBatch(Gfx::CommandBuffer commandBuffer, std::span<const CommandBuffer::Command> commands, PixelBuffer *targetBuffer)
     {
         VkCommandBuffer vulkanCommandBuffer = commandBuffer.vulkanHandle;
 
@@ -519,9 +519,9 @@ namespace Jangine::Gfx
         gfx.FullBarrier(commandBuffer);
     }
 
-    void Core2D::PrepareFrame(const Presenter &presenter)
+    void Overlay::PrepareFrame(const Presenter &presenter)
     {
-        CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
+        Gfx::CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
 
         gfx.PixelBufferBarrier(commandBuffer,
                                backBuffer.get(),
@@ -760,9 +760,9 @@ namespace Jangine::Gfx
         // --------------------- BLUR
     }
 
-    void Core2D::FinishFrame(const Presenter &presenter)
+    void Overlay::FinishFrame(const Presenter &presenter)
     {
-        CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
+        Gfx::CommandBuffer commandBuffer = presenter.GetCurrentCommandBuffer();
         Presenter::Image presentationBuffer = presenter.GetCurrentPresentationBuffer();
 
         gfx.PixelBufferBarrier(commandBuffer,

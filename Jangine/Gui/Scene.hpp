@@ -3,7 +3,7 @@
 #include "../Shared.hpp"
 #include "../Core.hpp"
 #include "../Gfx/Core.hpp"
-#include "../Gfx/Core2D.hpp"
+#include "../Gfx/Overlay.hpp"
 #include "../Gfx/Core3D.hpp"
 
 namespace Jangine::Gui
@@ -134,7 +134,7 @@ namespace Jangine::Gui
             return descendants;
         }
 
-        virtual void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area)
+        virtual void UpdateLayout(Gfx::Overlay &overlay, Gfx::Rectangle area)
         {
             bounds = area;
             bounds = bounds.Crop(
@@ -145,18 +145,18 @@ namespace Jangine::Gui
 
             for (auto &child : descendants)
             {
-                child->UpdateLayout(gfx2D, bounds);
+                child->UpdateLayout(overlay, bounds);
             }
         }
 
-        virtual void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer)
+        virtual void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer)
         {
             if (!isVisible)
                 return;
 
             for (auto &child : descendants)
             {
-                child->Render(gfx2D, commandBuffer);
+                child->Render(overlay, commandBuffer);
             }
         }
 
@@ -281,7 +281,7 @@ namespace Jangine::Gui
             return localPosition + bounds.position();
         }
 
-        virtual Eigen::Vector2f Measure(Gfx::Core2D &)
+        virtual Eigen::Vector2f Measure(Gfx::Overlay &)
         {
             return Eigen::Vector2f{0.0f, 0.0f};
         }
@@ -296,14 +296,14 @@ namespace Jangine::Gui
         {
         }
 
-        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer) override
         {
             if (!isVisible)
                 return;
 
             commandBuffer->FillRectangle(bounds, backgroundColor);
 
-            Node::Render(gfx2D, commandBuffer);
+            Node::Render(overlay, commandBuffer);
         }
 
         void HandleMouseButton(UserInput::Digital button, UserInput::Action action, UserInput::Mods, Eigen::Vector2f) override;
@@ -364,9 +364,9 @@ namespace Jangine::Gui
     {
         explicit ScrollView(std::type_index type, Scene &scene);
 
-        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override;
+        void UpdateLayout(Gfx::Overlay &overlay, Gfx::Rectangle area) override;
 
-        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override;
+        void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer) override;
 
         Slider &horizontalSlider;
         Slider &verticalSlider;
@@ -402,7 +402,7 @@ namespace Jangine::Gui
         {
         }
 
-        Eigen::Vector2f Measure(Gfx::Core2D &gfx2D) override
+        Eigen::Vector2f Measure(Gfx::Overlay &overlay) override
         {
             float_t width = 0.0f;
             float_t height = 0.0f;
@@ -413,7 +413,7 @@ namespace Jangine::Gui
             {
                 for (auto &item : items)
                 {
-                    gfx2D.GetDefaultShaper()->CalculateTextLayout(
+                    overlay.GetDefaultShaper()->CalculateTextLayout(
                         item.text,
                         0.5f,
                         Eigen::Vector2f(9999.0f, 9999.0f),
@@ -435,15 +435,15 @@ namespace Jangine::Gui
             return {width, height};
         }
 
-        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
+        void UpdateLayout(Gfx::Overlay &overlay, Gfx::Rectangle area) override
         {
-            auto measuredSize = Measure(gfx2D);
+            auto measuredSize = Measure(overlay);
             (void)measuredSize;
 
-            Node::UpdateLayout(gfx2D, area);
+            Node::UpdateLayout(overlay, area);
         }
 
-        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer) override
         {
             if (!isVisible)
                 return;
@@ -470,7 +470,7 @@ namespace Jangine::Gui
             };
             renderItems(items);
 
-            Node::Render(gfx2D, commandBuffer);
+            Node::Render(overlay, commandBuffer);
         }
     };
 
@@ -531,7 +531,7 @@ namespace Jangine::Gui
             }
         }
 
-        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
+        void UpdateLayout(Gfx::Overlay &overlay, Gfx::Rectangle area) override
         {
             bounds = area;
             bounds = bounds.Crop(
@@ -569,10 +569,10 @@ namespace Jangine::Gui
                     bounds.bottom - thumbSize / 2.0f);
             }
 
-            Node::UpdateLayout(gfx2D, area);
+            Node::UpdateLayout(overlay, area);
         }
 
-        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer) override
         {
             if (!isVisible)
                 return;
@@ -580,7 +580,7 @@ namespace Jangine::Gui
             commandBuffer->FillRectangle(trackArea, backgroundColor);
             commandBuffer->FillRectangle(thumbArea, foregroundColor);
 
-            Node::Render(gfx2D, commandBuffer);
+            Node::Render(overlay, commandBuffer);
         }
     };
 
@@ -592,15 +592,15 @@ namespace Jangine::Gui
             isFocusable = false;
         }
 
-        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer) override
         {
             if (!isVisible)
                 return;
 
-            if (gfx2D.IsReady())
+            if (overlay.IsReady())
             {
                 commandBuffer->DrawImage(
-                    gfx2D.GetAcrylicBuffer(),
+                    overlay.GetAcrylicBuffer(),
                     bounds.position(),
                     bounds.extent(),
                     Gfx::ImageFit::None,
@@ -609,7 +609,7 @@ namespace Jangine::Gui
 
             for (auto &child : descendants)
             {
-                child->Render(gfx2D, commandBuffer);
+                child->Render(overlay, commandBuffer);
             }
         }
     };
@@ -657,7 +657,7 @@ namespace Jangine::Gui
             frameColor = color;
         }
 
-        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
+        void UpdateLayout(Gfx::Overlay &overlay, Gfx::Rectangle area) override
         {
             bounds = area;
 
@@ -677,11 +677,11 @@ namespace Jangine::Gui
 
             for (auto &child : descendants)
             {
-                child->UpdateLayout(gfx2D, contentArea);
+                child->UpdateLayout(overlay, contentArea);
             }
         }
 
-        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer) override
+        void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer) override
         {
             if (frameMode != FrameMode::NONE)
             {
@@ -705,7 +705,7 @@ namespace Jangine::Gui
 
             for (auto &child : descendants)
             {
-                child->Render(gfx2D, commandBuffer);
+                child->Render(overlay, commandBuffer);
             }
         }
     };
@@ -743,7 +743,7 @@ namespace Jangine::Gui
             rows = rws;
         }
 
-        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area) override
+        void UpdateLayout(Gfx::Overlay &overlay, Gfx::Rectangle area) override
         {
             bounds = area;
             bounds = bounds.Crop(computedStyle.margin ? computedStyle.margin->left.value : 0.0f,
@@ -861,7 +861,7 @@ namespace Jangine::Gui
                     bottom += rows[r].computedHeight;
                 }
 
-                element->UpdateLayout(gfx2D, Gfx::Rectangle(left, top, right, bottom));
+                element->UpdateLayout(overlay, Gfx::Rectangle(left, top, right, bottom));
             }
 
             // Update column and row bounds for debugging
@@ -963,15 +963,15 @@ namespace Jangine::Gui
             pendingLayoutUpdate = true;
         }
 
-        void UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area)
+        void UpdateLayout(Gfx::Overlay &overlay, Gfx::Rectangle area)
         {
             GetRoot()->ComputeStyle();
-            GetRoot()->UpdateLayout(gfx2D, area);
+            GetRoot()->UpdateLayout(overlay, area);
         }
 
-        void Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer)
+        void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer)
         {
-            GetRoot()->Render(gfx2D, commandBuffer);
+            GetRoot()->Render(overlay, commandBuffer);
 
             // debug highlight mouse focused node
             /*if (nodeThatHasMouse)

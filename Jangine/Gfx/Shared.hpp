@@ -33,7 +33,7 @@ namespace Jangine::Gfx
     class MemoryBuffer
     {
         friend class Core;
-        friend class Core2D;
+        friend class Overlay;
         friend class Core3D;
 
     private:
@@ -68,7 +68,7 @@ namespace Jangine::Gfx
     struct CommandBuffer
     {
         friend class Core;
-        friend class Core2D;
+        friend class Overlay;
         friend class Core3D;
         friend class Presenter;
 
@@ -441,7 +441,7 @@ namespace Jangine::Gfx
     class PixelBuffer
     {
         friend class Core;
-        friend class Core2D;
+        friend class Overlay;
         friend class Core3D;
 
     private:

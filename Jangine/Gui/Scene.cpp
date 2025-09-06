@@ -102,7 +102,7 @@ namespace Jangine::Gui
         };
     }
 
-    void ScrollView::UpdateLayout(Gfx::Core2D &gfx2D, Gfx::Rectangle area)
+    void ScrollView::UpdateLayout(Gfx::Overlay &overlay, Gfx::Rectangle area)
     {
         bounds = area;
         bounds = bounds.Crop(
@@ -118,7 +118,7 @@ namespace Jangine::Gui
             if (child == &horizontalSlider || child == &verticalSlider)
                 continue;
 
-            auto childSize = child->Measure(gfx2D);
+            auto childSize = child->Measure(overlay);
             contentSize = contentSize.cwiseMax(childSize);
         }
 
@@ -171,25 +171,25 @@ namespace Jangine::Gui
         {
             if (child == &horizontalSlider)
             {
-                horizontalSlider.UpdateLayout(gfx2D, horizontalSliderArea);
+                horizontalSlider.UpdateLayout(overlay, horizontalSliderArea);
             }
             else if (child == &verticalSlider)
             {
-                verticalSlider.UpdateLayout(gfx2D, verticalSliderArea);
+                verticalSlider.UpdateLayout(overlay, verticalSliderArea);
             }
             else
             {
-                child->UpdateLayout(gfx2D, scrolledContentBounds);
+                child->UpdateLayout(overlay, scrolledContentBounds);
             }
         }
     }
 
-    void ScrollView::Render(Gfx::Core2D &gfx2D, Gfx::CommandBuffer2D *commandBuffer)
+    void ScrollView::Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer)
     {
         if (!isVisible)
             return;
 
-        (void)gfx2D;
+        (void)overlay;
         (void)commandBuffer;
 
         commandBuffer->PushScissor(contentBounds);
@@ -199,13 +199,13 @@ namespace Jangine::Gui
             if (child == &horizontalSlider || child == &verticalSlider)
                 continue;
 
-            child->Render(gfx2D, commandBuffer);
+            child->Render(overlay, commandBuffer);
         }
 
         commandBuffer->PopScissor();
 
-        horizontalSlider.Render(gfx2D, commandBuffer);
-        verticalSlider.Render(gfx2D, commandBuffer);
+        horizontalSlider.Render(overlay, commandBuffer);
+        verticalSlider.Render(overlay, commandBuffer);
     }
 
     void ScrollView::HandleMouseScroll(Eigen::Vector2f offset, Eigen::Vector2f)

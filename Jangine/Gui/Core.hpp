@@ -3,7 +3,7 @@
 #include "../Shared.hpp"
 #include "../Core.hpp"
 #include "../Gfx/Core.hpp"
-#include "../Gfx/Core2D.hpp"
+#include "../Gfx/Overlay.hpp"
 #include "../Gfx/Core3D.hpp"
 #include "Scene.hpp"
 

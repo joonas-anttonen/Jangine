@@ -127,7 +127,7 @@ jangine = library(
         'Jangine/Gfx/Presenter.cpp',
         'Jangine/Gfx/PixelBuffer.cpp',
         'Jangine/Gfx/ShaderProgram.cpp',
-        'Jangine/Gfx/Core2D.cpp',
+        'Jangine/Gfx/Overlay.cpp',
         'Jangine/Gfx/Core3D.cpp',
         'Jangine/Gfx/Core3D.Scene.cpp',
         'Jangine/Gfx/Camera.cpp',
