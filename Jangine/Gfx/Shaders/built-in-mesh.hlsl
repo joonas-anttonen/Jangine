@@ -20,7 +20,7 @@ struct PerMaterialData
 struct PerMeshData
 {
 	float4x4 Transform;
-    float4 Color;
+    uint Color;
     int MaterialIndex;
 };
 
@@ -52,6 +52,15 @@ uint PackColor(float4 color)
     uint b = (uint)(saturate(color.b) * 255.0f + 0.5f);
     uint a = (uint)(saturate(color.a) * 255.0f + 0.5f);
     return (a << 24) | (b << 16) | (g << 8) | r;
+}
+
+float4 UnpackColor(uint color)
+{
+    float r = (float)((color >> 0) & 0xFF) / 255.0f;
+    float g = (float)((color >> 8) & 0xFF) / 255.0f;
+    float b = (float)((color >> 16) & 0xFF) / 255.0f;
+    float a = (float)((color >> 24) & 0xFF) / 255.0f;
+    return float4(r, g, b, a);
 }
 
 // ---------------------
@@ -95,7 +104,7 @@ float4 fragment(fragment_input input) : SV_TARGET
     PerMaterialData material = perMaterial[max(0, input.MaterialIndex)];
     if (input.MaterialIndex < 0)
     {
-        material.BaseColor = perMesh.Color;
+        material.BaseColor = UnpackColor(perMesh.Color);
     }
 
     float3 ambient = float3(0.22, 0.22, 0.2);

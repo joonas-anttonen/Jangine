@@ -172,8 +172,10 @@ namespace Jangine::Gfx
         const UserData &GetUserData() const { return userData; }
         void SetUserData(const UserData &data) { userData = data; }
 
-    private:
-        Id self;
+        std::optional<Color> GetOverrideColor() const { return overrideColor; }
+        void SetOverrideColor(const std::optional<Color> &color) { overrideColor = color; }
+
+        private : Id self;
         Id ancestor;
         Id sibling;
         Id descendant;
@@ -183,6 +185,7 @@ namespace Jangine::Gfx
 
         Mesh::Id mesh;
 
+        std::optional<Color> overrideColor;
         UserData userData;
     };
 
@@ -219,7 +222,7 @@ namespace Jangine::Gfx
 
             std::vector<Node> nodes;
 
-            Node& at(Jangine::Gfx::Node::Id id)
+            Node &at(Jangine::Gfx::Node::Id id)
             {
                 if (id.value < 0 || id.value >= static_cast<int32_t>(nodes.size()))
                 {
@@ -551,10 +554,10 @@ namespace Jangine::Gfx
             Eigen::Vector2f Screen;
         };
 
-        struct PerMeshData
+        struct PerDrawData
         {
             Eigen::Matrix4f Transform;
-            Eigen::Vector4f Color;
+            uint32_t Color;
             int32_t MaterialIndex;
         };
 

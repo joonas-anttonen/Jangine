@@ -71,7 +71,7 @@ namespace Jangine::Gfx
             MemoryAccess::Write);
 
         perMeshBuffer = gfx.CreateMemoryBuffer(
-            Math::AlignUp(sizeof(PerMeshData), gfx.GetCapabilities().uniformBufferOffsetAlignment) * 1024,
+            Math::AlignUp(sizeof(PerDrawData), gfx.GetCapabilities().uniformBufferOffsetAlignment) * 1024,
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
 
@@ -519,7 +519,7 @@ namespace Jangine::Gfx
         vkCmdSetViewport(commandBuffer.vulkanHandle, 0, 1, &viewport);
         vkCmdSetScissor(commandBuffer.vulkanHandle, 0, 1, &scissor);
 
-        PerMeshData perMeshData{};
+        PerDrawData perDrawData{};
         uint32_t drawCount = 0;
 
         const auto &nodes = scene.GetNodes();
@@ -531,8 +531,12 @@ namespace Jangine::Gfx
             if (!associatedMeshId)
                 continue;
 
-            perMeshData.Transform = node.GetWorldTransform().matrix();
-            perMeshData.Color = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
+            perDrawData.Transform = node.GetWorldTransform().matrix();
+
+            auto overrideColor = node.GetOverrideColor();
+            bool_t hasOverrideColor = overrideColor.has_value();
+            bool_t overrideColorIsTransparent = hasOverrideColor && (overrideColor->a < 1.0f);
+            perDrawData.Color = hasOverrideColor ? overrideColor->ToUInt() : 0xffffffff;
 
             const Mesh *mesh = scene.GetMesh(associatedMeshId);
             const MeshBuffer *meshBuffer = mesh->GetBuffer();
@@ -541,12 +545,13 @@ namespace Jangine::Gfx
 
             for (const auto &primitive : mesh->GetPrimitives())
             {
-                vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, !primitive.materialHasTransparency);
+                perDrawData.MaterialIndex = hasOverrideColor ? -1 : primitive.materialIndex;
 
-                perMeshData.MaterialIndex = primitive.materialIndex;
+                bool_t primitiveIsTransparent = primitive.materialHasTransparency || overrideColorIsTransparent;
+                vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, !primitiveIsTransparent);
 
-                size_t perMeshOffset = drawCount++ * Math::AlignUp(sizeof(PerMeshData), gfx.GetCapabilities().uniformBufferOffsetAlignment);
-                gfx.WriteMemoryBuffer(perMeshBuffer.get(), Span(perMeshData), perMeshOffset);
+                size_t perMeshOffset = drawCount++ * Math::AlignUp(sizeof(PerDrawData), gfx.GetCapabilities().uniformBufferOffsetAlignment);
+                gfx.WriteMemoryBuffer(perMeshBuffer.get(), Span(perDrawData), perMeshOffset);
 
                 VkDescriptorBufferInfo perSceneBufferInfo{
                     .buffer = perSceneBuffer->vulkanBuffer,
@@ -555,7 +560,7 @@ namespace Jangine::Gfx
                 VkDescriptorBufferInfo perMeshBufferInfo{
                     .buffer = perMeshBuffer->vulkanBuffer,
                     .offset = perMeshOffset,
-                    .range = sizeof(PerMeshData)};
+                    .range = sizeof(PerDrawData)};
                 VkDescriptorBufferInfo perMaterialBufferInfo{
                     .buffer = meshBuffer->GetMaterialBuffer()->vulkanBuffer,
                     .offset = 0,
