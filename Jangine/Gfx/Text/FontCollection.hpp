@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Shared.hpp"    // Gfx::Text
 #include "../Shared.hpp" // Gfx
 #include "../../Logging/Logger.hpp"
 
@@ -8,17 +7,6 @@
 
 namespace Jangine::Gfx::Text
 {
-    struct FontKey
-    {
-        std::string name;
-        uint32_t size;
-
-        bool operator==(const FontKey &other) const
-        {
-            return name == other.name && size == other.size;
-        }
-    };
-
     struct FreeTypeGlyphData
     {
         FT_Glyph glyph = nullptr;
@@ -81,7 +69,7 @@ namespace Jangine::Gfx::Text
         FontCollection(FontCollection &&) = delete;
         FontCollection &operator=(FontCollection &&) = delete;
 
-        const Font &GetFont(const FontKey &key);
+        Font::Ptr GetFont(const FontKey &key);
 
     private:
         bool_t TryLoadFontData(const std::string &name, const uint8_t *&data, size_t &dataSize);
@@ -89,7 +77,7 @@ namespace Jangine::Gfx::Text
         FT_Library freetypeLibrary;
 
         std::unordered_map<std::string, std::vector<uint8_t>> fontData;
-        std::unordered_map<FontKey, Font> fonts;
+        std::unordered_map<FontKey, std::unique_ptr<Font>> fonts;
 
         Gfx::Core &gfx;
         const Logging::Logger &logger;

@@ -133,7 +133,6 @@ jangine = library(
         'Jangine/Gfx/Camera.cpp',
         'Jangine/Gfx/Text/Font.cpp',
         'Jangine/Gfx/Text/FontCollection.cpp',
-        'Jangine/Gfx/Text/Shaper.cpp',
         'Jangine/IO/Gltf.cpp',
         'Jangine/IO/Urdf.cpp',
         'Jangine/IO/WebP.cpp',

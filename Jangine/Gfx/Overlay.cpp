@@ -59,9 +59,8 @@ namespace Jangine::Gfx
     {
         logger.Func(__func__);
 
-        defaultFont = &fontCollection.GetFont(Text::FontKey("BuiltIn", 32));
-        defaultShaper = defaultFont->CreateTextShaper();
-
+        //defaultFont = &fontCollection.GetFont(Text::FontKey("BuiltIn", 32));
+        defaultFont = fontCollection.GetFont(Text::FontKey("Quantico-Regular", 32));
         uint8_t data[4] = {255, 255, 255, 255};
         placeholderBuffer = gfx.CreatePixelBuffer(
             std::span<const std::byte>(reinterpret_cast<const std::byte *>(data), sizeof(data)),
@@ -95,7 +94,9 @@ namespace Jangine::Gfx
             .mipmapMode = SamplerMipmapMode::LINEAR,
             .addressModeU = SamplerAddressMode::CLAMP_TO_EDGE,
             .addressModeV = SamplerAddressMode::CLAMP_TO_EDGE,
-            .borderColor = BorderColor::FLOAT_OPAQUE_BLACK};
+            .borderColor = BorderColor::FLOAT_OPAQUE_BLACK,
+            .anisotropyEnable = true,
+            .maxAnisotropy = 16.0f};
         linearPixelSampler = gfx.CreatePixelSampler(linearParameters);
 
         // --------------------- BLUR
@@ -429,7 +430,7 @@ namespace Jangine::Gfx
 
             PushConstants pushConstants{
                 .scale = Eigen::Vector2f(2.0f / targetExtent.width, 2.0f / targetExtent.height),
-                .smoothing = 0};
+                .isSdf = 0};
 
             if (command.texture)
             {
@@ -440,7 +441,8 @@ namespace Jangine::Gfx
             {
                 commandTexture = command.font->GetPixelBuffer()->vulkanImageView;
                 commandSampler = linearPixelSampler->vulkanHandle;
-                pushConstants.smoothing = 1;
+                pushConstants.isSdf = 1;
+                pushConstants.sdfRange = command.fontWidth;
             }
 
             if (command.scissor)

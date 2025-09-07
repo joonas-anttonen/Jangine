@@ -549,7 +549,7 @@ namespace Jangine::Gui
             .backgroundColor = Color::FromUInt(0x282c34),
         };
 
-        for (uint32_t i = 0; i < 4; ++i)
+        for (uint32_t i = 0; i < 3; ++i)
         {
             auto button = scene.CreateNode<GuiButton>();
             button->SetName(std::format("Button_{:03d}", i + 1));
@@ -581,6 +581,19 @@ namespace Jangine::Gui
             .foregroundColor = Color::FromUInt(0xc678dd),
         };
 
+        auto biasSlider = scene.CreateNode<Slider>();
+        biasSlider->SetName("BiasSlider_001");
+        biasSlider->SetStyle(sliderBasicStyle);
+        biasSlider->SetHoveredStyle(sliderHoveredStyle);
+        biasSlider->SetActiveStyle(sliderActiveStyle);
+        biasSlider->gridCoordinates = {0, 3, 1, 1};
+        scene.SetAncestor(biasSlider, gridRightPanel);
+        biasSlider->value = 0.0f;
+        biasSlider->onValueChanged = [this](Slider &s, float_t value)
+        {
+            logger.Warning(std::format("{} value changed: {}", s.GetName(), value), __func__);
+        };
+
         auto slider = scene.CreateNode<Slider>();
         slider->SetName("Slider_001");
         slider->SetStyle(sliderBasicStyle);
@@ -588,6 +601,7 @@ namespace Jangine::Gui
         slider->SetActiveStyle(sliderActiveStyle);
         slider->gridCoordinates = {0, 4, 1, 1};
         scene.SetAncestor(slider, gridRightPanel);
+        slider->value = 0.1f;
         slider->onValueChanged = [this](Slider &s, float_t value)
         {
             logger.Warning(std::format("{} value changed: {}", s.GetName(), value), __func__);
@@ -684,7 +698,7 @@ namespace Jangine::Gui
                 "Absolute Time: {:.2f}s, Delta Time: {:.2f}s",
                 absoluteTime,
                 deltaTime);
-            overlay.GetDefaultShaper()->CalculateTextLayout(statusText, 1.0f, windowSize, false, statusTextLayout);
+            overlay.GetDefaultFont()->CalculateTextLayout(statusText, windowSize, false, {.scale = 0.5f, .width = 0.125f}, statusTextLayout);
 
             Eigen::Vector2f statusTextMargin = Eigen::Vector2f(2.f, 2.f);
             Eigen::Vector2f statusTextPosition = Eigen::Vector2f(sizeOfFrame.x() + statusTextMargin.x(), sizeOfFrame.y() + statusTextMargin.y());
@@ -694,7 +708,7 @@ namespace Jangine::Gui
                 commandBuffer->DrawImage(
                     overlay.GetAcrylicBuffer(),
                     Eigen::Vector2f(sizeOfFrame.x(), sizeOfFrame.y()),
-                    Eigen::Vector2f(statusTextLayout.size.x() + statusTextMargin.x() * 2, statusTextLayout.size.y() + statusTextMargin.y() * 2),
+                    Eigen::Vector2f(statusTextLayout.extent().x() + statusTextMargin.x() * 2, statusTextLayout.extent().y() + statusTextMargin.y() * 2),
                     Gfx::ImageFit::None,
                     Color::White);
             }

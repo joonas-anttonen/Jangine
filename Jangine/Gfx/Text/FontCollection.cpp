@@ -21,12 +21,20 @@ namespace Jangine::Gfx::Text
 
     FreeTypeGlyphData::FreeTypeGlyphData(FT_Face in_face, uint32_t in_glyph_index)
     {
-        ThrowIfFailed(FT_Load_Glyph(
+        FT_Error error = FT_Load_Glyph(
             in_face,
             static_cast<FT_UInt>(in_glyph_index),
-            FT_LOAD_RENDER));
+            FT_LOAD_DEFAULT);
+        if (error != 0)
+        {
+            std::cout << std::format("FT_Load_Glyph failed for glyph index {} with error code {}", in_glyph_index, error) << std::endl;
+            return;
+        }
 
         FT_GlyphSlot slot = in_face->glyph;
+        ThrowIfFailed(FT_Render_Glyph(
+            slot,
+            FT_RENDER_MODE_NORMAL));
         ThrowIfFailed(FT_Render_Glyph(
             slot,
             FT_RENDER_MODE_SDF));
@@ -79,9 +87,16 @@ namespace Jangine::Gfx::Text
     {
         std::vector<FreeTypeGlyphData> glyphs;
 
-        for (uint32_t i = 0; i < static_cast<uint32_t>(face->num_glyphs); ++i)
+        FT_UInt glyphIndex;
+        FT_ULong charcode = FT_Get_First_Char(face, &glyphIndex);
+        while (glyphIndex != 0)
         {
-            glyphs.emplace_back(face, i);
+            FreeTypeGlyphData glyphData(face, glyphIndex);
+            if (glyphData.glyph)
+            {
+                glyphs.emplace_back(std::move(glyphData));
+            }
+            charcode = FT_Get_Next_Char(face, charcode, &glyphIndex);
         }
 
         return glyphs;
@@ -132,7 +147,7 @@ namespace Jangine::Gfx::Text
         return atlasSize;
     }
 
-    static void BuildAtlas(const std::vector<FreeTypeGlyphData> &freetypeGlyphs, std::vector<Glyph> &glyphs, std::vector<uint8_t> &atlasData, uint32_t& atlasSize)
+    static void BuildAtlas(const std::vector<FreeTypeGlyphData> &freetypeGlyphs, std::vector<Glyph> &glyphs, std::vector<uint8_t> &atlasData, uint32_t &atlasSize)
     {
         static constexpr uint32_t channels = 4;
         static constexpr uint32_t padding = 2;
@@ -203,12 +218,12 @@ namespace Jangine::Gfx::Text
         }
     }
 
-    const Font &FontCollection::GetFont(const FontKey &id)
+    Font::Ptr FontCollection::GetFont(const FontKey &id)
     {
         auto it = fonts.find(id);
         if (it != fonts.end())
         {
-            return it->second;
+            return it->second.get();
         }
 
         const uint8_t *data = nullptr;
@@ -226,6 +241,37 @@ namespace Jangine::Gfx::Text
 
         if (!data)
         {
+            // Try to load from disk cache
+            std::string fontPath = id.name + ".otf";
+            if (std::filesystem::exists(fontPath))
+            {
+                std::ifstream file(fontPath, std::ios::binary | std::ios::ate);
+                if (file)
+                {
+                    std::streamsize size = file.tellg();
+                    file.seekg(0, std::ios::beg);
+
+                    if (size > 0)
+                    {
+                        auto &dataVec = fontData[id.name];
+                        dataVec.resize(static_cast<size_t>(size));
+                        if (file.read(reinterpret_cast<char *>(dataVec.data()), size))
+                        {
+                            data = dataVec.data();
+                            dataSize = dataVec.size();
+                        }
+                        else
+                        {
+                            logger.Warning(std::format("Failed to read font data from '{}'", fontPath), __func__);
+                            fontData.erase(id.name);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!data)
+        {
             if (!TryLoadFontData(id.name, data, dataSize))
             {
                 ThrowInvalidOperationIf(data == nullptr || dataSize == 0,
@@ -235,9 +281,16 @@ namespace Jangine::Gfx::Text
 
         FT_Face face;
         ThrowIfFailed(FT_New_Memory_Face(freetypeLibrary, data, static_cast<FT_Long>(dataSize), 0, &face));
+
+        // Select Unicode charmap if available
+        if (FT_Select_Charmap(face, FT_ENCODING_UNICODE) != 0)
+        {
+            logger.Warning(std::format("Font '{}' does not have a Unicode charmap", id.name), __func__);
+        }
+
         ThrowIfFailed(FT_Set_Char_Size(
             face,
-            static_cast<FT_F26Dot6>(id.size * 64),
+            0,
             static_cast<FT_F26Dot6>(id.size * 64),
             72, 72));
 
@@ -248,16 +301,13 @@ namespace Jangine::Gfx::Text
         BuildAtlas(freetypeGlyphs, glyphs, atlasData, atlasSize);
 
         Handle<PixelBuffer> pixelBuffer = gfx.CreatePixelBuffer(
-            std::span<const std::byte>(reinterpret_cast<const std::byte *>(atlasData.data()), atlasData.size()),
+            Span(atlasData),
             atlasSize, atlasSize,
             Format::RGBA8,
             PixelBufferUsage::Sampled);
 
-        auto pair = fonts.emplace(
-            std::piecewise_construct,
-            std::forward_as_tuple(id),
-            std::forward_as_tuple(face, std::move(glyphs), PromoteToShared(std::move(pixelBuffer))));
-        return pair.first->second;
+        Font::Ptr font = new Font(face, std::move(glyphs), PromoteToShared(std::move(pixelBuffer)));
+        return fonts.insert({id, std::unique_ptr<Font>(font)}).first->second.get();
     }
 
     bool_t FontCollection::TryLoadFontData(const std::string &name, const uint8_t *&data, size_t &dataSize)

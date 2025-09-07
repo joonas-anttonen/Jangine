@@ -1,7 +1,8 @@
 struct PerCommand
 {
 	float2 Scale;
-    bool Smoothing;
+    bool isSdf;
+	float sdfRange;
 };
 
 [[vk::push_constant]] PerCommand command;
@@ -39,11 +40,13 @@ float4 fragment(fragment_input input) : SV_TARGET
 	float4 geometryColor = input.Color;
 	float4 textureColor = commandTexture.Sample(commandSampler, input.UV);
 
-    float distanceFromOutline = textureColor.a - 0.5;
-    float distanceChangePerFragment = 0.5 * fwidth(distanceFromOutline);
-    float alpha = command.Smoothing 
-				? (textureColor.a >= 0.5 ? 1 : smoothstep(-distanceChangePerFragment, +distanceChangePerFragment, distanceFromOutline))
-				: textureColor.a;
+    float alpha = textureColor.a;
+
+	if (command.isSdf)
+	{ 
+		float sdf = textureColor.a - 0.5;
+		alpha = smoothstep(-command.sdfRange, +command.sdfRange, sdf);
+	}
 
 	return float4(geometryColor.rgb * textureColor.rgb, alpha * geometryColor.a);
 }

@@ -5,7 +5,6 @@
 #include "Core.hpp"
 
 #include "Presenter.hpp"
-#include "Overlay.CommandBuffer.hpp"
 #include "Text/FontCollection.hpp"
 
 namespace Jangine::Logging
@@ -23,7 +22,6 @@ namespace Jangine::Gfx
     class Overlay
     {
     public:
-
         class CommandBuffer
         {
             friend class Overlay;
@@ -40,9 +38,9 @@ namespace Jangine::Gfx
             struct Command
             {
                 explicit Command()
-                    : vertexOffset(0), indexOffset(0), indexCount(0), texture(nullptr), font(nullptr) {}
+                    : vertexOffset(0), indexOffset(0), indexCount(0), texture(nullptr), font(nullptr), fontWidth(.5f) {}
                 explicit Command(uint32_t vertexOffset, uint32_t indexOffset)
-                    : vertexOffset(vertexOffset), indexOffset(indexOffset), indexCount(0), texture(SharedHandle<PixelBuffer>()), font(nullptr) {}
+                    : vertexOffset(vertexOffset), indexOffset(indexOffset), indexCount(0), texture(SharedHandle<PixelBuffer>()), font(nullptr), fontWidth(.5f) {}
                 Command &operator=(const Command &) = delete;
                 Command(const Command &) = delete;
                 Command &operator=(Command &&) = default;
@@ -53,6 +51,7 @@ namespace Jangine::Gfx
                 uint32_t indexCount;
                 SharedHandle<PixelBuffer> texture;
                 const Text::Font *font;
+                float_t fontWidth;
                 std::optional<Rectangle> scissor;
             };
 
@@ -132,24 +131,30 @@ namespace Jangine::Gfx
             {
                 ThrowInvalidOperationIfNot(batchInProgress);
 
-                if (color.IsTransparent() || layout.glyphs.empty() || layout.font == nullptr)
+                if (color.IsTransparent() || layout.font() == nullptr)
                 {
                     return;
                 }
 
-                // Check if new command is needed (font changed)
-                if (GetCurrentCommand().font != layout.font)
+                // New command if font or font size changed
+                auto &currentCommand = GetCurrentCommand();
+                if (currentCommand.font != layout.font() || currentCommand.fontWidth != layout.font_width())
                 {
-                    BeginCommand().font = layout.font;
+                    auto &newCommand = BeginCommand();
+                    newCommand.font = layout.font();
+                    newCommand.fontWidth = layout.font_width();
                 }
+
+                // New command if scissor changed
                 if (scissorStack.size() > 0 && GetCurrentCommand().scissor != scissorStack.top())
                 {
                     auto &newCommand = BeginCommand();
-                    newCommand.font = layout.font;
+                    newCommand.font = layout.font();
+                    newCommand.fontWidth = layout.font_width();
                     newCommand.scissor = scissorStack.top();
                 }
 
-                for (const auto &glyph : layout.glyphs)
+                for (const auto &glyph : layout)
                 {
                     Eigen::Vector2f a = position + glyph.position;
                     Eigen::Vector2f c = a + glyph.size;
@@ -404,13 +409,13 @@ namespace Jangine::Gfx
 
             std::stack<Rectangle> scissorStack;
         };
-    
+
     public:
         struct PushConstants
         {
             Eigen::Vector2f scale;
-            uint32_t smoothing;
-            uint32_t padding; // Padding to ensure 16-byte alignment
+            uint32_t isSdf;
+            float_t sdfRange;
         };
 
         struct BlurPushConstants
@@ -453,14 +458,9 @@ namespace Jangine::Gfx
             commandBufferQueue.push(buffer);
         }
 
-        const Text::Font *GetDefaultFont() const
+        Text::Font *GetDefaultFont()
         {
             return defaultFont;
-        }
-
-        Text::Shaper *GetDefaultShaper() const
-        {
-            return defaultShaper.get();
         }
 
         bool_t IsReady() const
@@ -525,8 +525,7 @@ namespace Jangine::Gfx
         Handle<PixelSampler> blurNoiseSampler;
 
         Text::FontCollection fontCollection;
-        const Text::Font *defaultFont = nullptr;
-        std::unique_ptr<Text::Shaper> defaultShaper = nullptr;
+        Text::Font *defaultFont = nullptr;
 
         SpinLock commandBufferPoolLock;
         std::vector<CommandBuffer> commandBufferPool;

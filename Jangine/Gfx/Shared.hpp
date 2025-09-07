@@ -92,9 +92,9 @@ namespace Jangine::Gfx
         SamplerAddressMode addressModeU;
         SamplerAddressMode addressModeV;
         SamplerAddressMode addressModeW;
-        uint32_t anisotropyEnable = 0;
-        float maxAnisotropy = 1.0f;
         BorderColor borderColor;
+        bool_t anisotropyEnable{false};
+        float_t maxAnisotropy{1.0f};
     };
 
     struct Pipeline

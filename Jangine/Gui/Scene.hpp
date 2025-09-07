@@ -394,7 +394,7 @@ namespace Jangine::Gui
         };
 
         std::vector<Item> items;
-        float_t itemHeight = 16.0f;
+        float_t itemHeight = 24.0f;
         float_t indentSize = 12.0f;
 
         explicit TreeView(std::type_index type, Scene &scene)
@@ -413,13 +413,14 @@ namespace Jangine::Gui
             {
                 for (auto &item : items)
                 {
-                    overlay.GetDefaultShaper()->CalculateTextLayout(
+                    overlay.GetDefaultFont()->CalculateTextLayout(
                         item.text,
-                        0.5f,
                         Eigen::Vector2f(9999.0f, 9999.0f),
                         false,
+                        {.scale = 0.5f,
+                         .width = 0.125f},
                         item.textLayout);
-                    item.bounds = Gfx::Rectangle(indent, currentY, indent + item.textLayout.size.x(), currentY + itemHeight);
+                    item.bounds = Gfx::Rectangle(indent, currentY, indent + item.textLayout.extent().x(), currentY + itemHeight);
                     width = std::max(width, item.bounds.right);
                     height = std::max(height, item.bounds.bottom);
                     item.bounds = item.bounds.Crop(1, 1, 1, 1);
