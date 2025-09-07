@@ -717,16 +717,12 @@ namespace Jangine::Gui
         {
             Jangine::Gui::Measure width;
             float_t computedWidth = 0.0f;
-
-            Eigen::Vector2f bounds{0.0f, 0.0f};
         };
 
         struct Row
         {
             Jangine::Gui::Measure height;
             float_t computedHeight = 0.0f;
-
-            Eigen::Vector2f bounds{0.0f, 0.0f};
         };
 
         explicit Grid(std::type_index type, Scene &scene)
@@ -864,21 +860,6 @@ namespace Jangine::Gui
 
                 element->UpdateLayout(overlay, Gfx::Rectangle(left, top, right, bottom));
             }
-
-            // Update column and row bounds for debugging
-            float_t x = boundsForDescendants.left;
-            for (auto &column : columns)
-            {
-                column.bounds = {x, x + column.computedWidth};
-                x += column.computedWidth;
-            }
-
-            float_t y = boundsForDescendants.top;
-            for (auto &row : rows)
-            {
-                row.bounds = {y, y + row.computedHeight};
-                y += row.computedHeight;
-            }
         }
     };
 
@@ -973,24 +954,6 @@ namespace Jangine::Gui
         void Render(Gfx::Overlay &overlay, Gfx::Overlay::CommandBuffer *commandBuffer)
         {
             GetRoot()->Render(overlay, commandBuffer);
-
-            // debug highlight mouse focused node
-            /*if (nodeThatHasMouse)
-            {
-                commandBuffer->DrawRectangle(
-                    nodeThatHasMouse->bounds.Crop(1, 1, 1, 1),
-                    Color::Red,
-                    2.0f);
-            }
-
-            // debug highlight keyboard focused node
-            if (nodeThatHasKeyboard)
-            {
-                commandBuffer->DrawRectangle(
-                    nodeThatHasKeyboard->bounds.Crop(2, 2, 2, 2),
-                    Color::Cyan,
-                    2.0f);
-            }*/
         }
 
         void Print(const Node *node, int depth = 0) const
