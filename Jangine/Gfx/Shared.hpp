@@ -213,13 +213,6 @@ namespace Jangine::Gfx
         }
     };
 
-    struct Vertex2f
-    {
-        Eigen::Vector2f position;
-        Eigen::Vector2f uv;
-        Eigen::Vector4f color;
-    };
-
     struct Rectangle
     {
         float left, top, right, bottom;

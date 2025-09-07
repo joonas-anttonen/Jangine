@@ -35,9 +35,10 @@ namespace Jangine
 
         uint32_t ToUInt() const
         {
-            return (static_cast<uint32_t>(r * 255.0f) << 16) |
+            return (static_cast<uint32_t>(a * 255.0f) << 24) |
+                   (static_cast<uint32_t>(b * 255.0f) << 16) |
                    (static_cast<uint32_t>(g * 255.0f) << 8) |
-                   (static_cast<uint32_t>(b * 255.0f) << 0);
+                   (static_cast<uint32_t>(r * 255.0f) << 0);
         }
 
         std::string ToHexString() const
@@ -95,9 +96,9 @@ namespace Jangine
     inline const Color Color::Black = Color(0, 0, 0, 1);
     inline const Color Color::Transparent = Color(0, 0, 0, 0);
     inline const Color Color::Maximum = Color(
-        (float_t)std::numeric_limits<uint32_t>::max(), 
-        (float_t)std::numeric_limits<uint32_t>::max(), 
-        (float_t)std::numeric_limits<uint32_t>::max(), 
+        (float_t)std::numeric_limits<uint32_t>::max(),
+        (float_t)std::numeric_limits<uint32_t>::max(),
+        (float_t)std::numeric_limits<uint32_t>::max(),
         (float_t)std::numeric_limits<uint32_t>::max());
     inline const Color Color::Red = Color(1, 0, 0, 1);
     inline const Color Color::Green = Color(0, 1, 0, 1);

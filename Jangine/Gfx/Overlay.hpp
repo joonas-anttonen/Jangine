@@ -21,6 +21,13 @@ namespace Jangine::Gfx
 
     class Overlay
     {
+        struct Vertex2f
+        {
+            Eigen::Vector2f position;
+            Eigen::Vector2f uv;
+            uint32_t color;
+        };
+
     public:
         class CommandBuffer
         {
@@ -357,10 +364,10 @@ namespace Jangine::Gfx
                 auto b_uv = Eigen::Vector2f(c_uv.x(), a_uv.y());
                 auto d_uv = Eigen::Vector2f(a_uv.x(), c_uv.y());
 
-                vertices.push_back(Vertex2f(a, a_uv, GetColorVector4f(color)));
-                vertices.push_back(Vertex2f(b, b_uv, GetColorVector4f(color)));
-                vertices.push_back(Vertex2f(c, c_uv, GetColorVector4f(color)));
-                vertices.push_back(Vertex2f(d, d_uv, GetColorVector4f(color)));
+                vertices.push_back(Vertex2f(a, a_uv, color.ToUInt()));
+                vertices.push_back(Vertex2f(b, b_uv, color.ToUInt()));
+                vertices.push_back(Vertex2f(c, c_uv, color.ToUInt()));
+                vertices.push_back(Vertex2f(d, d_uv, color.ToUInt()));
 
                 auto &currentCommand = GetCurrentCommand();
                 currentCommand.indexCount += 6;
@@ -390,10 +397,6 @@ namespace Jangine::Gfx
             }
 
         private:
-            static inline Eigen::Vector4f GetColorVector4f(Color color)
-            {
-                return Eigen::Vector4f(color.r, color.g, color.b, color.a);
-            }
 
             bool_t batchInProgress = false;
 

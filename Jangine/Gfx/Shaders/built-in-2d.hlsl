@@ -14,7 +14,7 @@ struct vertex_input
 {
 	float2 Position : POSITION0;
 	float2 UV : TEXCOORD0;
-	float4 Color : COLOR0;
+	uint Color : COLOR0;
 };
 
 struct fragment_input
@@ -24,13 +24,22 @@ struct fragment_input
 	float4 Color : COLOR0;
 };
 
+float4 UnpackColor(uint packed)
+{
+    float r = (float)(packed & 0xFF) / 255.0f;
+    float g = (float)((packed >> 8) & 0xFF) / 255.0f;
+    float b = (float)((packed >> 16) & 0xFF) / 255.0f;
+    float a = (float)((packed >> 24) & 0xFF) / 255.0f;
+    return float4(r, g, b, a);
+}
+
 [shader("vertex")]
 fragment_input vertex(vertex_input input, in uint vertexIndex : SV_VertexID)
 {
     fragment_input output = (fragment_input)0;
     output.Position = float4(input.Position * command.Scale + float2(-1, -1), 0.0, 1.0);
 	output.UV = input.UV;
-	output.Color = input.Color;
+	output.Color = UnpackColor(input.Color);
 	return output;
 }
 

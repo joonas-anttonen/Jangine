@@ -216,7 +216,7 @@ namespace Jangine::Gfx
                  .offset = offsetof(Vertex2f, uv)},
                 {.location = 2,
                  .binding = 0,
-                 .format = Format::RGBA32,
+                 .format = Format::U32,
                  .offset = offsetof(Vertex2f, color)}};
             mainParams.attachments = {
                 {.format = Format::BGRA8,
