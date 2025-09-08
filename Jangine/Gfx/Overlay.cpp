@@ -59,11 +59,11 @@ namespace Jangine::Gfx
     {
         logger.Func(__func__);
 
-        //defaultFont = &fontCollection.GetFont(Text::FontKey("BuiltIn", 32));
         defaultFont = fontCollection.GetFont(Text::FontKey("Quantico-Regular", 32));
+
         uint8_t data[4] = {255, 255, 255, 255};
         placeholderBuffer = gfx.CreatePixelBuffer(
-            std::span<const std::byte>(reinterpret_cast<const std::byte *>(data), sizeof(data)),
+            Span(data),
             1,
             1,
             Format::RGBA8,
@@ -94,9 +94,7 @@ namespace Jangine::Gfx
             .mipmapMode = SamplerMipmapMode::LINEAR,
             .addressModeU = SamplerAddressMode::CLAMP_TO_EDGE,
             .addressModeV = SamplerAddressMode::CLAMP_TO_EDGE,
-            .borderColor = BorderColor::FLOAT_OPAQUE_BLACK,
-            .anisotropyEnable = true,
-            .maxAnisotropy = 16.0f};
+            .borderColor = BorderColor::FLOAT_OPAQUE_BLACK};
         linearPixelSampler = gfx.CreatePixelSampler(linearParameters);
 
         // --------------------- BLUR
@@ -122,7 +120,7 @@ namespace Jangine::Gfx
         }
 
         blurNoiseBuffer = gfx.CreatePixelBuffer(
-            std::span<const std::byte>(noiseData),
+            Span(noiseData),
             noiseSize,
             noiseSize,
             Format::RGBA8,
