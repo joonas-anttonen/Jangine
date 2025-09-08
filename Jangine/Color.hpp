@@ -64,6 +64,18 @@ namespace Jangine
                 c1.a + (c2.a - c1.a) * t);
         }
 
+        static Color CubicSpline(const Color &p0, const Color &p1, const Color &m0, const Color &m1, float t)
+        {
+            float t2 = t * t;
+            float t3 = t2 * t;
+
+            return Color(
+                (2 * t3 - 3 * t2 + 1) * p0.r + (t3 - 2 * t2 + t) * m0.r + (-2 * t3 + 3 * t2) * p1.r + (t3 - t2) * m1.r,
+                (2 * t3 - 3 * t2 + 1) * p0.g + (t3 - 2 * t2 + t) * m0.g + (-2 * t3 + 3 * t2) * p1.g + (t3 - t2) * m1.g,
+                (2 * t3 - 3 * t2 + 1) * p0.b + (t3 - 2 * t2 + t) * m0.b + (-2 * t3 + 3 * t2) * p1.b + (t3 - t2) * m1.b,
+                (2 * t3 - 3 * t2 + 1) * p0.a + (t3 - 2 * t2 + t) * m0.a + (-2 * t3 + 3 * t2) * p1.a + (t3 - t2) * m1.a);
+        }
+
         bool operator==(const Color &other) const
         {
             return r == other.r && g == other.g && b == other.b && a == other.a;

@@ -647,7 +647,7 @@ namespace Jangine::Gui
             std::function<void(const Gfx::Scene::View::Node &, TreeView::Item &)> duplicateNodeToTreeView;
             duplicateNodeToTreeView = [&](const Gfx::Scene::View::Node &node, TreeView::Item &item)
             {
-                item.text = core3D.GetScene().GetName(node.self).value_or("NO_NAME");
+                item.text = std::format("{:03d} {}", node.self.value, core3D.GetScene().GetName(node.self).value_or("NO_NAME"));
                 item.isExpanded = true;
 
                 if (node.descendant)

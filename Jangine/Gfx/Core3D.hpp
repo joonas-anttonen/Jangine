@@ -158,8 +158,11 @@ namespace Jangine::Gfx
 
         /// @brief Get the world transform of the node
         const Eigen::Isometry3f &GetWorldTransform() const { return worldTransform; }
+
         /// @brief Get the relative transform of the node
         const Eigen::Isometry3f &GetRelativeTransform() const { return relativeTransform; }
+        /// @brief Set the relative transform of the node
+        void SetRelativeTransform(const Eigen::Isometry3f &transform) { relativeTransform = transform; }
 
         Node::Id GetDescendant() const { return descendant; }
         Node::Id GetSibling() const { return sibling; }
@@ -175,7 +178,8 @@ namespace Jangine::Gfx
         std::optional<Color> GetOverrideColor() const { return overrideColor; }
         void SetOverrideColor(const std::optional<Color> &color) { overrideColor = color; }
 
-        private : Id self;
+    private:
+        Id self;
         Id ancestor;
         Id sibling;
         Id descendant;
@@ -187,6 +191,179 @@ namespace Jangine::Gfx
 
         std::optional<Color> overrideColor;
         UserData userData;
+    };
+
+    class Scene;
+
+    struct Sampler
+    {
+        // TODO: CUBICSPLINE
+        enum class Interpolation
+        {
+            STEP,
+            LINEAR,
+        };
+
+        struct Keyframe
+        {
+            float_t time;
+            float_t x;
+            float_t y;
+            float_t z;
+            float_t w;
+        };
+
+        Interpolation interpolation = Interpolation::LINEAR;
+        std::vector<Keyframe> keyframes;
+
+        template <typename T>
+        T Sample(float_t time, std::function<T(const Keyframe &)> value, std::function<T(const T &, const T &, float_t)> lerp) const
+        {
+            if (keyframes.empty())
+                return value(Keyframe());
+
+            if (time <= keyframes.front().time)
+                return value(keyframes.front());
+            if (time >= keyframes.back().time)
+                return value(keyframes.back());
+
+            // Find the interval [keyframes[i].time, keyframes[i+1].time] that contains 't'
+            size_t i = 0;
+            while (i + 1 < keyframes.size() && keyframes[i + 1].time < time)
+            {
+                i++;
+            }
+
+            if (i + 1 == keyframes.size())
+                return value(keyframes.back());
+
+            float_t t0 = keyframes[i].time;
+            float_t t1 = keyframes[i + 1].time;
+            float_t factor = (time - t0) / (t1 - t0);
+
+            const T &v0 = value(keyframes[i]);
+            const T &v1 = value(keyframes[i + 1]);
+
+            // TODO: CUBICSPLINE
+            switch (interpolation)
+            {
+            case Interpolation::LINEAR:
+                return lerp(v0, v1, factor);
+            default:
+                return v0;
+            }
+        }
+    };
+
+    class Animation
+    {
+    public:
+        enum class LoopMode
+        {
+            ONCE,
+            LOOP,
+            PINGPONG,
+        };
+
+        enum class State
+        {
+            PLAYING,
+            PAUSED,
+            STOPPED,
+        };
+
+        struct Channel
+        {
+            // TODO: SCALE
+            enum class Path
+            {
+                TRANSLATION,
+                ROTATION,
+                COLOR,
+            };
+
+            Node::Id targetNode;
+            Path targetPath;
+            Sampler sampler;
+        };
+
+        std::vector<Channel> channels;
+
+        void Update(float_t deltaTime)
+        {
+            if (duration <= 0.0f)
+                return;
+
+            if (state == Animation::State::STOPPED)
+                return;
+
+            if (state == Animation::State::PAUSED)
+                deltaTime = 0.0f;
+
+            totalTime += deltaTime;
+
+            switch (loopMode)
+            {
+            case Animation::LoopMode::ONCE:
+            {
+                currentTime = std::clamp(totalTime, 0.0f, duration);
+                if (currentTime >= duration)
+                    state = Animation::State::STOPPED;
+                break;
+            }
+            case Animation::LoopMode::LOOP:
+            {
+                currentTime = std::fmod(totalTime, duration);
+                break;
+            }
+            case Animation::LoopMode::PINGPONG:
+            {
+                float_t cycle = std::fmod(totalTime, 2 * duration);
+                currentTime = (cycle <= duration) ? cycle : (2 * duration - cycle);
+                break;
+            }
+            default:
+                break;
+            }
+        }
+        void Apply(Scene &scene);
+
+        float_t totalTime = 0.0f;
+        float_t currentTime = 0.0f;
+        float_t duration = 0.0f;
+        State state = State::PLAYING;
+        LoopMode loopMode = LoopMode::LOOP;
+
+    private:
+        static Eigen::Quaternionf QuaternionValue(const Sampler::Keyframe &kf)
+        {
+            return Eigen::Quaternionf(kf.w, kf.x, kf.y, kf.z);
+        }
+
+        static Eigen::Vector3f Vector3Value(const Sampler::Keyframe &kf)
+        {
+            return Eigen::Vector3f(kf.x, kf.y, kf.z);
+        }
+
+        static Eigen::Vector3f Vector3Lerp(const Eigen::Vector3f &a, const Eigen::Vector3f &b, float_t factor)
+        {
+            return a + (b - a) * factor;
+        }
+
+        static Eigen::Quaternionf QuaternionSlerp(const Eigen::Quaternionf &a, const Eigen::Quaternionf &b, float_t factor)
+        {
+            return a.slerp(factor, b);
+        }
+
+        static Color ColorValue(const Sampler::Keyframe &kf)
+        {
+            return Color{kf.x, kf.y, kf.z, kf.w};
+        }
+
+        static Color ColorLerp(const Color &a, const Color &b, float_t factor)
+        {
+            return Color::Lerp(a, b, factor);
+        }
     };
 
     /// @brief Scene graph structure
@@ -471,7 +648,7 @@ namespace Jangine::Gfx
         const std::vector<Mesh> &GetMeshes() const { return meshes; }
 
         /// @brief
-        void Update()
+        void Update(double_t, float_t deltaTime)
         {
             std::scoped_lock vlock(viewLock);
 
@@ -487,6 +664,13 @@ namespace Jangine::Gfx
                         SetRelativeTransform(transformCommand->nodeId, transformCommand->newRelativeTransform);
                     }
                 }
+            }
+
+            // Update animations
+            for (auto &animation : animations)
+            {
+                animation.Update(deltaTime);
+                animation.Apply(*this);
             }
 
             // Compose final state
@@ -537,6 +721,8 @@ namespace Jangine::Gfx
 
         std::vector<Node> nodes;
         std::vector<Mesh> meshes;
+
+        std::vector<Animation> animations;
     };
 
     class Core3D

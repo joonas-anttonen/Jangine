@@ -131,13 +131,13 @@ namespace Jangine::Gfx
 
             scene.SetRelativeTransform(scene.GetWorld().GetId(), worldTransform);
 
-            // Jangine::IO::Gltf::Model exportModel{};
-            // Export(exportModel);
-            // Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
-            // if (exportStatus != Jangine::IO::Status::SUCCESS)
-            //{
-            //     logger.Error("Failed to export GLTF model.", __func__);
-            // }
+            Jangine::IO::Gltf::Model exportModel{};
+            Export(exportModel);
+            Jangine::IO::Status exportStatus = Jangine::IO::Gltf::SaveToFile("c:/users/jant/desktop/urdf_export.glb", exportModel);
+            if (exportStatus != Jangine::IO::Status::SUCCESS)
+            {
+                logger.Error("Failed to export GLTF model.", __func__);
+            }
             //
             // scene.Clear();
             //
@@ -398,10 +398,6 @@ namespace Jangine::Gfx
 
     void Core3D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
     {
-        // Avoid unused parameter warning
-        (void)absoluteTime;
-        (void)deltaTime;
-
         VkExtent2D renderExtent = {.width = renderBuffer->width, .height = renderBuffer->height};
 
         float_t viewportX = 0.0f;
@@ -426,7 +422,7 @@ namespace Jangine::Gfx
 
         camera.Update(gfx.GetUserInput(), deltaTime);
 
-        scene.Update();
+        scene.Update(absoluteTime, deltaTime);
 
         PerSceneData sceneData{};
         sceneData.ViewProjection = camera.GetViewProjectionMatrix();
@@ -799,44 +795,44 @@ namespace Jangine::Gfx
                            VK_FILTER_LINEAR);
         }
     }
+
+    void Animation::Apply(Scene &scene)
+    {
+        for (const auto &channel : channels)
+        {
+            Node::Id nodeId = channel.targetNode;
+            scene.AssertId(nodeId);
+            Node &node = scene.GetNode(nodeId);
+
+            switch (channel.targetPath)
+            {
+            case Channel::Path::TRANSLATION:
+            {
+                Eigen::Vector3f sampledTranslation = channel.sampler.Sample<Eigen::Vector3f>(currentTime, Animation::Vector3Value, Animation::Vector3Lerp);
+
+                Eigen::Isometry3f newRelativeTransform = node.GetRelativeTransform();
+                newRelativeTransform.translation() = sampledTranslation;
+                node.SetRelativeTransform(newRelativeTransform);
+                break;
+            }
+            case Channel::Path::ROTATION:
+            {
+                Eigen::Quaternionf sampledRotation = channel.sampler.Sample<Eigen::Quaternionf>(currentTime, Animation::QuaternionValue, Animation::QuaternionSlerp);
+
+                Eigen::Isometry3f newRelativeTransform = node.GetRelativeTransform();
+                newRelativeTransform.linear() = sampledRotation.toRotationMatrix();
+                node.SetRelativeTransform(newRelativeTransform);
+                break;
+            }
+            case Channel::Path::COLOR:
+            {
+                Color sampledColor = channel.sampler.Sample<Color>(currentTime, Animation::ColorValue, Animation::ColorLerp);
+                node.SetOverrideColor(sampledColor);
+                break;
+            }
+            default:
+                break;
+            }
+        }
+    }
 }
-
-/*{
-    Eigen::Isometry3f testIsometry;
-    testIsometry.setIdentity();
-    testIsometry.linear() = Eigen::AngleAxisf(0.0f, Eigen::Vector3f::UnitY()).toRotationMatrix();
-    testIsometry.translation() = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
-
-    PerDiscMeshData meshData{};
-    meshData.Transform = testIsometry.matrix();
-    meshData.Alignment = 0; // 0 = no alignment, 1 = billboard
-    meshData.Color = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
-    meshData.Thickness = 0.01f;
-
-    // meshData.ColorEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
-    // meshData.Start = Eigen::Vector3f(0.0f, 0.0f, 0.0f);
-    // meshData.End = Eigen::Vector3f(252.0f, 0.1f, 10.0f);
-
-    meshData.AngleStart = 0.0f;
-    meshData.AngleEnd = 0.0f;
-    meshData.ColorInnerEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
-    meshData.ColorOuterStart = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
-    meshData.ColorOuterEnd = Eigen::Vector4f(1.0f, 1.0f, 1.0f, 1.0f);
-    meshData.Radius = 0.5f;
-
-    std::span<const std::byte> perMeshDataSpan(reinterpret_cast<const std::byte *>(&meshData), sizeof(meshData));
-    gfx.WriteMemoryBuffer(perShapeMeshBuffer.get(), perMeshDataSpan);
-
-    // Add a single quad
-    uint16_t quadIndices[6] = {0, 1, 2, 0, 2, 3};
-    ShapeVertex quadVertices[4] = {
-        {{1.0f, -1.0f, 0.0f}, {-1.0f, -1.0f}},
-        {{1.0f, 1.0f, 0.0f}, {-1.0f, 1.0f}},
-        {{-1.0f, 1.0f, 0.0f}, {1.0f, 1.0f}},
-        {{-1.0f, -1.0f, 0.0f}, {1.0f, -1.0f}}};
-    std::span<const std::byte> vertexDataSpan(reinterpret_cast<const std::byte *>(quadVertices), sizeof(quadVertices));
-    gfx.WriteMemoryBuffer(shapeVertexBuffer.get(), vertexDataSpan);
-
-    std::span<const std::byte> indexDataSpan(reinterpret_cast<const std::byte *>(quadIndices), sizeof(quadIndices));
-    gfx.WriteMemoryBuffer(shapeIndexBuffer.get(), indexDataSpan);
-}*/
