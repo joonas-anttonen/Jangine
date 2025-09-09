@@ -128,35 +128,41 @@ namespace Jangine::Gfx
         // --------------------- BLUR
     }
 
-    void Overlay::InitializeRendering(const DisplayParameters &wantedDisplayParameters)
+    void Overlay::PrepareRender(const Presenter &presenter, const DisplayParameters &in_displayParameters)
     {
-        logger.Func(__func__);
+        Presenter::SurfaceInfo surfaceInfo = presenter.GetSurfaceInfo();
 
-        bool_t outputSizeChanged = displayParameters.SurfaceSizeChanged(wantedDisplayParameters);
-        displayParameters = wantedDisplayParameters;
+        bool_t recreateBackBuffer = !backBuffer;
+        if (backBuffer)
+        {
+            recreateBackBuffer = backBuffer->width != surfaceInfo.width ||
+                                 backBuffer->height != surfaceInfo.height ||
+                                 backBuffer->format != surfaceInfo.format;
+        }
 
-        bool_t recreateBackBuffer = !backBuffer || outputSizeChanged;
+        displayParameters = in_displayParameters;
+
         if (recreateBackBuffer)
         {
             backBuffer = gfx.CreatePixelBuffer(
-                displayParameters.surfaceWidth,
-                displayParameters.surfaceHeight,
-                displayParameters.surfaceFormat,
+                surfaceInfo.width,
+                surfaceInfo.height,
+                surfaceInfo.format,
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc);
 
             // --------------------- BLUR
             blurIntermediateBuffer = gfx.CreatePixelBuffer(
-                displayParameters.surfaceWidth,
-                displayParameters.surfaceHeight,
-                displayParameters.surfaceFormat,
+                surfaceInfo.width,
+                surfaceInfo.height,
+                surfaceInfo.format,
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Color);
             blurBuffer = gfx.CreatePixelBuffer(
-                displayParameters.surfaceWidth,
-                displayParameters.surfaceHeight,
-                displayParameters.surfaceFormat,
+                surfaceInfo.width,
+                surfaceInfo.height,
+                surfaceInfo.format,
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Color);
@@ -450,8 +456,7 @@ namespace Jangine::Gfx
                     .offset = {.x = static_cast<int32_t>(scissorRectangle.left),
                                .y = static_cast<int32_t>(scissorRectangle.top)},
                     .extent = {.width = static_cast<uint32_t>(scissorRectangle.width()),
-                               .height = static_cast<uint32_t>(scissorRectangle.height())}
-                };
+                               .height = static_cast<uint32_t>(scissorRectangle.height())}};
                 vkCmdSetScissor(vulkanCommandBuffer, 0, 1, &commandScissor);
             }
             else

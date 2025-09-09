@@ -435,7 +435,9 @@ namespace Jangine::Gfx
         Overlay(Overlay &&from) = delete;
 
         void Create();
-        void InitializeRendering(const DisplayParameters &wantedDisplayParameters);
+        /// @brief Prepares the rendering state for the given presenter and display parameters.
+        /// @note Will have no effect if no changes have been made.
+        void PrepareRender(const Presenter &presenter, const DisplayParameters &wantedDisplayParameters);
         void Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime);
 
         // Try to acquire a command buffer from the pool

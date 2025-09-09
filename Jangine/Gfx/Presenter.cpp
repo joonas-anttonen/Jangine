@@ -78,11 +78,25 @@ namespace Jangine::Gfx
         }
     }
 
-    Presenter::Presenter(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, SpinLock &queueLock,
-                         VkQueue queue, uint32_t queueFamilyIndex, VkSurfaceKHR surface)
-        : vulkanInstance(instance), vulkanDevice(device), vulkanPhysicalDevice(physicalDevice),
-          vulkanQueueLock(queueLock), vulkanQueue(queue), vulkanQueueFamilyIndex(queueFamilyIndex),
-          vulkanSurface(surface), vulkanSwapchain(VK_NULL_HANDLE),
+    Presenter::Presenter(
+        VkInstance instance,
+        VkDevice device,
+        VkPhysicalDevice physicalDevice,
+        SpinLock &queueLock,
+        VkQueue queue,
+        uint32_t queueFamilyIndex,
+        VkSurfaceKHR surface,
+        uint32_t surfaceWidth,
+        uint32_t surfaceHeight)
+        : vulkanInstance(instance),
+          vulkanDevice(device),
+          vulkanPhysicalDevice(physicalDevice),
+          vulkanQueueLock(queueLock),
+          vulkanQueue(queue),
+          vulkanQueueFamilyIndex(queueFamilyIndex),
+          vulkanSurface(surface),
+          vulkanSwapchain(VK_NULL_HANDLE),
+          surfaceInfo{surfaceWidth, surfaceHeight, Format::Undefined},
           logger(Jangine::Core::GetLogger("Gfx::Presenter"))
     {
         logger.Func(__func__);
@@ -119,14 +133,15 @@ namespace Jangine::Gfx
         }
     }
 
-    void Presenter::InitializeRendering(const DisplayParameters &wantedDisplayParameters)
+    void Presenter::PrepareRender(const DisplayParameters &in_displayParameters)
     {
-        DisplayParameters currentDisplayParameters = displayParameters;
-        displayParameters = wantedDisplayParameters;
+        bool_t vsyncChanged = displayParameters.verticalSync != in_displayParameters.verticalSync;
+        bool_t surfaceFormatUndefined = surfaceInfo.format == Format::Undefined;
+        bool_t surfaceSizeUndefined = surfaceInfo.width == 0 || surfaceInfo.height == 0;
 
-        if (currentDisplayParameters.SurfaceSizeChanged(wantedDisplayParameters) ||
-            currentDisplayParameters.SurfaceFormatChanged(wantedDisplayParameters) ||
-            currentDisplayParameters.VerticalSyncChanged(wantedDisplayParameters))
+        displayParameters = in_displayParameters;
+
+        if (vsyncChanged || surfaceFormatUndefined || surfaceSizeUndefined)
         {
             InitializeSwapchain();
         }
@@ -235,7 +250,6 @@ namespace Jangine::Gfx
         VkResult result = vkQueuePresentKHR(vulkanQueue, &presentInfo);
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR)
         {
-            logger.Warning("vkQueuePresentKHR returned VK_ERROR_OUT_OF_DATE_KHR or VK_SUBOPTIMAL_KHR, reinitializing swapchain.");
             InitializeSwapchain();
         }
         else if (result != VK_SUCCESS)
@@ -379,11 +393,11 @@ namespace Jangine::Gfx
         if (surfaceCapabilities.currentExtent.width == UINT32_MAX)
         {
             swapChainExtent.width = std::clamp(
-                static_cast<uint32_t>(displayParameters.surfaceWidth),
+                surfaceInfo.width,
                 surfaceCapabilities.minImageExtent.width,
                 surfaceCapabilities.maxImageExtent.width);
             swapChainExtent.height = std::clamp(
-                static_cast<uint32_t>(displayParameters.surfaceHeight),
+                surfaceInfo.height,
                 surfaceCapabilities.minImageExtent.height,
                 surfaceCapabilities.maxImageExtent.height);
         }
@@ -427,7 +441,9 @@ namespace Jangine::Gfx
                 outputSurfaceFormat = surfaceFormats[0];
         }
 
-        this->swapChainFormat = outputSurfaceFormat.format;
+        surfaceInfo.width = swapChainExtent.width;
+        surfaceInfo.height = swapChainExtent.height;
+        surfaceInfo.format = static_cast<Format>(outputSurfaceFormat.format);
 
         uint32_t presentModeCount = 0;
         ThrowVulkanIfFailed(vkGetPhysicalDeviceSurfacePresentModesKHR(vulkanPhysicalDevice, vulkanSurface, &presentModeCount, nullptr));

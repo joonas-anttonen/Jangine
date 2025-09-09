@@ -48,6 +48,22 @@ namespace Jangine::Gfx
             size_t maxStorageBufferRange;
         };
 
+        struct ViewportCommand
+        {
+            Rectangle viewport;
+        };
+
+        struct SurfaceCommand
+        {
+            uint32_t width;
+            uint32_t height;
+        };
+
+        struct DisplayParametersCommand
+        {
+            DisplayParameters displayParameters;
+        };
+
     public:
         Core(const ApiParameters &params);
         ~Core();
@@ -89,7 +105,7 @@ namespace Jangine::Gfx
             return reinterpret_cast<void_t *>(vulkanInstance);
         }
 
-        void InitializeRendering(const DisplayParameters &displayParameters);
+        void PrepareRender();
 
         Format GetDeviceDepthFormat() const
         {
@@ -99,14 +115,29 @@ namespace Jangine::Gfx
         const DisplayParameters &GetDisplayParameters()
         {
             std::lock_guard<SpinLock> lock(displayParametersLock);
-            return currentDisplayParameters;
+            return displayParameters;
         }
-        void SetDisplayParameters(const DisplayParameters &displayParameters)
+        void PostDisplayParameters(const DisplayParameters &in_displayParameters)
         {
-            std::lock_guard<SpinLock> lock(displayParametersLock);
-            this->wantedDisplayParameters = displayParameters;
+            std::scoped_lock<SpinLock> lock(commandQueueLock);
+            commandQueue.push(DisplayParametersCommand{in_displayParameters});
+        }
 
-            logger.Debug(displayParameters.ToString(), __func__);
+        void PostViewport(Rectangle viewport)
+        {
+            std::scoped_lock<SpinLock> lock(commandQueueLock);
+            commandQueue.push(ViewportCommand{viewport});
+        }
+
+        Rectangle GetViewport() const
+        {
+            return currentViewport;
+        }
+
+        void PostSurface(uint32_t width, uint32_t height)
+        {
+            std::scoped_lock<SpinLock> lock(commandQueueLock);
+            commandQueue.push(SurfaceCommand{width, height});
         }
 
         void Render(double_t absoluteTime, float_t deltaTime);
@@ -191,15 +222,6 @@ namespace Jangine::Gfx
             renderingThreadId = threadId;
         }
 
-        Rectangle UnsafeGetCurrentViewport() const
-        {
-            return currentViewport;
-        }
-        void UnsafeSetViewport(Rectangle viewport)
-        {
-            currentViewport = viewport;
-        }
-
         void BindBuffers(CommandBuffer commandBuffer, const MemoryBuffer *vertexBuffer, const MemoryBuffer *indexBuffer);
 
         void FullBarrier(CommandBuffer commandBuffer);
@@ -267,18 +289,18 @@ namespace Jangine::Gfx
         ApiCapabilities capabilities;
 
         SpinLock displayParametersLock;
-        std::optional<DisplayParameters> wantedDisplayParameters;
-        DisplayParameters currentDisplayParameters = {
-            .renderWidth = 2560,
-            .renderHeight = 1440,
-            .displayWidth = 2560,
-            .displayHeight = 1440,
+        DisplayParameters displayParameters = {
+            .renderSize = {1920, 1080},
+            .displaySize = {1920, 1080},
         };
-        Rectangle currentViewport = {0, 0, 2560, 1440};
+        Rectangle currentViewport = {0, 0, 1920, 1080};
 
         UserInput userInput;
 
         Samples deviceSampleCount = Samples::X1;
         Format deviceDepthFormat = Format::Undefined;
+
+        SpinLock commandQueueLock;
+        std::queue<std::variant<std::monostate, ViewportCommand, DisplayParametersCommand, SurfaceCommand>> commandQueue;
     };
 }

@@ -152,21 +152,6 @@ namespace Jangine::Gfx
         ACCELERATION_STRUCTURE_KHR = 1000150000,
     };
 
-    enum class AntialiasingMode : uint32_t
-    {
-        None,
-        Fsr
-    };
-
-    enum class UpscalingMode : uint32_t
-    {
-        None,
-        Quality,
-        Balanced,
-        Performance,
-        UltraPerformance
-    };
-
     enum class MemoryBufferUsage : uint32_t
     {
         None = 0,
@@ -461,26 +446,6 @@ namespace std
                 return format_to(ctx.out(), "D32");
             default:
                 return format_to(ctx.out(), "Unknown Format");
-            }
-        }
-    };
-
-    template <>
-    struct formatter<Jangine::Gfx::AntialiasingMode>
-    {
-        constexpr auto parse(format_parse_context &ctx) { return ctx.begin(); }
-
-        template <typename FormatContext>
-        auto format(Jangine::Gfx::AntialiasingMode mode, FormatContext &ctx) const
-        {
-            switch (mode)
-            {
-            case Jangine::Gfx::AntialiasingMode::None:
-                return format_to(ctx.out(), "None");
-            case Jangine::Gfx::AntialiasingMode::Fsr:
-                return format_to(ctx.out(), "Fsr");
-            default:
-                return format_to(ctx.out(), "Unknown AntialiasingMode");
             }
         }
     };

@@ -62,7 +62,6 @@ namespace Jangine::Gui
         static void HandleScroll(GLFWwindow *window, double xoffset, double yoffset);
         static void HandleKey(GLFWwindow *window, int key, int scancode, int action, int mods);
 
-        void SynchronizeWithGfx(Eigen::Vector2i currentWindow);
         void SynchronizeWithGlfw();
 
         GLFWwindow *glfwWindow = nullptr;

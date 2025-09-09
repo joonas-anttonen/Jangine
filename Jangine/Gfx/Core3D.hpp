@@ -802,7 +802,9 @@ namespace Jangine::Gfx
         ~Core3D();
 
         void Create();
-        void InitializeRendering(const DisplayParameters &wantedDisplayParameters);
+        /// @brief Prepares the rendering state for the given presenter and display parameters.
+        /// @note Will have no effect if no changes have been made.
+        void PrepareRender(const Presenter &presenter, const DisplayParameters &in_displayParameters);
         void Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime);
 
         void Clear();

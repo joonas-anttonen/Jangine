@@ -52,18 +52,6 @@ namespace Jangine::Gui
         glfwTerminate();
     }
 
-    void Core::SynchronizeWithGfx(Eigen::Vector2i currentWindow)
-    {
-        Jangine::Core::GetInstance().PostToGfxThread(
-            [this, currentWindow]()
-            {
-                Gfx::DisplayParameters newDisplayParameters = gfx.GetDisplayParameters();
-                newDisplayParameters.surfaceWidth = currentWindow.x();
-                newDisplayParameters.surfaceHeight = currentWindow.y();
-                gfx.InitializeRendering(newDisplayParameters);
-            });
-    }
-
     void Core::HandleWindowResize(GLFWwindow *window, int width, int height)
     {
         if (width == 0 || height == 0)
@@ -75,7 +63,7 @@ namespace Jangine::Gui
         if (core)
         {
             core->windowSize = Eigen::Vector2f(static_cast<float_t>(width), static_cast<float_t>(height));
-            core->SynchronizeWithGfx(Eigen::Vector2i(width, height));
+            core->gfx.PostSurface(static_cast<uint32_t>(width), static_cast<uint32_t>(height));
         }
     }
 
@@ -637,7 +625,7 @@ namespace Jangine::Gui
         Gfx::Overlay::CommandBuffer *commandBuffer = nullptr;
 
         scene.UpdateLayout(overlay, Gfx::Rectangle(0, 0, windowSize.x(), windowSize.y()));
-        gfx.UnsafeSetViewport(viewport->bounds);
+        gfx.PostViewport(viewport->bounds);
 
         core3D.GetScene().GetView(sceneView);
         if (treeView->items.empty())

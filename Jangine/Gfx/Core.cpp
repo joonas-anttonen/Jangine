@@ -174,32 +174,26 @@ namespace Jangine::Gfx
             vulkanQueueLock,
             vulkanQueue,
             vulkanQueueFamilyIndex,
-            reinterpret_cast<VkSurfaceKHR>(surface.vulkanHandle));
+            reinterpret_cast<VkSurfaceKHR>(surface.vulkanHandle),
+            surface.width,
+            surface.height);
 
-        DisplayParameters newDisplayParameters = currentDisplayParameters;
-        newDisplayParameters.surfaceWidth = surface.width;
-        newDisplayParameters.surfaceHeight = surface.height;
-        newDisplayParameters.surfaceFormat = Format::BGRA8;
-        SetDisplayParameters(newDisplayParameters);
+        PrepareRender();
     }
 
-    void Core::InitializeRendering(const DisplayParameters &displayParameters)
+    void Core::PrepareRender()
     {
-        logger.Debug(displayParameters.ToString(), __func__);
-
-        this->currentDisplayParameters = displayParameters;
-
         if (presenter)
         {
-            presenter->InitializeRendering(displayParameters);
+            presenter->PrepareRender(displayParameters);
         }
         if (overlay)
         {
-            overlay->InitializeRendering(displayParameters);
+            overlay->PrepareRender(*presenter, displayParameters);
         }
         if (core3D)
         {
-            core3D->InitializeRendering(displayParameters);
+            core3D->PrepareRender(*presenter, displayParameters);
         }
     }
 
@@ -214,12 +208,35 @@ namespace Jangine::Gfx
         }
 
         {
-            std::lock_guard<SpinLock> lock(displayParametersLock);
+            std::lock_guard<SpinLock> cqLock(commandQueueLock);
 
-            if (wantedDisplayParameters.has_value())
+            if (!commandQueue.empty())
             {
-                InitializeRendering(wantedDisplayParameters.value());
-                wantedDisplayParameters.reset();
+                auto command = commandQueue.front();
+                commandQueue.pop();
+
+                if (std::holds_alternative<ViewportCommand>(command))
+                {
+                    auto &cmd = std::get<ViewportCommand>(command);
+                    this->currentViewport = cmd.viewport;
+                }
+                else if (std::holds_alternative<DisplayParametersCommand>(command))
+                {
+                    std::scoped_lock<SpinLock> dpLock(displayParametersLock);
+
+                    auto &cmd = std::get<DisplayParametersCommand>(command);
+                    displayParameters = cmd.displayParameters;
+                    PrepareRender();
+                }
+                else if (std::holds_alternative<SurfaceCommand>(command))
+                {
+                    auto &cmd = std::get<SurfaceCommand>(command);
+                    Presenter::SurfaceInfo surfaceInfo = presenter->GetSurfaceInfo();
+                    if (surfaceInfo.width != cmd.width || surfaceInfo.height != cmd.height)
+                    {
+                        presenter->SetSurfaceInfo(cmd.width, cmd.height);
+                    }
+                }
             }
         }
 
@@ -232,11 +249,13 @@ namespace Jangine::Gfx
 
         if (core3D)
         {
+            core3D->PrepareRender(*presenter, displayParameters);
             core3D->Render(*presenter, absoluteTime, deltaTime);
         }
 
         if (overlay)
         {
+            overlay->PrepareRender(*presenter, displayParameters);
             overlay->Render(*presenter, absoluteTime, deltaTime);
         }
 

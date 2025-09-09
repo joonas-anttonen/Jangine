@@ -152,51 +152,48 @@ namespace Jangine::Gfx
         }
     }
 
-    void Core3D::InitializeRendering(const DisplayParameters &wantedDisplayParameters)
+    void Core3D::PrepareRender(const Presenter &presenter, const DisplayParameters &in_displayParameters)
     {
-        logger.Func(__func__);
+        bool_t antialiasingModeChanged = displayParameters.antialiasingMode != in_displayParameters.antialiasingMode;
+        bool_t renderSizeChanged = displayParameters.renderSize != in_displayParameters.renderSize;
+        bool_t displaySizeChanged = displayParameters.displaySize != in_displayParameters.displaySize;
 
-        bool_t antialiasingModeChanged = displayParameters.AntialiasingModeChanged(wantedDisplayParameters);
-        bool_t renderSizeChanged = displayParameters.RenderSizeChanged(wantedDisplayParameters);
-        bool_t displaySizeChanged = displayParameters.DisplaySizeChanged(wantedDisplayParameters);
-        bool_t surfaceFormatChanged = displayParameters.SurfaceFormatChanged(wantedDisplayParameters);
-
-        displayParameters = wantedDisplayParameters;
+        displayParameters = in_displayParameters;
 
         bool_t renderResourcesNull = !renderBuffer || !depthBuffer || !motionBuffer;
-        bool_t initializeRender = renderResourcesNull || antialiasingModeChanged || renderSizeChanged || surfaceFormatChanged;
+        bool_t initializeRender = renderResourcesNull || antialiasingModeChanged || renderSizeChanged;
 
         bool_t displayResourcesNull = !displayBuffer;
-        bool_t initializeDisplay = displayResourcesNull || displaySizeChanged || surfaceFormatChanged;
+        bool_t initializeDisplay = displayResourcesNull || displaySizeChanged;
 
         if (initializeRender)
         {
             renderBuffer = gfx.CreatePixelBuffer(
-                wantedDisplayParameters.renderWidth,
-                wantedDisplayParameters.renderHeight,
+                displayParameters.renderSize.width,
+                displayParameters.renderSize.height,
                 Format::RGBA32,
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Color);
 
             depthBuffer = gfx.CreatePixelBuffer(
-                wantedDisplayParameters.renderWidth,
-                wantedDisplayParameters.renderHeight,
+                displayParameters.renderSize.width,
+                displayParameters.renderSize.height,
                 gfx.GetDeviceDepthFormat(),
                 PixelBufferUsage::DepthAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Depth);
 
             motionBuffer = gfx.CreatePixelBuffer(
-                wantedDisplayParameters.renderWidth,
-                wantedDisplayParameters.renderHeight,
+                displayParameters.renderSize.width,
+                displayParameters.renderSize.height,
                 Format::R16G16,
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
                 Aspect::Color);
 
             // --------------------- OIT
-            size_t oitNodeCount = displayParameters.renderWidth * displayParameters.renderHeight * MAX_OIT_NODES_PER_PIXEL;
+            size_t oitNodeCount = displayParameters.renderSize.width * displayParameters.renderSize.height * MAX_OIT_NODES_PER_PIXEL;
             size_t oitStorageSize = sizeof(OITNode) * oitNodeCount;
             size_t maxStorageSize = gfx.GetCapabilities().maxStorageBufferRange;
             if (oitStorageSize > maxStorageSize)
@@ -220,8 +217,8 @@ namespace Jangine::Gfx
                 MemoryAccess::None);
 
             oitNodeHeadBuffer = gfx.CreatePixelBuffer(
-                wantedDisplayParameters.renderWidth,
-                wantedDisplayParameters.renderHeight,
+                displayParameters.renderSize.width,
+                displayParameters.renderSize.height,
                 Format::U32,
                 PixelBufferUsage::Storage | PixelBufferUsage::TransferDst | PixelBufferUsage::Sampled,
                 Aspect::Color);
@@ -231,8 +228,8 @@ namespace Jangine::Gfx
         if (initializeDisplay)
         {
             displayBuffer = gfx.CreatePixelBuffer(
-                wantedDisplayParameters.displayWidth,
-                wantedDisplayParameters.displayHeight,
+                displayParameters.displaySize.width,
+                displayParameters.displaySize.height,
                 Format::RGBA32,
                 PixelBufferUsage::ColorAttachment | PixelBufferUsage::Sampled |
                     PixelBufferUsage::TransferDst | PixelBufferUsage::TransferSrc,
@@ -392,12 +389,16 @@ namespace Jangine::Gfx
             oitCompositionPipeline = gfx.CreatePipeline(meshPipelineParams);
         }
 
-        camera.SetOrthographic(displayParameters.GetAspectRatio(), camera.GetOrthographicFoV(), -100.0f, 100.0f);
-        // camera.SetPerspective(displayParameters.GetAspectRatio(), Math::PI / 4.0f, 0.1f, 100.0f);
+        auto &surfaceInfo = presenter.GetSurfaceInfo();
+        float_t aspectRatio = static_cast<float_t>(surfaceInfo.width) / static_cast<float_t>(surfaceInfo.height);
+        camera.SetOrthographic(aspectRatio, camera.GetOrthographicFoV(), -100.0f, 100.0f);
+        // camera.SetPerspective(aspectRatio, Math::PI / 4.0f, 0.1f, 100.0f);
     }
 
     void Core3D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
     {
+        auto &surfaceInfo = presenter.GetSurfaceInfo();
+
         VkExtent2D renderExtent = {.width = renderBuffer->width, .height = renderBuffer->height};
 
         float_t viewportX = 0.0f;
@@ -405,11 +406,16 @@ namespace Jangine::Gfx
         float_t viewportWidth = static_cast<float_t>(renderExtent.width);
         float_t viewportHeight = static_cast<float_t>(renderExtent.height);
 
-        Rectangle suggestedViewport = gfx.UnsafeGetCurrentViewport();
-        viewportX = Math::Map(suggestedViewport.left, 0.0f, static_cast<float_t>(displayParameters.surfaceWidth), 0.0f, static_cast<float_t>(renderBuffer->width));
-        viewportY = Math::Map(suggestedViewport.top, 0.0f, static_cast<float_t>(displayParameters.surfaceHeight), 0.0f, static_cast<float_t>(renderBuffer->height));
-        viewportWidth = Math::Map(suggestedViewport.width(), 0.0f, static_cast<float_t>(displayParameters.surfaceWidth), 0.0f, static_cast<float_t>(renderBuffer->width));
-        viewportHeight = Math::Map(suggestedViewport.height(), 0.0f, static_cast<float_t>(displayParameters.surfaceHeight), 0.0f, static_cast<float_t>(renderBuffer->height));
+        Rectangle currentViewport = gfx.GetViewport();
+        viewportX = Math::Map(currentViewport.left, 0.0f, static_cast<float_t>(surfaceInfo.width), 0.0f, static_cast<float_t>(renderBuffer->width));
+        viewportY = Math::Map(currentViewport.top, 0.0f, static_cast<float_t>(surfaceInfo.height), 0.0f, static_cast<float_t>(renderBuffer->height));
+        viewportWidth = Math::Map(currentViewport.width(), 0.0f, static_cast<float_t>(surfaceInfo.width), 0.0f, static_cast<float_t>(renderBuffer->width));
+        viewportHeight = Math::Map(currentViewport.height(), 0.0f, static_cast<float_t>(surfaceInfo.height), 0.0f, static_cast<float_t>(renderBuffer->height));
+
+        viewportX = std::clamp(viewportX, 0.0f, static_cast<float_t>(renderExtent.width));
+        viewportY = std::clamp(viewportY, 0.0f, static_cast<float_t>(renderExtent.height));
+        viewportWidth = std::clamp(viewportWidth, 0.0f, static_cast<float_t>(renderExtent.width) - viewportX);
+        viewportHeight = std::clamp(viewportHeight, 0.0f, static_cast<float_t>(renderExtent.height) - viewportY);
 
         VkViewport viewport{
             .x = viewportX,
@@ -430,8 +436,8 @@ namespace Jangine::Gfx
         sceneData.ViewInverse = camera.GetInverseViewMatrix();
         sceneData.ViewPosition = camera.GetPosition();
         sceneData.Screen = Eigen::Vector2f(
-            static_cast<float_t>(displayParameters.renderWidth),
-            static_cast<float_t>(displayParameters.renderHeight));
+            static_cast<float_t>(displayParameters.renderSize.width),
+            static_cast<float_t>(displayParameters.renderSize.height));
 
         gfx.WriteMemoryBuffer(perSceneBuffer.get(), Span(sceneData));
 

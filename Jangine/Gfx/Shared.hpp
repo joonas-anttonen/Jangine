@@ -314,40 +314,35 @@ namespace Jangine::Gfx
 
     struct Extent
     {
-        uint32_t Width = 0;
-        uint32_t Height = 0;
+        uint32_t width{0}, height{0};
 
-        bool operator==(const Extent &other) const
-        {
-            return Width == other.Width && Height == other.Height;
-        }
-
-        bool operator!=(const Extent &other) const
-        {
-            return !(*this == other);
-        }
+        bool_t operator==(const Extent &other) const { return width == other.width && height == other.height; }
+        bool_t operator!=(const Extent &other) const { return !(*this == other); }
     };
 
     struct DisplayParameters
     {
-        uint32_t renderWidth = 0;
-        uint32_t renderHeight = 0;
-        uint32_t displayWidth = 0;
-        uint32_t displayHeight = 0;
-        uint32_t displayRefreshRate = 0;
-        Format surfaceFormat = Format::Undefined;
-        bool_t verticalSync = false;
-        uint32_t surfaceWidth = 0;
-        uint32_t surfaceHeight = 0;
-        AntialiasingMode antialiasingMode = AntialiasingMode::None;
+        enum class AntialiasingMode : uint32_t
+        {
+            None,
+            Fsr
+        };
+
+        enum class UpscalingMode : uint32_t
+        {
+            None,
+            Quality,
+            Balanced,
+            Performance,
+            UltraPerformance
+        };
+
+        Extent renderSize;
+        Extent displaySize;
         Color clearColor = Color::FromUInt(0x232731);
 
-        /// @brief Get the aspect ratio of the surface.
-        /// @return The aspect ratio (width / height) of the surface.
-        float_t GetAspectRatio() const
-        {
-            return static_cast<float_t>(surfaceWidth) / static_cast<float_t>(surfaceHeight);
-        }
+        bool_t verticalSync = false;
+        AntialiasingMode antialiasingMode = AntialiasingMode::None;
 
         static float GetRenderScaleFactor(AntialiasingMode aaMode, UpscalingMode upscaleMode)
         {
@@ -373,60 +368,12 @@ namespace Jangine::Gfx
         std::string ToString() const
         {
             return std::format(
-                "render: {}x{}, display: {}x{}, surface: {}x{} [{}], vsync: {}",
-                renderWidth,
-                renderHeight,
-                displayWidth,
-                displayHeight,
-                surfaceWidth,
-                surfaceHeight,
-                surfaceFormat,
+                "render: {}x{}, display: {}x{}, vsync: {}",
+                renderSize.width,
+                renderSize.height,
+                displaySize.width,
+                displaySize.height,
                 verticalSync ? "true" : "false");
-        }
-
-        bool_t AntialiasingModeChanged(const DisplayParameters &other) const
-        {
-            return antialiasingMode != other.antialiasingMode;
-        }
-
-        bool_t RenderSizeChanged(const DisplayParameters &other) const
-        {
-            return renderWidth != other.renderWidth || renderHeight != other.renderHeight;
-        }
-
-        bool_t SurfaceSizeChanged(const DisplayParameters &other) const
-        {
-            return surfaceWidth != other.surfaceWidth || surfaceHeight != other.surfaceHeight;
-        }
-
-        bool_t DisplaySizeChanged(const DisplayParameters &other) const
-        {
-            return displayWidth != other.displayWidth || displayHeight != other.displayHeight;
-        }
-
-        bool_t SurfaceFormatChanged(const DisplayParameters &other) const
-        {
-            return surfaceFormat != other.surfaceFormat;
-        }
-
-        bool_t VerticalSyncChanged(const DisplayParameters &other) const
-        {
-            return verticalSync != other.verticalSync;
-        }
-
-        bool_t DisplaySizeChanged(uint32_t width, uint32_t height) const
-        {
-            return displayWidth != width || displayHeight != height;
-        }
-
-        bool_t DisplaySizeChanged(const Extent &extent) const
-        {
-            return displayWidth != extent.Width || displayHeight != extent.Height;
-        }
-
-        bool_t SurfaceFormatChanged(Format format) const
-        {
-            return surfaceFormat != format;
         }
     };
 

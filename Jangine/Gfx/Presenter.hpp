@@ -21,9 +21,16 @@ namespace Jangine::Gfx
         {
             uint32_t width;
             uint32_t height;
-            
+
             VkImage vulkanImage = nullptr;
             VkImageView vulkanImageView = nullptr;
+        };
+
+        struct SurfaceInfo
+        {
+            uint32_t width;
+            uint32_t height;
+            Format format;
         };
 
     private:
@@ -38,11 +45,11 @@ namespace Jangine::Gfx
 
     public:
         Presenter(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, SpinLock &queueLock,
-                  VkQueue queue, uint32_t queueFamilyIndex, VkSurfaceKHR surface);
+                  VkQueue queue, uint32_t queueFamilyIndex, VkSurfaceKHR surface, uint32_t surfaceWidth, uint32_t surfaceHeight);
 
         ~Presenter();
 
-        void InitializeRendering(const DisplayParameters &displayParameters);
+        void PrepareRender(const DisplayParameters &in_displayParameters);
         [[nodiscard]] bool_t BeginFrame();
         void EndFrame();
 
@@ -58,29 +65,44 @@ namespace Jangine::Gfx
             return perFrameResources[currentFrameIndex].outputImage;
         }
 
+        [[nodiscard]] inline const SurfaceInfo &GetSurfaceInfo() const
+        {
+            return surfaceInfo;
+        }
+
+        void SetSurfaceInfo(uint32_t width, uint32_t height)
+        {
+            if (surfaceInfo.width == width && surfaceInfo.height == height)
+                return;
+
+            surfaceInfo.width = width;
+            surfaceInfo.height = height;
+
+            InitializeSwapchain();
+        }
+
     private:
-        void
-        ReleaseSwapChainIfAny();
+        void ReleaseSwapChainIfAny();
         void ReleasePerFrame();
 
         [[nodiscard]] int32_t AcquireNextImage();
         void InitializeSwapchain();
 
-        VkInstance vulkanInstance = nullptr;
-        VkDevice vulkanDevice = nullptr;
-        VkPhysicalDevice vulkanPhysicalDevice = nullptr;
+        VkInstance vulkanInstance{nullptr};
+        VkDevice vulkanDevice{nullptr};
+        VkPhysicalDevice vulkanPhysicalDevice{nullptr};
         SpinLock &vulkanQueueLock;
-        VkQueue vulkanQueue = nullptr;
-        uint32_t vulkanQueueFamilyIndex = 0;
+        VkQueue vulkanQueue{nullptr};
+        uint32_t vulkanQueueFamilyIndex{0};
 
-        VkSurfaceKHR vulkanSurface = nullptr;
-        VkSwapchainKHR vulkanSwapchain = nullptr;
-        uint32_t swapChainFormat;
+        VkSurfaceKHR vulkanSurface{nullptr};
+        VkSwapchainKHR vulkanSwapchain{nullptr};
+        SurfaceInfo surfaceInfo;
 
-        VkFence vulkanAcquireFence = nullptr;
+        VkFence vulkanAcquireFence{nullptr};
 
-        bool_t frameInProgress = false;
-        uint32_t currentFrameIndex = 0;
+        bool_t frameInProgress{false};
+        uint32_t currentFrameIndex{0};
 
         std::vector<PerFrame> perFrameResources;
 
