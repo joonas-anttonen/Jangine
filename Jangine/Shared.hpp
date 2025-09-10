@@ -22,29 +22,33 @@
 #endif // _WIN32
 #endif // JANGINE_API
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <exception>
 #include <filesystem>
-#include <fstream>
 #include <format>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <istream>
 #include <memory>
+#include <mutex>
 #include <optional>
+#include <queue>
 #include <random>
 #include <ranges>
+#include <shared_mutex>
 #include <span>
 #include <sstream>
 #include <stack>
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <typeinfo>
 #include <typeindex>
+#include <typeinfo>
 #include <unordered_map>
 #include <variant>
 #include <vector>

@@ -102,6 +102,7 @@
         "*.inc": "cpp",
         "*.rh": "cpp",
         "geometry": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "string_view": "cpp"
     }
 }

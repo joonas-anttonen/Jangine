@@ -121,8 +121,6 @@ jangine = library(
     'Jangine',
     [
         'Jangine/Core.cpp',
-        'Jangine/Logging/Log.cpp',
-        'Jangine/Logging/Logger.cpp',
         'Jangine/Gfx/Core.cpp',
         'Jangine/Gfx/Presenter.cpp',
         'Jangine/Gfx/PixelBuffer.cpp',

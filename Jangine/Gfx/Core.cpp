@@ -3,7 +3,7 @@
 #include "Overlay.hpp"
 #include "Core3D.hpp"
 
-#include "../Logging/Logger.hpp"
+#include "../Logging/Log.hpp"
 
 #if !defined(JANGINE_INTELLISENSE_IGNORE_GENERATED_FILES)
 #include "BuiltInShaders.hpp"

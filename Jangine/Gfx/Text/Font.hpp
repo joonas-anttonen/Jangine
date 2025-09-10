@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Shared.hpp" // Gfx
-#include "../../Logging/Logger.hpp"
+#include "../../Logging/Log.hpp"
 
 typedef struct hb_buffer_t hb_buffer_t;
 typedef struct hb_font_t hb_font_t;

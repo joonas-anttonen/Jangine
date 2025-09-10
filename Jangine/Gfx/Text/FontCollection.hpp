@@ -1,7 +1,7 @@
 #pragma once
 
 #include "../Shared.hpp" // Gfx
-#include "../../Logging/Logger.hpp"
+#include "../../Logging/Log.hpp"
 
 #include "Font.hpp"
 
