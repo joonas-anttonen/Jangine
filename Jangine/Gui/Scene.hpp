@@ -416,7 +416,7 @@ namespace Jangine::Gui
                     overlay.GetDefaultFont()->CalculateTextLayout(
                         item.text,
                         Eigen::Vector2f(9999.0f, 9999.0f),
-                        false,
+                        Gfx::Text::Wrap::None,
                         {.scale = 0.5f,
                          .width = 0.125f},
                         item.textLayout);

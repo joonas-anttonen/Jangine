@@ -686,7 +686,7 @@ namespace Jangine::Gui
                 "Absolute Time: {:.2f}s, Delta Time: {:.2f}s",
                 absoluteTime,
                 deltaTime);
-            overlay.GetDefaultFont()->CalculateTextLayout(statusText, windowSize, false, {.scale = 0.5f, .width = 0.125f}, statusTextLayout);
+            overlay.GetDefaultFont()->CalculateTextLayout(statusText, windowSize, Gfx::Text::Wrap::None, {.scale = 0.5f, .width = 0.125f}, statusTextLayout);
 
             Eigen::Vector2f statusTextMargin = Eigen::Vector2f(2.f, 2.f);
             Eigen::Vector2f statusTextPosition = Eigen::Vector2f(sizeOfFrame.x() + statusTextMargin.x(), sizeOfFrame.y() + statusTextMargin.y());

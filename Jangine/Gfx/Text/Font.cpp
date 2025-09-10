@@ -43,61 +43,32 @@ namespace Jangine::Gfx::Text
         return width;
     }
 
-    void Font::CalculateTextLayout(std::string_view text, Eigen::Vector2f availableSize, bool_t wordWrap, Layout::RenderInfo renderInfo, Layout &layout)
+    void Font::CalculateTextLayoutWithWordWrap(std::string_view text, Eigen::Vector2f availableSize, Layout &layout)
     {
-        layout.Reset(this, renderInfo);
+        static float_t spaceWidth = MeasureText(" ");
+        static uint32_t spaceCodepoint = ' ';
 
-        availableSize *= 1.0f / renderInfo.scale;
+        float_t cursorY = ascender_;
 
-        float_t ascender = static_cast<float_t>(ascender_);
-        float_t lineHeight = static_cast<float_t>(height_);
-        float_t spaceWidth = MeasureText(" ");
-        uint32_t spaceCodepoint = ' ';
-        float_t cursorY = ascender;
-        int wordCountOnLine = 0;
-        float_t availableWidth = availableSize.x();
-
-        scratchRunes.clear();
+        layout.scratchRunes.clear();
 
         auto append_space = [&]()
         {
-            scratchRunes.push_back(static_cast<uint8_t>(spaceCodepoint));
+            layout.scratchRunes.push_back(static_cast<uint8_t>(spaceCodepoint));
         };
 
-        auto append_word = [&](std::string_view word)
+        auto append_text = [&](std::string_view span)
         {
-            for (char c : word)
+            for (char c : span)
             {
-                // TODO: Proper Unicode handling (runes)
-                scratchRunes.push_back(static_cast<uint8_t>(c));
+                layout.scratchRunes.push_back(static_cast<uint8_t>(c));
             }
-        };
-
-        auto output_glyphs = [&]()
-        {
-            float_t cursorX = 0;
-            for (const auto &shapedGlyph : ShapeText(std::string_view(reinterpret_cast<const char *>(scratchRunes.data()), scratchRunes.size())))
-            {
-                const Text::Glyph &glyph = shapedGlyph.glyph;
-                float_t x = cursorX + shapedGlyph.xOffset + glyph.bearingX;
-                float_t y = cursorY + shapedGlyph.yOffset - glyph.bearingY;
-                cursorX += shapedGlyph.xAdvance;
-
-                bool isWithinBounds = x <= availableSize.x() &&
-                                      y <= availableSize.y() &&
-                                      (x + glyph.width * 0.5f) <= availableSize.x() &&
-                                      (y + glyph.height * 0.5f) <= availableSize.y();
-                if (isWithinBounds)
-                {
-                    layout.Append(Eigen::Vector2f(x, y), glyph);
-                }
-            }
-            scratchRunes.clear();
         };
 
         for (const auto &line : SplitLinesIterator(text))
         {
-            float_t remainingWidth = availableWidth;
+            float_t remainingWidth = availableSize.x();
+            int wordCountOnLine = 0;
 
             if (line.size() == 0)
                 continue;
@@ -113,14 +84,15 @@ namespace Jangine::Gfx::Text
                     wordWidth += spaceWidth;
 
                 bool wordOverflowsLine = remainingWidth < wordWidth;
-                if (wordOverflowsLine && wordWrap)
+                if (wordOverflowsLine)
                 {
                     if (wordCountOnLine > 0)
                     {
-                        output_glyphs();
-                        remainingWidth = availableWidth;
-                        cursorY += lineHeight;
-                        append_word(word);
+                        AppendToLayout({layout.scratchRunes.data(), layout.scratchRunes.size()}, Eigen::Vector2f(0, cursorY), availableSize, layout);
+                        layout.scratchRunes.clear();
+                        remainingWidth = availableSize.x();
+                        cursorY += height_;
+                        append_text(word);
                         remainingWidth -= wordWidth;
                         wordCountOnLine = 1;
                     }
@@ -128,10 +100,11 @@ namespace Jangine::Gfx::Text
                     {
                         if (spaceAfterWord)
                             append_space();
-                        append_word(word);
-                        output_glyphs();
-                        remainingWidth = availableWidth;
-                        cursorY += lineHeight;
+                        append_text(word);
+                        AppendToLayout({layout.scratchRunes.data(), layout.scratchRunes.size()}, Eigen::Vector2f(0, cursorY), availableSize, layout);
+                        layout.scratchRunes.clear();
+                        remainingWidth = availableSize.x();
+                        cursorY += height_;
                         wordCountOnLine = 0;
                     }
                 }
@@ -139,13 +112,66 @@ namespace Jangine::Gfx::Text
                 {
                     if (spaceAfterWord)
                         append_space();
-                    append_word(word);
+                    append_text(word);
                     remainingWidth -= wordWidth;
                     wordCountOnLine++;
                 }
             }
-            output_glyphs();
-            cursorY += lineHeight;
+            AppendToLayout({layout.scratchRunes.data(), layout.scratchRunes.size()}, Eigen::Vector2f(0, cursorY), availableSize, layout);
+            layout.scratchRunes.clear();
+            cursorY += height_;
+        }
+    }
+
+    void Font::AppendToLayout(std::string_view text, Eigen::Vector2f position, Eigen::Vector2f availableSize, Layout &layout)
+    {
+        for (const auto &shapedGlyph : ShapeText(text))
+        {
+            const Text::Glyph &glyph = shapedGlyph.glyph;
+            float_t x = position.x() + shapedGlyph.xOffset + glyph.bearingX;
+            float_t y = position.y() + shapedGlyph.yOffset - glyph.bearingY;
+            position.x() += shapedGlyph.xAdvance;
+
+            bool isWithinBounds = x <= availableSize.x() &&
+                                  y <= availableSize.y() &&
+                                  (x + glyph.width * 0.5f) <= availableSize.x() &&
+                                  (y + glyph.height * 0.5f) <= availableSize.y();
+            if (isWithinBounds)
+            {
+                layout.Append(Eigen::Vector2f(x, y), glyph);
+            }
+        }
+    }
+
+    void Font::CalculateTextLayout(std::string_view text, Eigen::Vector2f availableSize, Wrap wrap, Layout::RenderInfo renderInfo, Layout &layout)
+    {
+        layout.Reset(this, renderInfo);
+
+        availableSize *= 1.0f / renderInfo.scale;
+
+        switch (wrap)
+        {
+        case Wrap::None:
+        {
+            float_t cursorY = ascender_;
+
+            for (const auto &line : SplitLinesIterator(text))
+            {
+                if (line.size() > 0)
+                {
+                    AppendToLayout(line, Eigen::Vector2f(0, cursorY), availableSize, layout);
+                }
+                cursorY += height_;
+            }
+
+            break;
+        }
+        case Wrap::Word:
+            CalculateTextLayoutWithWordWrap(text, availableSize, layout);
+        case Wrap::Character:
+            // CalculateTextLayoutWithCharacterWrap(text, availableSize, renderInfo, layout);
+        default:
+            break;
         }
     }
 
@@ -154,9 +180,9 @@ namespace Jangine::Gfx::Text
           glyphs_(std::move(glyphs)),
           pixelBuffer(std::move(pixelBuffer))
     {
-        ascender_ = face->size->metrics.ascender >> 6;
-        descender_ = face->size->metrics.descender >> 6;
-        height_ = face->size->metrics.height >> 6;
+        ascender_ = static_cast<float_t>(face->size->metrics.ascender >> 6);
+        descender_ = static_cast<float_t>(face->size->metrics.descender >> 6);
+        height_ = static_cast<float_t>(face->size->metrics.height >> 6);
 
         hbBuffer = hb_buffer_create();
         hbFont = hb_ft_font_create_referenced(face);

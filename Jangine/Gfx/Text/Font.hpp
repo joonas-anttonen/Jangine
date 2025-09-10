@@ -153,8 +153,17 @@ namespace Jangine::Gfx::Text
         }
     };
 
+    enum class Wrap
+    {
+        None,
+        Word,
+        Character
+    };
+
     class Layout
     {
+        friend class Font;
+
     public:
         struct RenderInfo
         {
@@ -206,6 +215,8 @@ namespace Jangine::Gfx::Text
         Eigen::Vector2f size = Eigen::Vector2f::Zero();
         const Font *font_ = nullptr;
         Layout::RenderInfo renderInfo_;
+
+        std::vector<char> scratchRunes;
     };
 
     class Font
@@ -275,19 +286,19 @@ namespace Jangine::Gfx::Text
             return pixelBuffer.get();
         }
 
-        void CalculateTextLayout(std::string_view text, Eigen::Vector2f availableSize, bool_t wordWrap, Layout::RenderInfo renderInfo, Layout &layout);
+        void CalculateTextLayout(std::string_view text, Eigen::Vector2f availableSize, Wrap wrap, Layout::RenderInfo renderInfo, Layout &layout);
 
     private:
+        void CalculateTextLayoutWithWordWrap(std::string_view text, Eigen::Vector2f availableSize, Layout &layout);
+
+        void AppendToLayout(std::string_view text, Eigen::Vector2f position, Eigen::Vector2f availableSize, Layout &layout);
+
         GlyphIterator ShapeText(std::string_view text);
         float_t MeasureText(std::string_view text);
 
-        int32_t ascender_{0};
-        int32_t descender_{0};
-        int32_t height_{0};
-
-        // Buffers for splitting and shaping
-        static constexpr uint32_t MaxWordsPerLine = 128;
-        std::vector<uint8_t> scratchRunes;
+        float_t ascender_{0};
+        float_t descender_{0};
+        float_t height_{0};
 
         SharedHandle<PixelBuffer> pixelBuffer;
         std::vector<Text::Glyph> glyphs_;
