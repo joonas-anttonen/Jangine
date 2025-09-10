@@ -35,8 +35,7 @@ int main(int argc, char *argv[])
         namespaceName = stem;
 
     Jangine::Gfx::ShaderCompiler compiler;
-    std::unordered_map<std::string, Jangine::Gfx::ShaderProgram> shaderPrograms;
-
+    std::unordered_map<std::string, std::string> shaderSources;
     for (const auto &file : shaderFiles)
     {
         std::ifstream in(file, std::ios::in | std::ios::binary);
@@ -47,10 +46,25 @@ int main(int argc, char *argv[])
         }
         std::string source((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
         std::string programName = std::filesystem::path(file).stem().string();
+
+        bool_t hasEntrypoint = compiler.HasAnyEntrypoint(source);
+        if (!hasEntrypoint)
+        {
+            compiler.AddIncludeSource(programName + ".hlsl", source);
+            continue;
+        }
+
+        shaderSources[programName] = std::move(source);
+    }
+
+    std::unordered_map<std::string, Jangine::Gfx::ShaderProgram> shaderPrograms;
+
+    for (const auto &[programName, source] : shaderSources)
+    {
         auto program = compiler.Compile(source, programName);
         if (!program)
         {
-            std::cout << "Failed to compile shader: " << file << "\n";
+            std::cout << "Failed to compile shader: " << programName << "\n";
             return 2;
         }
 

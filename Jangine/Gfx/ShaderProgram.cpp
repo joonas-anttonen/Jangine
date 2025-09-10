@@ -14,14 +14,16 @@
 #include <iostream>
 #pragma comment(lib, "dxcompiler.lib")
 
+#include <Windows.h>
+
 // Include dxcompiler header from Vulkan SDK
-#if defined(_WIN32)
+/*#if defined(_WIN32)
 #undef _WIN32
 #include <dxc/WinAdapter.h>
 #define _WIN32
 #else
 #include <dxc/WinAdapter.h>
-#endif
+#endif*/
 #include <dxc/dxcapi.h>
 
 #if defined(_MSC_VER)
@@ -32,8 +34,106 @@
 #pragma GCC diagnostic pop
 #endif
 
+std::string wstring_to_utf8(const std::wstring &wstr)
+{
+    if (wstr.empty())
+        return {};
+    int size_needed = WideCharToMultiByte(
+        CP_UTF8, 0, wstr.data(), (int)wstr.size(), nullptr, 0, nullptr, nullptr);
+    std::string strTo(size_needed, 0);
+    WideCharToMultiByte(
+        CP_UTF8, 0, wstr.data(), (int)wstr.size(), strTo.data(), size_needed, nullptr, nullptr);
+    return strTo;
+}
+
 namespace Jangine::Gfx
 {
+    class IncludeHandler : public IDxcIncludeHandler
+    {
+    public:
+        IncludeHandler(IDxcUtils *dxcUtils) : refCount(1), dxcUtils(dxcUtils) {}
+        ~IncludeHandler() = default;
+
+        void AddIncludeSource(const std::string &filename, const std::string &source)
+        {
+            includeSources[filename] = source;
+        }
+
+        // IUnknown methods
+        HRESULT STDMETHODCALLTYPE QueryInterface(REFIID riid, void **ppvObject) override
+        {
+            if (riid == __uuidof(IUnknown) || riid == __uuidof(IDxcIncludeHandler))
+            {
+                *ppvObject = static_cast<IDxcIncludeHandler *>(this);
+                AddRef();
+                return S_OK;
+            }
+            *ppvObject = nullptr;
+            return E_NOINTERFACE;
+        }
+
+        ULONG STDMETHODCALLTYPE AddRef() override
+        {
+            return ++refCount;
+        }
+
+        ULONG STDMETHODCALLTYPE Release() override
+        {
+            ULONG newRefCount = --refCount;
+            if (newRefCount == 0)
+            {
+                delete this;
+            }
+            return newRefCount;
+        }
+
+        // IDxcIncludeHandler method
+        HRESULT STDMETHODCALLTYPE LoadSource(LPCWSTR pFilename, IDxcBlob **ppIncludeSource) override
+        {
+            std::wcout << "IncludeHandler::LoadSource called for file: " << std::wstring(pFilename) << std::endl;
+
+            std::wstring wsFilename(pFilename);
+            std::string filename = wstring_to_utf8(wsFilename);
+
+            // filename is a path, we need only the file name part
+            std::string fileNameOnly = std::filesystem::path(filename).filename().string();
+
+            auto it = includeSources.find(fileNameOnly);
+            if (it != includeSources.end())
+            {
+                // Found include source in the map
+                std::string includeSource = it->second;
+
+                IDxcBlobEncoding *fileContentsBlob = nullptr;
+
+                HRESULT hr = dxcUtils->CreateBlob(
+                    includeSource.data(),
+                    static_cast<UINT32>(includeSource.size()),
+                    CP_UTF8,
+                    &fileContentsBlob);
+
+                if (FAILED(hr))
+                {
+                    return hr;
+                }
+
+                *ppIncludeSource = fileContentsBlob;
+                return S_OK;
+            }
+            else
+            {
+                std::cerr << "Include file not found: " << filename << std::endl;
+                *ppIncludeSource = nullptr;
+                return E_FAIL;
+            }
+        }
+
+    private:
+        std::unordered_map<std::string, std::string> includeSources;
+        std::atomic<ULONG> refCount;
+        IDxcUtils *dxcUtils;
+    };
+
     static std::string StageNameToEntrypoint(const std::string &stageName)
     {
         if (stageName == "vertex")
@@ -70,14 +170,44 @@ namespace Jangine::Gfx
         // Create DXC library and compiler
         DxcCreateInstance(CLSID_DxcUtils, IID_PPV_ARGS(&utils));
         DxcCreateInstance(CLSID_DxcCompiler, IID_PPV_ARGS(&compiler));
+
+        // Create include handler
+        includeHandler = new IncludeHandler(utils);
     }
 
     ShaderCompiler::~ShaderCompiler()
     {
+        if (includeHandler)
+            includeHandler->Release();
         if (utils)
             utils->Release();
         if (compiler)
             compiler->Release();
+    }
+
+    bool_t ShaderCompiler::HasAnyEntrypoint(const std::string_view sourceCode) const
+    {
+        bool_t found = false;
+
+        std::istringstream sourceReader = std::istringstream(std::string(sourceCode));
+        std::string line;
+        while (std::getline(sourceReader, line))
+        {
+            if (line.rfind("[shader", 0) == 0)
+            {
+                found = true;
+                break;
+            }
+        }
+        return found;
+    }
+
+    void ShaderCompiler::AddIncludeSource(const std::string &filename, const std::string &source)
+    {
+        if (includeHandler)
+        {
+            includeHandler->AddIncludeSource(filename, source);
+        }
     }
 
     std::optional<ShaderProgram> ShaderCompiler::Compile(const std::string_view sourceCode, const std::string_view programName)
@@ -155,19 +285,19 @@ namespace Jangine::Gfx
 
         if (ignoreThisFile)
         {
-            return ShaderProgram();
+            return std::nullopt;
         }
 
         if (shaderStages.empty())
         {
             std::cerr << "Error: No shader stages specified in " << programName << std::endl;
-            return ShaderProgram();
+            return std::nullopt;
         }
 
         if (!shaderStagesEntryPoints.empty() && shaderStagesEntryPoints.size() != shaderStages.size())
         {
             std::cerr << "Error: Number of shader stage entry points does not match the number of shader stages in " << programName << std::endl;
-            return ShaderProgram();
+            return std::nullopt;
         }
 
         // If no shader stage entry points were found, use default entry points
@@ -242,7 +372,7 @@ namespace Jangine::Gfx
             &sourceBuffer,
             argsPtr->GetArguments(),
             argsPtr->GetCount(),
-            nullptr,
+            includeHandler,
             __uuidof(IDxcResult),
             reinterpret_cast<void **>(&result));
 

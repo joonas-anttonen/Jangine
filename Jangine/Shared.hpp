@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <codecvt>
 #include <chrono>
 #include <cstdint>
 #include <exception>

@@ -81,6 +81,7 @@ built_in_shaders = custom_target(
     'built-in-shaders',
     output: 'BuiltInShaders.hpp',
     input: [
+        'Jangine/Gfx/Shaders/built-in-utilities.hlsl',
         'Jangine/Gfx/Shaders/built-in-2d.hlsl',
         'Jangine/Gfx/Shaders/built-in-2d-composition.hlsl',
         'Jangine/Gfx/Shaders/built-in-blur.hlsl',

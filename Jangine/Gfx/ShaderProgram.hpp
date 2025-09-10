@@ -7,6 +7,8 @@ struct IDxcCompiler3;
 
 namespace Jangine::Gfx
 {
+    class IncludeHandler;
+
     /// @brief Complete shader pipeline, e.g. vertex + fragment, etc.
     struct ShaderProgram
     {
@@ -41,11 +43,15 @@ namespace Jangine::Gfx
         ShaderCompiler &operator=(const ShaderCompiler &) = delete;
         ShaderCompiler(ShaderCompiler &&) = delete;
         ShaderCompiler &operator=(ShaderCompiler &&) = delete;
+  
+        [[nodiscard]] bool_t HasAnyEntrypoint(const std::string_view sourceCode) const;
+        void AddIncludeSource(const std::string &filename, const std::string &source);
 
         [[nodiscard]] std::optional<ShaderProgram> Compile(const std::string_view sourceCode, const std::string_view programName);
         [[nodiscard]] std::optional<ShaderProgram::Stage> CompileStage(const std::string_view sourceCode, ShaderStage stage, const std::string_view entryPoint);
 
     private:
+        IncludeHandler *includeHandler = nullptr;
         IDxcUtils *utils = nullptr;
         IDxcCompiler3 *compiler = nullptr;
     };
