@@ -99,7 +99,7 @@ fragment_input vertex(vertex_input input)
 }
 
 [shader("pixel")]
-float4 fragment(fragment_input input) : SV_TARGET
+float4 fragment(fragment_input input, in bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
 { 
     PerMaterialData material = perMaterial[max(0, input.MaterialIndex)];
     if (input.MaterialIndex < 0)
@@ -115,6 +115,11 @@ float4 fragment(fragment_input input) : SV_TARGET
 
     float3 diffuse = material.BaseColor.rgb * NdotL * 1.5;
     float3 combined = saturate(ambient + diffuse);
+
+    if (!isFrontFacing)
+    {
+        combined = material.BaseColor.rgb;
+    }
 
     // --------------------- OIT
     if (material.BaseColor.a < 1.0f)

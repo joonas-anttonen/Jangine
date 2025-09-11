@@ -2,6 +2,28 @@
 
 #include <tinyxml2.h>
 
+#if defined(_MSC_VER)
+#pragma warning(push, 0)
+#elif defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Weverything"
+#elif defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wall"
+#pragma GCC diagnostic ignored "-Wextra"
+#endif
+
+#define PAR_SHAPES_IMPLEMENTATION
+#include <par_shapes.h>
+
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#elif defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
 namespace Jangine::IO::Urdf
 {
     static Gltf::Model::MeshIndex AddCylinderMesh(Gltf::Model &gltf, float_t radius, float_t length, const Gltf::Model::Material &material)
@@ -12,65 +34,57 @@ namespace Jangine::IO::Urdf
         std::vector<Eigen::Vector3f> normals;
         std::vector<uint32_t> indices;
 
-        // Generate vertices and normals for the side
-        for (int i = 0; i <= segments; ++i)
+        auto *par_mesh = par_shapes_create_cylinder(segments, 1);
+        if (!par_mesh)
         {
-            float theta = (static_cast<float>(i) / segments) * 2.0f * Math::PI;
-            float x = radius * std::cos(theta);
-            float y = radius * std::sin(theta);
-            vertices.emplace_back(x, y, -length / 2);
-            vertices.emplace_back(x, y, length / 2);
-            normals.emplace_back(std::cos(theta), std::sin(theta), 0.0f);
-            normals.emplace_back(std::cos(theta), std::sin(theta), 0.0f);
+            throw std::runtime_error("Failed to create cylinder mesh");
+        }
+        par_shapes_scale(par_mesh, radius, radius, length);
+        par_shapes_translate(par_mesh, 0.0f, 0.0f, -length / 2.0f);
+
+        auto *par_top_cap = par_shapes_create_parametric_disk(segments, 1);
+        if (!par_top_cap)
+        {
+            par_shapes_free_mesh(par_mesh);
+            throw std::runtime_error("Failed to create cylinder top cap mesh");
+        }
+        par_shapes_scale(par_top_cap, radius, radius, 1.0f);
+        par_shapes_translate(par_top_cap, 0.0f, 0.0f, length / 2.0f);
+        par_shapes_merge_and_free(par_mesh, par_top_cap);
+
+        auto *par_bottom_cap = par_shapes_create_parametric_disk(segments, 1);
+        if (!par_bottom_cap)
+        {
+            par_shapes_free_mesh(par_mesh);
+            throw std::runtime_error("Failed to create cylinder bottom cap mesh");
+        }
+        par_shapes_scale(par_bottom_cap, radius, radius, 1.0f);
+        Eigen::Vector3f axis{1.0f, 0.0f, 0.0f};
+        par_shapes_rotate(par_bottom_cap, Math::PI, axis.data());
+        par_shapes_translate(par_bottom_cap, 0.0f, 0.0f, -length / 2.0f);
+        par_shapes_merge_and_free(par_mesh, par_bottom_cap);
+
+        par_shapes_weld(par_mesh, 0.0001f, nullptr);
+        // par_shapes_compute_normals(par_mesh);
+
+        vertices.reserve(par_mesh->npoints);
+        normals.reserve(par_mesh->npoints);
+        indices.reserve(par_mesh->ntriangles * 3);
+
+        for (int i = 0; i < par_mesh->npoints; i++)
+        {
+            vertices.emplace_back(par_mesh->points[i * 3], par_mesh->points[i * 3 + 1], par_mesh->points[i * 3 + 2]);
+            normals.emplace_back(par_mesh->normals[i * 3], par_mesh->normals[i * 3 + 1], par_mesh->normals[i * 3 + 2]);
         }
 
-        // Generate indices for the side
-        for (int i = 0; i < segments; ++i)
+        for (int i = 0; i < par_mesh->ntriangles; i++)
         {
-            int base0 = i * 2;
-            int base1 = ((i + 1) % segments) * 2;
-            int top0 = base0 + 1;
-            int top1 = base1 + 1;
-
-            // First triangle
-            indices.push_back(base0);
-            indices.push_back(top0);
-            indices.push_back(base1);
-
-            // Second triangle
-            indices.push_back(base1);
-            indices.push_back(top0);
-            indices.push_back(top1);
+            indices.push_back(par_mesh->triangles[i * 3]);
+            indices.push_back(par_mesh->triangles[i * 3 + 1]);
+            indices.push_back(par_mesh->triangles[i * 3 + 2]);
         }
 
-        // Add center vertices for caps
-        int bottomCenterIndex = static_cast<int>(vertices.size());
-        vertices.emplace_back(0.0f, 0.0f, -length / 2);
-        normals.emplace_back(0.0f, 0.0f, -1.0f);
-
-        int topCenterIndex = static_cast<int>(vertices.size());
-        vertices.emplace_back(0.0f, 0.0f, length / 2);
-        normals.emplace_back(0.0f, 0.0f, 1.0f);
-
-        // Indices for bottom cap
-        for (int i = 0; i < segments; ++i)
-        {
-            int curr = i * 2;
-            int next = ((i + 1) % segments) * 2;
-            indices.push_back(bottomCenterIndex);
-            indices.push_back(next);
-            indices.push_back(curr);
-        }
-
-        // Indices for top cap
-        for (int i = 0; i < segments; ++i)
-        {
-            int curr = i * 2 + 1;
-            int next = ((i + 1) % segments) * 2 + 1;
-            indices.push_back(topCenterIndex);
-            indices.push_back(curr);
-            indices.push_back(next);
-        }
+        par_shapes_free_mesh(par_mesh);
 
         Gltf::Model::Mesh cylinderMesh{
             .name = "cylinder",
@@ -84,48 +98,45 @@ namespace Jangine::IO::Urdf
 
     static Gltf::Model::MeshIndex AddSphereMesh(Gltf::Model &gltf, float_t radius, const Gltf::Model::Material &material)
     {
-        const int latitudeBands = 16;
-        const int longitudeBands = 32;
-
         std::vector<Eigen::Vector3f> vertices;
         std::vector<Eigen::Vector3f> normals;
         std::vector<uint32_t> indices;
 
-        for (int latNumber = 0; latNumber <= latitudeBands; ++latNumber)
+        auto *par_mesh = par_shapes_create_subdivided_sphere(1);
+        if (!par_mesh)
         {
-            float theta = latNumber * Math::PI / latitudeBands;
-            float sinTheta = std::sin(theta);
-            float cosTheta = std::cos(theta);
-
-            for (int longNumber = 0; longNumber <= longitudeBands; ++longNumber)
-            {
-                float phi = longNumber * 2.0f * Math::PI / longitudeBands;
-                float sinPhi = std::sin(phi);
-                float cosPhi = std::cos(phi);
-
-                Eigen::Vector3f position = {
-                    radius * cosPhi * sinTheta,
-                    radius * sinPhi * sinTheta,
-                    radius * cosTheta};
-                vertices.push_back(position);
-                normals.push_back(position.normalized());
-            }
+            throw std::runtime_error("Failed to create sphere mesh");
         }
 
-        for (int latNumber = 0; latNumber < latitudeBands; ++latNumber)
+        par_shapes_scale(par_mesh, radius, radius, radius);
+
+        vertices.reserve(par_mesh->npoints);
+        normals.reserve(par_mesh->npoints);
+        indices.reserve(par_mesh->ntriangles * 3);
+
+        for (int i = 0; i < par_mesh->npoints; i++)
         {
-            for (int longNumber = 0; longNumber < longitudeBands; ++longNumber)
-            {
-                int first = (latNumber * (longitudeBands + 1)) + longNumber;
-                int second = first + longitudeBands + 1;
-                indices.push_back(first);
-                indices.push_back(second);
-                indices.push_back(first + 1);
-                indices.push_back(second);
-                indices.push_back(second + 1);
-                indices.push_back(first + 1);
-            }
+            vertices.emplace_back(par_mesh->points[i * 3], par_mesh->points[i * 3 + 1], par_mesh->points[i * 3 + 2]);
+            normals.emplace_back(Eigen::Vector3f::Zero()); // Will be computed per face
         }
+
+        for (int i = 0; i < par_mesh->ntriangles; i++)
+        {
+            indices.push_back(par_mesh->triangles[i * 3]);
+            indices.push_back(par_mesh->triangles[i * 3 + 1]);
+            indices.push_back(par_mesh->triangles[i * 3 + 2]);
+
+            Eigen::Vector3f v0 = vertices[par_mesh->triangles[i * 3]];
+            Eigen::Vector3f v1 = vertices[par_mesh->triangles[i * 3 + 1]];
+            Eigen::Vector3f v2 = vertices[par_mesh->triangles[i * 3 + 2]];
+            Eigen::Vector3f n = (v1 - v0).cross(v2 - v0).normalized();
+
+            normals[par_mesh->triangles[i * 3]] = n;
+            normals[par_mesh->triangles[i * 3 + 1]] = n;
+            normals[par_mesh->triangles[i * 3 + 2]] = n;
+        }
+
+        par_shapes_free_mesh(par_mesh);
 
         Gltf::Model::Mesh sphereMesh{
             .name = "sphere",
@@ -143,70 +154,31 @@ namespace Jangine::IO::Urdf
         std::vector<Eigen::Vector3f> normals;
         std::vector<uint32_t> indices;
 
-        float hx = size.x() / 2.0f;
-        float hy = size.y() / 2.0f;
-        float hz = size.z() / 2.0f;
+        auto *par_mesh = par_shapes_create_cube();
+        if (!par_mesh)
+        {
+            throw std::runtime_error("Failed to create box mesh");
+        }
+        par_shapes_scale(par_mesh, size.x(), size.y(), size.z());
 
-        vertices = {
-            {-hx, -hy, -hz},
-            {hx, -hy, -hz},
-            {hx, hy, -hz},
-            {-hx, hy, -hz}, // Back face
-            {-hx, -hy, hz},
-            {hx, -hy, hz},
-            {hx, hy, hz},
-            {-hx, hy, hz}, // Front face
-            {-hx, -hy, -hz},
-            {-hx, hy, -hz},
-            {-hx, hy, hz},
-            {-hx, -hy, hz}, // Left face
-            {hx, -hy, -hz},
-            {hx, hy, -hz},
-            {hx, hy, hz},
-            {hx, -hy, hz}, // Right face
-            {-hx, -hy, -hz},
-            {hx, -hy, -hz},
-            {hx, -hy, hz},
-            {-hx, -hy, hz}, // Bottom face
-            {-hx, hy, -hz},
-            {hx, hy, -hz},
-            {hx, hy, hz},
-            {-hx, hy, hz} // Top face
-        };
-        normals = {
-            {0, 0, -1},
-            {0, 0, -1},
-            {0, 0, -1},
-            {0, 0, -1}, // Back face
-            {0, 0, 1},
-            {0, 0, 1},
-            {0, 0, 1},
-            {0, 0, 1}, // Front face
-            {-1, 0, 0},
-            {-1, 0, 0},
-            {-1, 0, 0},
-            {-1, 0, 0}, // Left face
-            {1, 0, 0},
-            {1, 0, 0},
-            {1, 0, 0},
-            {1, 0, 0}, // Right face
-            {0, -1, 0},
-            {0, -1, 0},
-            {0, -1, 0},
-            {0, -1, 0}, // Bottom face
-            {0, 1, 0},
-            {0, 1, 0},
-            {0, 1, 0},
-            {0, 1, 0} // Top face
-        };
-        indices = {
-            0, 1, 2, 0, 2, 3,       // Back face
-            4, 5, 6, 4, 6, 7,       // Front face
-            8, 9, 10, 8, 10, 11,    // Left face
-            12, 13, 14, 12, 14, 15, // Right face
-            16, 17, 18, 16, 18, 19, // Bottom face
-            20, 21, 22, 20, 22, 23  // Top face
-        };
+        vertices.reserve(par_mesh->npoints);
+        normals.reserve(par_mesh->npoints);
+        indices.reserve(par_mesh->ntriangles * 3);
+
+        for (int i = 0; i < par_mesh->npoints; i++)
+        {
+            vertices.emplace_back(par_mesh->points[i * 3], par_mesh->points[i * 3 + 1], par_mesh->points[i * 3 + 2]);
+            normals.emplace_back(par_mesh->normals[i * 3], par_mesh->normals[i * 3 + 1], par_mesh->normals[i * 3 + 2]);
+        }
+
+        for (int i = 0; i < par_mesh->ntriangles; i++)
+        {
+            indices.push_back(par_mesh->triangles[i * 3]);
+            indices.push_back(par_mesh->triangles[i * 3 + 1]);
+            indices.push_back(par_mesh->triangles[i * 3 + 2]);
+        }
+
+        par_shapes_free_mesh(par_mesh);
 
         Gltf::Model::Mesh boxMesh{
             .name = "box",

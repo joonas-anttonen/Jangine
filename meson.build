@@ -28,6 +28,7 @@ harfbuzz = declare_dependency(
     link_args: ['../external/harfbuzz/lib/harfbuzz.lib'],
 )
 json = declare_dependency(include_directories: include_directories('external/json/include'))
+par = declare_dependency(include_directories: include_directories('external/par/include'))
 tinyxml2 = declare_dependency(
     include_directories: include_directories('external/tinyxml-2/include'),
     link_args: ['../external/tinyxml-2/lib/tinyxml2.lib'],
@@ -142,7 +143,7 @@ jangine = library(
         built_in_shaders,
     ],
     include_directories: [include_directories('Jangine/')],
-    dependencies: [vulkan, eigen, freetype, glfw, harfbuzz, json, tinyxml2, vma, webp],
+    dependencies: [vulkan, eigen, freetype, glfw, harfbuzz, json, par, tinyxml2, vma, webp],
     cpp_args: ['-DJANGINE_BUILD'],
 )
 

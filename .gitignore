@@ -75,6 +75,7 @@ vcpkg_manifest.lock
 /external/json/include/
 /external/json/src/
 /external/json/LICENSE*
+/external/par/include/
 /external/tinyxml-2/include/
 /external/tinyxml-2/src/
 /external/tinyxml-2/lib/
