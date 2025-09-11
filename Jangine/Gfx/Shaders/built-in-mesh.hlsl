@@ -99,7 +99,7 @@ fragment_input vertex(vertex_input input)
 }
 
 [shader("pixel")]
-float4 fragment(fragment_input input) : SV_TARGET
+float4 fragment(fragment_input input, bool isFrontFacing : SV_IsFrontFace) : SV_TARGET
 { 
     PerMaterialData material = perMaterial[max(0, input.MaterialIndex)];
     if (input.MaterialIndex < 0)
@@ -129,6 +129,11 @@ float4 fragment(fragment_input input) : SV_TARGET
             // Exchange new head index and previous head index
             uint prevHeadIdx;
             InterlockedExchange(oitNodeHeadImage[uint2(input.Position.xy)], nodeIdx, prevHeadIdx);
+
+            if (!isFrontFacing)
+            {
+                combined = material.BaseColor.rgb;
+            }
 
             // Store node data
             oitNodes[nodeIdx].color = PackColor(float4(combined, material.BaseColor.a));

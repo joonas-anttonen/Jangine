@@ -6,70 +6,110 @@ namespace Jangine::IO::Urdf
 {
     static Gltf::Model::MeshIndex AddCylinderMesh(Gltf::Model &gltf, float_t radius, float_t length, const Gltf::Model::Material &material)
     {
-        const int segments = 32;
-
         std::vector<Eigen::Vector3f> vertices;
         std::vector<Eigen::Vector3f> normals;
         std::vector<uint32_t> indices;
 
-        // Generate vertices and normals for the side
-        for (int i = 0; i <= segments; ++i)
+        Eigen::Vector3f vertexArray[] = {
+            {+0.000000f, -1.000000f, +0.000000f},
+            {+0.000000f, +1.000000f, +0.000000f},
+            {+0.000000f, -1.000000f, +1.000000f},
+            {+0.000000f, +1.000000f, +1.000000f},
+            {-0.382683f, -1.000000f, +0.923880f},
+            {-0.382683f, +1.000000f, +0.923880f},
+            {-0.707107f, -1.000000f, +0.707107f},
+            {-0.707107f, +1.000000f, +0.707107f},
+            {-0.923880f, -1.000000f, +0.382683f},
+            {-0.923880f, +1.000000f, +0.382683f},
+            {-1.000000f, -1.000000f, +0.000000f},
+            {-1.000000f, +1.000000f, +0.000000f},
+            {-0.923880f, -1.000000f, -0.382683f},
+            {-0.923880f, +1.000000f, -0.382683f},
+            {-0.707107f, -1.000000f, -0.707107f},
+            {-0.707107f, +1.000000f, -0.707107f},
+            {-0.382683f, -1.000000f, -0.923880f},
+            {-0.382683f, +1.000000f, -0.923880f},
+            {+0.000000f, -1.000000f, -1.000000f},
+            {+0.000000f, +1.000000f, -1.000000f},
+            {+0.382683f, -1.000000f, -0.923880f},
+            {+0.382683f, +1.000000f, -0.923880f},
+            {+0.707107f, -1.000000f, -0.707107f},
+            {+0.707107f, +1.000000f, -0.707107f},
+            {+0.923880f, -1.000000f, -0.382683f},
+            {+0.923880f, +1.000000f, -0.382683f},
+            {+1.000000f, -1.000000f, +0.000000f},
+            {+1.000000f, +1.000000f, +0.000000f},
+            {+0.923880f, -1.000000f, +0.382683f},
+            {+0.923880f, +1.000000f, +0.382683f},
+            {+0.707107f, -1.000000f, +0.707107f},
+            {+0.707107f, +1.000000f, +0.707107f},
+            {+0.382683f, -1.000000f, +0.923880f},
+            {+0.382683f, +1.000000f, +0.923880f},
+        };
+
+        // clang-format off
+        int vertexIndices[] = {
+            1, 3, 5, 2, 6, 4,
+            4, 5, 3, 1, 5, 7,
+            2, 8, 6, 6, 7, 5,
+            1, 7, 9, 2, 10, 8,
+            8, 9, 7, 1, 9, 11,
+            2, 12, 10, 10, 11, 9,
+            1, 11, 13, 2, 14, 12,
+            12, 13, 11, 1, 13, 15,
+            2, 16, 14, 14, 15, 13,
+            1, 15, 17, 2, 18, 16,
+            16, 17, 15, 1, 17, 19,
+            2, 20, 18, 18, 19, 17,
+            1, 19, 21, 2, 22, 20,
+            20, 21, 19, 1, 21, 23,
+            2, 24, 22, 22, 23, 21,
+            1, 23, 25, 2, 26, 24,
+            24, 25, 23, 1, 25, 27,
+            2, 28, 26, 26, 27, 25,
+            1, 27, 29, 2, 30, 28,
+            28, 29, 27, 1, 29, 31,
+            2, 32, 30, 30, 31, 29,
+            1, 31, 33, 2, 34, 32,
+            32, 33, 31, 1, 33, 3,
+            2, 4, 34, 34, 3, 33,
+            4, 6, 5, 6, 8, 7,
+            8, 10, 9, 10, 12, 11,
+            12, 14, 13, 14, 16, 15,
+            16, 18, 17, 18, 20, 19,
+            20, 22, 21, 22, 24, 23,
+            24, 26, 25, 26, 28, 27,
+            28, 30, 29, 30, 32, 31,
+            32, 34, 33, 34, 4, 3,
+        };
+        // clang-format on
+
+        Eigen::Affine3f tf = Eigen::Affine3f::Identity();
+        tf.scale(Eigen::Vector3f(radius, radius, length / 2.0f));
+        tf.rotate(Eigen::AngleAxisf(Math::PI / 2.0f, Eigen::Vector3f(1, 0, 0)));
+
+        for (size_t i = 0; i < std::size(vertexIndices); i += 3)
         {
-            float theta = (static_cast<float>(i) / segments) * 2.0f * Math::PI;
-            float x = radius * std::cos(theta);
-            float y = radius * std::sin(theta);
-            vertices.emplace_back(x, y, -length / 2);
-            vertices.emplace_back(x, y, length / 2);
-            normals.emplace_back(std::cos(theta), std::sin(theta), 0.0f);
-            normals.emplace_back(std::cos(theta), std::sin(theta), 0.0f);
-        }
+            Eigen::Vector3f v0 = vertexArray[vertexIndices[i + 0] - 1];
+            Eigen::Vector3f v1 = vertexArray[vertexIndices[i + 1] - 1];
+            Eigen::Vector3f v2 = vertexArray[vertexIndices[i + 2] - 1];
 
-        // Generate indices for the side
-        for (int i = 0; i < segments; ++i)
-        {
-            int base0 = i * 2;
-            int base1 = ((i + 1) % segments) * 2;
-            int top0 = base0 + 1;
-            int top1 = base1 + 1;
+            v0 = tf * v0;
+            v1 = tf * v1;
+            v2 = tf * v2;
 
-            // First triangle
-            indices.push_back(base0);
-            indices.push_back(top0);
-            indices.push_back(base1);
+            vertices.push_back(v0);
+            vertices.push_back(v1);
+            vertices.push_back(v2);
 
-            // Second triangle
-            indices.push_back(base1);
-            indices.push_back(top0);
-            indices.push_back(top1);
-        }
+            Eigen::Vector3f normal = (v1 - v0).cross(v2 - v0).normalized();
+            normals.push_back(normal);
+            normals.push_back(normal);
+            normals.push_back(normal);
 
-        // Add center vertices for caps
-        int bottomCenterIndex = static_cast<int>(vertices.size());
-        vertices.emplace_back(0.0f, 0.0f, -length / 2);
-        normals.emplace_back(0.0f, 0.0f, -1.0f);
-
-        int topCenterIndex = static_cast<int>(vertices.size());
-        vertices.emplace_back(0.0f, 0.0f, length / 2);
-        normals.emplace_back(0.0f, 0.0f, 1.0f);
-
-        // Indices for bottom cap
-        for (int i = 0; i < segments; ++i)
-        {
-            int curr = i * 2;
-            int next = ((i + 1) % segments) * 2;
-            indices.push_back(bottomCenterIndex);
-            indices.push_back(next);
-            indices.push_back(curr);
-        }
-
-        // Indices for top cap
-        for (int i = 0; i < segments; ++i)
-        {
-            int curr = i * 2 + 1;
-            int next = ((i + 1) % segments) * 2 + 1;
-            indices.push_back(topCenterIndex);
-            indices.push_back(curr);
-            indices.push_back(next);
+            indices.push_back(static_cast<uint32_t>(i + 0));
+            indices.push_back(static_cast<uint32_t>(i + 1));
+            indices.push_back(static_cast<uint32_t>(i + 2));
         }
 
         Gltf::Model::Mesh cylinderMesh{
@@ -84,12 +124,14 @@ namespace Jangine::IO::Urdf
 
     static Gltf::Model::MeshIndex AddSphereMesh(Gltf::Model &gltf, float_t radius, const Gltf::Model::Material &material)
     {
-        const int latitudeBands = 16;
-        const int longitudeBands = 32;
+        const int latitudeBands = 8;
+        const int longitudeBands = 16;
 
         std::vector<Eigen::Vector3f> vertices;
         std::vector<Eigen::Vector3f> normals;
         std::vector<uint32_t> indices;
+
+        std::vector<Eigen::Vector3f> positions;
 
         for (int latNumber = 0; latNumber <= latitudeBands; ++latNumber)
         {
@@ -107,8 +149,7 @@ namespace Jangine::IO::Urdf
                     radius * cosPhi * sinTheta,
                     radius * sinPhi * sinTheta,
                     radius * cosTheta};
-                vertices.push_back(position);
-                normals.push_back(position.normalized());
+                positions.push_back(position);
             }
         }
 
@@ -118,12 +159,36 @@ namespace Jangine::IO::Urdf
             {
                 int first = (latNumber * (longitudeBands + 1)) + longNumber;
                 int second = first + longitudeBands + 1;
-                indices.push_back(first);
-                indices.push_back(second);
-                indices.push_back(first + 1);
-                indices.push_back(second);
-                indices.push_back(second + 1);
-                indices.push_back(first + 1);
+
+                Eigen::Vector3f v0 = positions[first];
+                Eigen::Vector3f v1 = positions[second];
+                Eigen::Vector3f v2 = positions[first + 1];
+
+                vertices.push_back(v0);
+                vertices.push_back(v1);
+                vertices.push_back(v2);
+                Eigen::Vector3f normal = (v1 - v0).cross(v2 - v0).normalized();
+                normals.push_back(normal);
+                normals.push_back(normal);
+                normals.push_back(normal);
+                indices.push_back(static_cast<uint32_t>(indices.size()));
+                indices.push_back(static_cast<uint32_t>(indices.size()));
+                indices.push_back(static_cast<uint32_t>(indices.size()));
+
+                v0 = positions[second];
+                v1 = positions[second + 1];
+                v2 = positions[first + 1];
+
+                vertices.push_back(v0);
+                vertices.push_back(v1);
+                vertices.push_back(v2);
+                normal = (v1 - v0).cross(v2 - v0).normalized();
+                normals.push_back(normal);
+                normals.push_back(normal);
+                normals.push_back(normal);
+                indices.push_back(static_cast<uint32_t>(indices.size()));
+                indices.push_back(static_cast<uint32_t>(indices.size()));
+                indices.push_back(static_cast<uint32_t>(indices.size()));
             }
         }
 
@@ -147,66 +212,52 @@ namespace Jangine::IO::Urdf
         float hy = size.y() / 2.0f;
         float hz = size.z() / 2.0f;
 
-        vertices = {
+        Eigen::Vector3f vertexArray[8] = {
+            {+hx, -hy, -hz},
+            {+hx, +hy, -hz},
+            {+hx, -hy, +hz},
+            {+hx, +hy, +hz},
             {-hx, -hy, -hz},
-            {hx, -hy, -hz},
-            {hx, hy, -hz},
-            {-hx, hy, -hz}, // Back face
-            {-hx, -hy, hz},
-            {hx, -hy, hz},
-            {hx, hy, hz},
-            {-hx, hy, hz}, // Front face
-            {-hx, -hy, -hz},
-            {-hx, hy, -hz},
-            {-hx, hy, hz},
-            {-hx, -hy, hz}, // Left face
-            {hx, -hy, -hz},
-            {hx, hy, -hz},
-            {hx, hy, hz},
-            {hx, -hy, hz}, // Right face
-            {-hx, -hy, -hz},
-            {hx, -hy, -hz},
-            {hx, -hy, hz},
-            {-hx, -hy, hz}, // Bottom face
-            {-hx, hy, -hz},
-            {hx, hy, -hz},
-            {hx, hy, hz},
-            {-hx, hy, hz} // Top face
+            {-hx, +hy, -hz},
+            {-hx, -hy, +hz},
+            {-hx, +hy, +hz}};
+
+        // clang-format off
+        int vertexIndices[36] = {
+            1, 2, 0,
+            3, 6, 2,
+            7, 4, 6,
+            5, 0, 4,
+            6, 0, 2,
+            3, 5, 7,
+            1, 3, 2,
+            3, 7, 6,
+            7, 5, 4,
+            5, 1, 0,
+            6, 4, 0,
+            3, 1, 5,
         };
-        normals = {
-            {0, 0, -1},
-            {0, 0, -1},
-            {0, 0, -1},
-            {0, 0, -1}, // Back face
-            {0, 0, 1},
-            {0, 0, 1},
-            {0, 0, 1},
-            {0, 0, 1}, // Front face
-            {-1, 0, 0},
-            {-1, 0, 0},
-            {-1, 0, 0},
-            {-1, 0, 0}, // Left face
-            {1, 0, 0},
-            {1, 0, 0},
-            {1, 0, 0},
-            {1, 0, 0}, // Right face
-            {0, -1, 0},
-            {0, -1, 0},
-            {0, -1, 0},
-            {0, -1, 0}, // Bottom face
-            {0, 1, 0},
-            {0, 1, 0},
-            {0, 1, 0},
-            {0, 1, 0} // Top face
-        };
-        indices = {
-            0, 1, 2, 0, 2, 3,       // Back face
-            4, 5, 6, 4, 6, 7,       // Front face
-            8, 9, 10, 8, 10, 11,    // Left face
-            12, 13, 14, 12, 14, 15, // Right face
-            16, 17, 18, 16, 18, 19, // Bottom face
-            20, 21, 22, 20, 22, 23  // Top face
-        };
+        // clang-format on
+
+        for (size_t i = 0; i < std::size(vertexIndices); i += 3)
+        {
+            Eigen::Vector3f v0 = vertexArray[vertexIndices[i + 0]];
+            Eigen::Vector3f v1 = vertexArray[vertexIndices[i + 1]];
+            Eigen::Vector3f v2 = vertexArray[vertexIndices[i + 2]];
+
+            vertices.push_back(v0);
+            vertices.push_back(v1);
+            vertices.push_back(v2);
+
+            Eigen::Vector3f normal = (v1 - v0).cross(v2 - v0).normalized();
+            normals.push_back(normal);
+            normals.push_back(normal);
+            normals.push_back(normal);
+
+            indices.push_back(static_cast<uint32_t>(i + 0));
+            indices.push_back(static_cast<uint32_t>(i + 1));
+            indices.push_back(static_cast<uint32_t>(i + 2));
+        }
 
         Gltf::Model::Mesh boxMesh{
             .name = "box",
