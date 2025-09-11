@@ -391,8 +391,8 @@ namespace Jangine::Gfx
 
         auto &surfaceInfo = presenter.GetSurfaceInfo();
         float_t aspectRatio = static_cast<float_t>(surfaceInfo.width) / static_cast<float_t>(surfaceInfo.height);
-        camera.SetOrthographic(aspectRatio, camera.GetOrthographicFoV(), -100.0f, 100.0f);
-        // camera.SetPerspective(aspectRatio, Math::PI / 4.0f, 0.1f, 100.0f);
+        //camera.SetOrthographic(aspectRatio, camera.GetOrthographicFoV(), -100.0f, 100.0f);
+        camera.SetPerspective(aspectRatio, Math::PI / 4.0f, 0.1f, 100.0f);
     }
 
     void Core3D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
@@ -550,6 +550,12 @@ namespace Jangine::Gfx
                 perDrawData.MaterialIndex = hasOverrideColor ? -1 : primitive.materialIndex;
 
                 bool_t primitiveIsTransparent = primitive.materialHasTransparency || overrideColorIsTransparent;
+                if (primitiveIsTransparent)
+                {
+                    // Skip transparent primitives in this pass, they will be handled in the OIT composition pass
+                    continue;
+                }
+
                 vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, !primitiveIsTransparent);
 
                 size_t perMeshOffset = drawCount++ * Math::AlignUp(sizeof(PerDrawData), gfx.GetCapabilities().uniformBufferOffsetAlignment);

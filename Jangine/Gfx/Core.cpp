@@ -1670,7 +1670,7 @@ namespace Jangine::Gfx
         {
             uint32_t instanceLayerCount = 0;
             ThrowVulkanIfFailed(vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr));
-
+            
             std::vector<VkLayerProperties> layerProperties(instanceLayerCount);
             ThrowVulkanIfFailed(vkEnumerateInstanceLayerProperties(&instanceLayerCount, layerProperties.data()));
 
@@ -1766,14 +1766,11 @@ namespace Jangine::Gfx
             bool debugFunctionsOk = vkCreateDebugUtilsMessengerEXT;
             if (debugFunctionsOk)
             {
-                static auto debugCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                                               VkDebugUtilsMessageTypeFlagsEXT messageType,
+                static auto debugCallback = [](VkDebugUtilsMessageSeverityFlagBitsEXT,
+                                               VkDebugUtilsMessageTypeFlagsEXT,
                                                const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
-                                               void *pUserData) -> VkBool32
+                                               void *) -> VkBool32
                 {
-                    (void)messageSeverity;
-                    (void)messageType;
-                    (void)pUserData;
                     Jangine::Core::GetLogger("Gfx::Vulkan").Error(pCallbackData->pMessage ? pCallbackData->pMessage : "");
                     return VK_FALSE;
                 };

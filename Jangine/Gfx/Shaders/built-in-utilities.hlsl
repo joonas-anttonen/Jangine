@@ -1,3 +1,4 @@
+static const float PI = 3.14159265359;
 #define TAU 6.28318530718
 #define VERY_SMOL 0.00006103515625 // smallest positive normal number for float precision floats
 
