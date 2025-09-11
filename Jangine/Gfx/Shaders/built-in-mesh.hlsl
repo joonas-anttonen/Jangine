@@ -110,10 +110,10 @@ float4 fragment(fragment_input input) : SV_TARGET
     float3 ambient = float3(0.22, 0.22, 0.2);
 
     // Simple lighting where light comes from the view direction
-    float3 L = normalize(perScene.ViewPosition - input.Position_World);
-    float NdotL = min(max(dot(input.Normal, L), 0.2), 0.8);
+    float3 L = normalize(perScene.ViewInverse._m02_m12_m22);
+    float NdotL = dot(input.Normal, L);
 
-    float3 diffuse = material.BaseColor.rgb * NdotL * 2;
+    float3 diffuse = material.BaseColor.rgb * NdotL * 1.5;
     float3 combined = saturate(ambient + diffuse);
 
     // --------------------- OIT

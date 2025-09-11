@@ -550,12 +550,6 @@ namespace Jangine::Gfx
                 perDrawData.MaterialIndex = hasOverrideColor ? -1 : primitive.materialIndex;
 
                 bool_t primitiveIsTransparent = primitive.materialHasTransparency || overrideColorIsTransparent;
-                if (primitiveIsTransparent)
-                {
-                    // Skip transparent primitives in this pass, they will be handled in the OIT composition pass
-                    continue;
-                }
-
                 vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, !primitiveIsTransparent);
 
                 size_t perMeshOffset = drawCount++ * Math::AlignUp(sizeof(PerDrawData), gfx.GetCapabilities().uniformBufferOffsetAlignment);
