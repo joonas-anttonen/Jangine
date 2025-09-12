@@ -750,7 +750,20 @@ namespace Jangine::Gfx
         struct ShapeVertex
         {
             Eigen::Vector3f Position;
-            Eigen::Vector2f UV;
+        };
+
+        struct ShapeLineInstance
+        {
+            Eigen::Matrix4f Transform;
+
+            Eigen::Vector3f Start;
+            Eigen::Vector3f End;
+
+            uint32_t ColorStart;
+            uint32_t ColorEnd;
+            float_t Thickness;
+            int32_t ScaleSpace;
+            int32_t Alignment;
         };
 
         struct PerDiscMeshData
@@ -840,6 +853,7 @@ namespace Jangine::Gfx
         Handle<MemoryBuffer> perShapeMeshBuffer;
         Handle<MemoryBuffer> shapeVertexBuffer;
         Handle<MemoryBuffer> shapeIndexBuffer;
+        Handle<MemoryBuffer> shapeInstanceBuffer;
         Handle<Pipeline> shapePipeline;
 
         BlenderCamera camera;

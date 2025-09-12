@@ -498,7 +498,7 @@ namespace Jangine::Gfx
             gfx.PushDescriptorSets(
                 commandBuffer,
                 renderPipeline.get(),
-                2,
+                std::size(descriptorWrites),
                 descriptorWrites);
 
             vkCmdPushConstants(

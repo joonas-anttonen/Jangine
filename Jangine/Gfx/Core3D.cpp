@@ -27,6 +27,7 @@ namespace Jangine::Gfx
     Core3D::Core3D(Gfx::Core &gfx)
         : gfx(gfx),
           shapeVertexBuffer(nullptr, std::ref(gfx)),
+          shapeInstanceBuffer(nullptr, std::ref(gfx)),
           shapeIndexBuffer(nullptr, std::ref(gfx)),
           perSceneBuffer(nullptr, std::ref(gfx)),
           perMeshBuffer(nullptr, std::ref(gfx)),
@@ -55,15 +56,66 @@ namespace Jangine::Gfx
     {
         logger.Func(__func__);
 
+        // --------------------- SHAPES
         shapeVertexBuffer = gfx.CreateMemoryBuffer(
-            MAX_VERTICES * sizeof(ShapeVertex),
-            MemoryBufferUsage::Vertex,
+            4 * sizeof(ShapeVertex),
+            MemoryBufferUsage::Vertex | MemoryBufferUsage::TransferDst,
+            MemoryAccess::None);
+
+        shapeInstanceBuffer = gfx.CreateMemoryBuffer(
+            128 * sizeof(ShapeLineInstance),
+            MemoryBufferUsage::Vertex | MemoryBufferUsage::TransferDst,
             MemoryAccess::Write);
 
         shapeIndexBuffer = gfx.CreateMemoryBuffer(
-            MAX_INDICES * sizeof(uint16_t),
-            MemoryBufferUsage::Index,
-            MemoryAccess::Write);
+            6 * sizeof(uint32_t),
+            MemoryBufferUsage::Index | MemoryBufferUsage::TransferDst,
+            MemoryAccess::None);
+
+        uint32_t quadIndices[6] = {0, 1, 2, 0, 2, 3};
+        ShapeVertex quadVertices[4] = {
+            {{1.0f, -1.0f, 0.0f}},
+            {{1.0f, 1.0f, 0.0f}},
+            {{-1.0f, 1.0f, 0.0f}},
+            {{-1.0f, -1.0f, 0.0f}}};
+        gfx.StageToMemoryBuffer(shapeVertexBuffer.get(), Span(quadVertices));
+        gfx.StageToMemoryBuffer(shapeIndexBuffer.get(), Span(quadIndices));
+
+        Eigen::Isometry3f worldTransformTEST = Eigen::Isometry3f::Identity();
+        worldTransformTEST.linear() = Eigen::AngleAxisf(-Math::PI / 2.0f, Eigen::Vector3f::UnitX()).toRotationMatrix();
+        worldTransformTEST.translation() = Eigen::Vector3f(0, 0, 0);
+
+        Eigen::Isometry3f rotateToXZ = Eigen::Isometry3f::Identity();
+        rotateToXZ.linear() = Eigen::AngleAxisf(-Math::PI / 2.0f, Eigen::Vector3f::UnitX()).toRotationMatrix();
+
+        // For debugging, add some instances of a line
+        std::vector<ShapeLineInstance> lineInstances = {
+            {.Transform = worldTransformTEST.matrix().transpose(),
+             .Start = Eigen::Vector3f(0, 0, 0),
+             .End = Eigen::Vector3f(.5f, 0, 0),
+             .ColorStart = Color::Red.ToUInt(),
+             .ColorEnd = Color::Red.ToUInt(),
+             .Thickness = 4.f,
+             .ScaleSpace = 1,
+             .Alignment = 1},
+            {.Transform = worldTransformTEST.matrix().transpose(),
+             .Start = Eigen::Vector3f(0, 0, 0),
+             .End = Eigen::Vector3f(0, .5f, 0),
+             .ColorStart = Color::Green.ToUInt(),
+             .ColorEnd = Color::Green.ToUInt(),
+             .Thickness = 4.f,
+             .ScaleSpace = 1,
+             .Alignment = 1},
+            {.Transform = worldTransformTEST.matrix().transpose(),
+             .Start = Eigen::Vector3f(0, 0, 0),
+             .End = Eigen::Vector3f(0, 0, .5f),
+             .ColorStart = Color::Blue.ToUInt(),
+             .ColorEnd = Color::Blue.ToUInt(),
+             .Thickness = 4.f,
+             .ScaleSpace = 1,
+             .Alignment = 1}};
+        gfx.WriteMemoryBuffer(shapeInstanceBuffer.get(), Span(lineInstances));
+        // --------------------- SHAPES
 
         perSceneBuffer = gfx.CreateMemoryBuffer(
             sizeof(PerSceneData),
@@ -76,7 +128,7 @@ namespace Jangine::Gfx
             MemoryAccess::Write);
 
         perShapeMeshBuffer = gfx.CreateMemoryBuffer(
-            sizeof(PerDiscMeshData) * 10,
+            sizeof(PerLineMeshData) * 10,
             MemoryBufferUsage::Uniform,
             MemoryAccess::Write);
 
@@ -114,6 +166,7 @@ namespace Jangine::Gfx
             Import(readbackModel);
         }*/
 
+        
         Jangine::IO::Urdf::Model urdf = Jangine::IO::Urdf::Model{};
         Jangine::IO::Gltf::Model urdfGltf = Jangine::IO::Gltf::Model{};
         Jangine::IO::Status urdfStatus = Jangine::IO::Urdf::LoadFromFile("c:/users/jant/desktop/urdf_curated/skytrack/model.urdf", urdf, urdfGltf, [](const std::string &msg)
@@ -149,7 +202,7 @@ namespace Jangine::Gfx
             //}
             //
             // Import(readbackModel);
-        }
+        }       
     }
 
     void Core3D::PrepareRender(const Presenter &presenter, const DisplayParameters &in_displayParameters)
@@ -250,7 +303,7 @@ namespace Jangine::Gfx
                                   ColorComponent::B | ColorComponent::A};
 
             PipelineParameters shapePipelineParams;
-            shapePipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx.GetShaderProgram("built-in-shape-disc"),
+            shapePipelineParams.shaderProgram = ThrowInvalidOperationIfNull(gfx.GetShaderProgram("built-in-shape-line"),
                                                                             "Shader program 'built-in-shape-disc' not found in cache.");
             shapePipelineParams.pushConstantRanges = {};
             shapePipelineParams.descriptorLayout = {
@@ -271,16 +324,59 @@ namespace Jangine::Gfx
             shapePipelineParams.vertexInputBindings = {
                 {.binding = 0,
                  .stride = sizeof(ShapeVertex),
-                 .inputRate = VertexInputRate::VERTEX}};
+                 .inputRate = VertexInputRate::VERTEX},
+                {.binding = 1,
+                 .stride = sizeof(ShapeLineInstance),
+                 .inputRate = VertexInputRate::INSTANCE}};
             shapePipelineParams.vertexInputAttributes = {
                 {.location = 0,
                  .binding = 0,
                  .format = Format::RGB32,
                  .offset = offsetof(ShapeVertex, Position)},
                 {.location = 1,
-                 .binding = 0,
-                 .format = Format::RG32,
-                 .offset = offsetof(ShapeVertex, UV)}};
+                 .binding = 1,
+                 .format = Format::RGBA32,
+                 .offset = offsetof(ShapeLineInstance, Transform) + 0},
+                {.location = 2,
+                 .binding = 1,
+                 .format = Format::RGBA32,
+                 .offset = offsetof(ShapeLineInstance, Transform) + 16},
+                {.location = 3,
+                 .binding = 1,
+                 .format = Format::RGBA32,
+                 .offset = offsetof(ShapeLineInstance, Transform) + 32},
+                {.location = 4,
+                 .binding = 1,
+                 .format = Format::RGBA32,
+                 .offset = offsetof(ShapeLineInstance, Transform) + 48},
+                {.location = 5,
+                 .binding = 1,
+                 .format = Format::RGB32,
+                 .offset = offsetof(ShapeLineInstance, Start)},
+                {.location = 6,
+                 .binding = 1,
+                 .format = Format::RGB32,
+                 .offset = offsetof(ShapeLineInstance, End)},
+                {.location = 7,
+                 .binding = 1,
+                 .format = Format::U32,
+                 .offset = offsetof(ShapeLineInstance, ColorStart)},
+                {.location = 8,
+                 .binding = 1,
+                 .format = Format::U32,
+                 .offset = offsetof(ShapeLineInstance, ColorEnd)},
+                {.location = 9,
+                 .binding = 1,
+                 .format = Format::R32,
+                 .offset = offsetof(ShapeLineInstance, Thickness)},
+                {.location = 10,
+                 .binding = 1,
+                 .format = Format::U32,
+                 .offset = offsetof(ShapeLineInstance, ScaleSpace)},
+                {.location = 11,
+                 .binding = 1,
+                 .format = Format::U32,
+                 .offset = offsetof(ShapeLineInstance, Alignment)}};
             shapePipelineParams.attachments = {
                 {.format = Format::RGBA32,
                  .blend = straightAlphaBlend}};
@@ -391,8 +487,8 @@ namespace Jangine::Gfx
 
         auto &surfaceInfo = presenter.GetSurfaceInfo();
         float_t aspectRatio = static_cast<float_t>(surfaceInfo.width) / static_cast<float_t>(surfaceInfo.height);
-        //camera.SetOrthographic(aspectRatio, camera.GetOrthographicFoV(), -100.0f, 100.0f);
-        camera.SetPerspective(aspectRatio, Math::PI / 4.0f, 0.1f, 100.0f);
+        camera.SetOrthographic(aspectRatio, camera.GetOrthographicFoV(), -100.0f, 100.0f);
+        //camera.SetPerspective(aspectRatio, Math::PI / 4.0f, 0.1f, 100.0f);
     }
 
     void Core3D::Render(const Presenter &presenter, double_t absoluteTime, float_t deltaTime)
@@ -645,7 +741,7 @@ namespace Jangine::Gfx
                 gfx.PushDescriptorSets(
                     commandBuffer,
                     meshPipeline.get(),
-                    6,
+                    std::size(descriptorWrites),
                     descriptorWrites);
 
                 vkCmdDrawIndexed(
@@ -745,7 +841,7 @@ namespace Jangine::Gfx
             gfx.PushDescriptorSets(
                 commandBuffer,
                 oitCompositionPipeline.get(),
-                3,
+                std::size(descriptorWrites),
                 descriptorWrites);
 
             vkCmdDraw(commandBuffer.vulkanHandle, 3, 1, 0, 0);
@@ -753,6 +849,72 @@ namespace Jangine::Gfx
             vkCmdEndRendering(commandBuffer.vulkanHandle);
         }
 #endif
+
+        // --------------------- SHAPES
+        {
+            colorAttachment = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+                .pNext = nullptr,
+                .imageView = renderBuffer->vulkanImageView,
+                .imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                .resolveMode = VK_RESOLVE_MODE_NONE,
+                .resolveImageView = VK_NULL_HANDLE,
+                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_LOAD,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE};
+            colorAttachments[0] = colorAttachment;
+
+            renderingInfo = {
+                .sType = VK_STRUCTURE_TYPE_RENDERING_INFO,
+                .pNext = nullptr,
+                .flags = 0,
+                .renderArea = {{0, 0}, {renderExtent.width, renderExtent.height}},
+                .layerCount = 1,
+                .viewMask = 0,
+                .colorAttachmentCount = 1,
+                .pColorAttachments = colorAttachments,
+                .pDepthAttachment = nullptr,
+                .pStencilAttachment = nullptr};
+
+            vkCmdBeginRendering(commandBuffer.vulkanHandle, &renderingInfo);
+            vkCmdBindPipeline(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, shapePipeline->vulkanHandle);
+            vkCmdSetViewport(commandBuffer.vulkanHandle, 0, 1, &viewport);
+            vkCmdSetScissor(commandBuffer.vulkanHandle, 0, 1, &scissor);
+            vkCmdSetDepthWriteEnable(commandBuffer.vulkanHandle, false);
+
+            VkDescriptorBufferInfo perSceneBufferInfo{
+                .buffer = perSceneBuffer->vulkanBuffer,
+                .offset = 0,
+                .range = sizeof(PerSceneData)};
+
+            VkWriteDescriptorSet descriptorWrites[1] = {
+                {.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                 .pNext = nullptr,
+                 .dstSet = VK_NULL_HANDLE,
+                 .dstBinding = 0,
+                 .dstArrayElement = 0,
+                 .descriptorCount = 1,
+                 .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                 .pImageInfo = nullptr,
+                 .pBufferInfo = &perSceneBufferInfo,
+                 .pTexelBufferView = nullptr}};
+
+            gfx.PushDescriptorSets(
+                commandBuffer,
+                shapePipeline.get(),
+                std::size(descriptorWrites),
+                descriptorWrites);
+
+            VkDeviceSize vtxBufferOffset = 0;
+            vkCmdBindVertexBuffers(commandBuffer.vulkanHandle, 0, 1, &shapeVertexBuffer->vulkanBuffer, &vtxBufferOffset);
+            vkCmdBindVertexBuffers(commandBuffer.vulkanHandle, 1, 1, &shapeInstanceBuffer->vulkanBuffer, &vtxBufferOffset);
+            vkCmdBindIndexBuffer(commandBuffer.vulkanHandle, shapeIndexBuffer->vulkanBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+            vkCmdDrawIndexed(commandBuffer.vulkanHandle, 6, 3, 0, 0, 0);
+
+            vkCmdEndRendering(commandBuffer.vulkanHandle);
+        }
+        // --------------------- SHAPES
 
         // render -> display
         {

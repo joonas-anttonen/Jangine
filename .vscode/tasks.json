@@ -34,27 +34,6 @@
                 "isDefault": true
             },
             "problemMatcher": []
-        },
-        {
-            "label": "Clang-Tidy: Current File",
-            "type": "process",
-            "command": "clang-tidy",
-            "args": [
-                "${file}",
-                "-p",
-                "${workspaceFolder}/build"
-            ],
-            "group": {
-                "kind": "test",
-                "isDefault": false
-            },
-            "problemMatcher": [],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared"
-            }
         }
     ]
 }

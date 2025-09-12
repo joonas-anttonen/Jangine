@@ -265,3 +265,21 @@ float2 Rotate(float2 v, float ang)
 		a.y * v.x + a.x * v.y
 	);
 }
+
+uint PackColor(float4 color)
+{
+    uint r = (uint)(saturate(color.r) * 255.0f + 0.5f);
+    uint g = (uint)(saturate(color.g) * 255.0f + 0.5f);
+    uint b = (uint)(saturate(color.b) * 255.0f + 0.5f);
+    uint a = (uint)(saturate(color.a) * 255.0f + 0.5f);
+    return (a << 24) | (b << 16) | (g << 8) | r;
+}
+
+float4 UnpackColor(uint color)
+{
+    float r = (float)((color >> 0) & 0xFF) / 255.0f;
+    float g = (float)((color >> 8) & 0xFF) / 255.0f;
+    float b = (float)((color >> 16) & 0xFF) / 255.0f;
+    float a = (float)((color >> 24) & 0xFF) / 255.0f;
+    return float4(r, g, b, a);
+}

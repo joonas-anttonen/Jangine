@@ -240,7 +240,7 @@ namespace Jangine::Gfx
         void ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, Color clearColor, ImageLayout currentLayout = ImageLayout::TRANSFER_DST_OPTIMAL);
         void ClearPixelBuffer(CommandBuffer commandBuffer, PixelBuffer *pixelBuffer, uint32_t c0, uint32_t c1, uint32_t c2, uint32_t c3, ImageLayout currentLayout = ImageLayout::TRANSFER_DST_OPTIMAL);
 
-        void PushDescriptorSets(CommandBuffer commandBuffer, Pipeline *pipeline, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *descriptorWrites);
+        void PushDescriptorSets(CommandBuffer commandBuffer, Pipeline *pipeline, size_t descriptorWriteCount, const VkWriteDescriptorSet *descriptorWrites);
 
         void SetDebugName(MemoryBuffer *memoryBuffer, const std::string &name);
         void SetDebugName(PixelBuffer *pixelBuffer, const std::string &name);

@@ -1244,7 +1244,7 @@ namespace Jangine::Gfx
         CreateMemoryAllocator();
     }
 
-    void Core::PushDescriptorSets(CommandBuffer commandBuffer, Pipeline *pipeline, uint32_t descriptorWriteCount, const VkWriteDescriptorSet *descriptorWrites)
+    void Core::PushDescriptorSets(CommandBuffer commandBuffer, Pipeline *pipeline, size_t descriptorWriteCount, const VkWriteDescriptorSet *descriptorWrites)
     {
         static PFN_vkCmdPushDescriptorSetKHR vkCmdPushDescriptorSetKHR = nullptr;
 
@@ -1256,7 +1256,7 @@ namespace Jangine::Gfx
 
         if (vkCmdPushDescriptorSetKHR)
         {
-            vkCmdPushDescriptorSetKHR(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vulkanLayout, 0, descriptorWriteCount, descriptorWrites);
+            vkCmdPushDescriptorSetKHR(commandBuffer.vulkanHandle, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->vulkanLayout, 0, static_cast<uint32_t>(descriptorWriteCount), descriptorWrites);
         }
     }
 
