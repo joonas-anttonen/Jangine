@@ -153,6 +153,7 @@ namespace Jangine::Gfx
         logger.Func(__func__);
 
         CreateDevice(params);
+        displayParameters = params.displayParameters;
 
         overlay = new Overlay(*this);
         overlay->Create();
@@ -838,7 +839,7 @@ namespace Jangine::Gfx
         // 6. Multisampling
         VkPipelineMultisampleStateCreateInfo multisampleStateCreateInfo{};
         multisampleStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        multisampleStateCreateInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        multisampleStateCreateInfo.rasterizationSamples = static_cast<VkSampleCountFlagBits>(parameters.sampleCount);
 
         // 7. Vertex Input
         std::vector<VkVertexInputBindingDescription> vertexInputBindings(parameters.vertexInputBindings.size());
@@ -1306,23 +1307,8 @@ namespace Jangine::Gfx
 
         uint32_t sampleCounts = physicalDeviceProperties.limits.framebufferColorSampleCounts;
 
-        if (sampleCounts & VK_SAMPLE_COUNT_64_BIT)
-        {
-            deviceSampleCount = Samples::X64;
-        }
-        else if (sampleCounts & VK_SAMPLE_COUNT_32_BIT)
-        {
-            deviceSampleCount = Samples::X32;
-        }
-        else if (sampleCounts & VK_SAMPLE_COUNT_16_BIT)
-        {
-            deviceSampleCount = Samples::X16;
-        }
-        else if (sampleCounts & VK_SAMPLE_COUNT_8_BIT)
-        {
-            deviceSampleCount = Samples::X8;
-        }
-        else if (sampleCounts & VK_SAMPLE_COUNT_4_BIT)
+        // NOTE: Intentionally limited to 4x for performance
+        if (sampleCounts & VK_SAMPLE_COUNT_4_BIT)
         {
             deviceSampleCount = Samples::X4;
         }
@@ -1670,7 +1656,7 @@ namespace Jangine::Gfx
         {
             uint32_t instanceLayerCount = 0;
             ThrowVulkanIfFailed(vkEnumerateInstanceLayerProperties(&instanceLayerCount, nullptr));
-            
+
             std::vector<VkLayerProperties> layerProperties(instanceLayerCount);
             ThrowVulkanIfFailed(vkEnumerateInstanceLayerProperties(&instanceLayerCount, layerProperties.data()));
 

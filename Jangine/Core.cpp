@@ -39,7 +39,11 @@ namespace Jangine
             Gfx::Core gfx(gfxApiParameters);
 
             Gfx::Parameters gfxParameters = {
-                .physicalDevice = gfx.SelectOptimalDevice(gfx.GetPhysicalDevices())};
+                .physicalDevice = gfx.SelectOptimalDevice(gfx.GetPhysicalDevices()),
+                .displayParameters = {
+                    .renderSize = {1920, 1080},
+                    .displaySize = {1920, 1080},
+                    .antialiasingMode = Gfx::DisplayParameters::AntialiasingMode::MSAA}};
             gfx.Create(gfxParameters);
 
             Gui::ApiParameters guiApiParameters = {

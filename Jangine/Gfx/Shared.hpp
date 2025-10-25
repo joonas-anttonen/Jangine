@@ -188,6 +188,7 @@ namespace Jangine::Gfx
         bool_t depthTestEnabled;
         bool_t depthWriteEnabled;
         CompareOp depthCompareOp;
+        Samples sampleCount = Samples::X1;
 
         std::vector<VertexInputBinding> vertexInputBindings;
         std::vector<VertexInputAttribute> vertexInputAttributes;
@@ -324,17 +325,18 @@ namespace Jangine::Gfx
     {
         enum class AntialiasingMode : uint32_t
         {
-            None,
-            Fsr
+            NONE,
+            MSAA,
+            FSR
         };
 
         enum class UpscalingMode : uint32_t
         {
-            None,
-            Quality,
-            Balanced,
-            Performance,
-            UltraPerformance
+            NONE,
+            QUALITY,
+            BALANCED,
+            PERFORMANCE,
+            ULTRA_PERFORMANCE
         };
 
         Extent renderSize;
@@ -342,21 +344,21 @@ namespace Jangine::Gfx
         Color clearColor = Color::FromUInt(0x232731);
 
         bool_t verticalSync = false;
-        AntialiasingMode antialiasingMode = AntialiasingMode::None;
+        AntialiasingMode antialiasingMode = AntialiasingMode::NONE;
 
         static float GetRenderScaleFactor(AntialiasingMode aaMode, UpscalingMode upscaleMode)
         {
-            if (aaMode == AntialiasingMode::Fsr)
+            if (aaMode == AntialiasingMode::FSR)
             {
                 switch (upscaleMode)
                 {
-                case UpscalingMode::Quality:
+                case UpscalingMode::QUALITY:
                     return 1.0f / 1.5f;
-                case UpscalingMode::Balanced:
+                case UpscalingMode::BALANCED:
                     return 1.0f / 1.7f;
-                case UpscalingMode::Performance:
+                case UpscalingMode::PERFORMANCE:
                     return 1.0f / 2.0f;
-                case UpscalingMode::UltraPerformance:
+                case UpscalingMode::ULTRA_PERFORMANCE:
                     return 1.0f / 3.0f;
                 default:
                     return 1.0f;

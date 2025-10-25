@@ -29,6 +29,7 @@ namespace Jangine::Gfx
     struct Parameters
     {
         PhysicalDevice physicalDevice;
+        DisplayParameters displayParameters;
     };
 
     class Core
@@ -110,6 +111,11 @@ namespace Jangine::Gfx
         Format GetDeviceDepthFormat() const
         {
             return deviceDepthFormat;
+        }
+
+        Samples GetMSAASamples() const
+        {
+            return deviceSampleCount;
         }
 
         const DisplayParameters &GetDisplayParameters()
@@ -292,7 +298,7 @@ namespace Jangine::Gfx
         DisplayParameters displayParameters = {
             .renderSize = {1920, 1080},
             .displaySize = {1920, 1080},
-        };
+            .antialiasingMode = DisplayParameters::AntialiasingMode::NONE};
         Rectangle currentViewport = {0, 0, 1920, 1080};
 
         UserInput userInput;
